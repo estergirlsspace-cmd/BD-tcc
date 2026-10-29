@@ -125,8 +125,9 @@ Todos os corpos e respostas usam JSON. IDs são inteiros positivos. Erros usam `
 | Professores | CRUD `/api/professores` | Gestão |
 | Disciplinas | CRUD `/api/disciplinas` | Consulta de acordo com o perfil; alterações pela Gestão |
 | Avisos/comunicados | CRUD `/api/avisos` ou `/api/posts-avisos` | Aluno consulta os destinados à turma; professor publica para turma vinculada; Gestão administra |
-| Horários | `GET/POST /api/horarios`, `GET/PATCH/DELETE /api/horarios/:id` | Aluno consulta o curso/série da conta; professor consulta/publica nas turmas vinculadas; Gestão consulta e publica |
-| Atividades e avaliações | `GET/POST /api/atividades`, `GET/PATCH/DELETE /api/atividades/:id` | Aluno consulta atividades do curso/série; professor e Gestão publicam |
+| Mural do aluno | `GET /api/mural`, `PUT/DELETE /api/mural/:id/leitura`, `POST /api/mural/leitura`, `PUT /api/mural/:id/salvo` | Somente aluno (professor e Gestão recebem 403) |
+| Horários | `GET/POST /api/horarios`, `GET/PATCH/DELETE /api/horarios/:id` (cada horário traz `nome_disciplina` e `professor`) | Aluno consulta o curso/série da conta; professor consulta/publica nas turmas vinculadas; Gestão consulta e publica |
+| Atividades e avaliações | `GET/POST /api/atividades`, `GET/PATCH/DELETE /api/atividades/:id` | Aluno consulta atividades do curso/série, cada uma com `entrega` (`null` ou `{ enviado_em, nota, feedback }` da própria entrega); professor e Gestão publicam |
 | Entregas | `POST /api/atividades/:id/entregas`, `GET /api/atividades/:id/entregas` | Aluno envia sua resposta; professor/gestão consultam entregas das turmas permitidas |
 | Notas e feedback | `PATCH /api/entregas/:id` | Apenas Gestão altera nota/feedback; aluno consulta apenas as próprias notas |
 | Frequência | `GET/POST /api/frequencias` | Aluno consulta a própria frequência; professor registra nas turmas vinculadas; Gestão consulta e registra |
@@ -176,7 +177,53 @@ POST /api/atividades
 {"titulo":"Atividade 1","descricao":"Enviar a resolução","id_turma":1,"id_disciplina":1,"prazo":"2026-11-01T23:59:00-03:00","tipo":"atividade"}
 ```
 
-Tipos aceitos: `atividade`, `avaliacao`, `evento` e `comunicado`. Para avisos, use `POST /api/avisos` com `titulo`, `conteudo` e `id_turma`; Gestão também pode definir curso/série para avisos gerais.
+Tipos aceitos: `atividade`, `avaliacao`, `evento` e `comunicado`. Para avisos, use `POST /api/avisos` com `titulo`, `conteudo` e `id_turma`; Gestão também pode definir curso/série para avisos gerais. O campo opcional `urgente` (`true`/`false`, padrão `false`) destaca o aviso no mural; nos portais é a caixa "Marcar como urgente".
+
+### Mural do aluno
+
+`GET /api/mural` lista os avisos visíveis para o aluno (mesma regra de público de `GET /api/avisos`), primeiro os urgentes e depois do mais recente para o mais antigo, com o estado pessoal de cada um:
+
+```json
+{
+  "nao_lidos": 1,
+  "avisos": [{
+    "id_post": 25, "titulo": "Sem aula amanhã", "conteudo": "…", "tipo": "aviso",
+    "urgente": true, "categoria": "urgente", "data_evento": null,
+    "criado_em": "2026-10-29 03:10:26",
+    "autor": { "nome": "Lucas Reis", "perfil": "gestao" },
+    "publico": "turma", "lido_em": null, "salvo": false
+  }]
+}
+```
+
+- `categoria` é calculada, não gravada: `urgente` se o aviso é urgente; senão `eventos` se `tipo` é `evento`; senão `coordenacao` se o autor é da Gestão; senão `turma`.
+- `publico` vem do alvo do aviso: `turma` (tem `id_turma`), `serie` (tem série), `curso` (só curso) ou `escola`.
+- O autor aparece só por nome e perfil; o identificador do usuário autor não é exposto ao aluno.
+- `PUT /api/mural/:id/leitura` confirma a leitura (idempotente, mantém o primeiro horário) e devolve `{ "lido_em": "…" }`; `DELETE` desfaz e devolve `{ "lido_em": null }`.
+- `POST /api/mural/leitura` (sem corpo) marca como lidos todos os avisos visíveis e devolve `{ "marcados": 5 }` (quantos mudaram).
+- `PUT /api/mural/:id/salvo` com `{ "salvo": true }` ou `{ "salvo": false }` devolve `{ "salvo": true|false }`.
+- Aviso fora do público do aluno responde 404 (não revela que existe); corpo inválido responde 400.
+
+O estado fica na tabela `avisos_usuarios` (`id_post`, `id_usuario`, `lido_em`, `salvo_em`; chave primária `(id_post, id_usuario)`, ambos com `ON DELETE CASCADE`). Só há linha quando o aluno interagiu: se leitura e salvo forem desfeitos, a linha é apagada (um `CHECK` impede guardar estado vazio). Os horários são UTC (`CURRENT_TIMESTAMP`).
+
+## Interface e identidade visual
+
+O visual segue o design do projeto no Claude Design (telas do aluno e folha da marca). O contrato da implementação está em `docs/sprint-aluno-contrato.md`.
+
+- **Marca:** "C·Warning", com o ponto vermelho `#E40913` usado só no sinal e em urgências. As cores ficam em `public/tema.css` (variáveis `--cw-*`): índigo `#312782` para estrutura e botões, azul `#4A5BD6` para interação e neutros para superfícies.
+- **Tipografia e ícones:** Sora (títulos), Figtree (textos) e ícones Phosphor, **hospedados no próprio servidor** (`public/vendor/`). Nenhum recurso vem de CDN externo, o que mantém a CSP restrita a `'self'` e não expõe o IP dos alunos a terceiros (LGPD).
+- **Acessibilidade:** todas as combinações de cor passam no contraste WCAG 2.1 AA, há foco visível global, alvos de toque de pelo menos 44 px e navegação por teclado.
+- **Celular:** no portal do aluno, abas inferiores fixas. Os portais de professor e gestão usam a barra de `public/navegacao.css`.
+
+### Portal do aluno
+
+Seções: Início (resumo do dia), Avisos (não lidos, salvos, categorias, confirmar leitura), Agenda (aulas, provas, entregas e eventos dos próximos 7 dias), Atividades (pendentes, entregues, corrigidas; envio de resposta), Frequência (resumo por disciplina e histórico de faltas) e Ajustes (perfil, senha, ajuda). A navegação usa o hash da URL (`#/avisos/naolidos`, `#/avisos/12`…), o que permite voltar e compartilhar o link.
+
+Avaliações (`tipo = avaliacao`) são provas presenciais: aparecem na Agenda, mas não recebem envio pelo portal (a API recusa com 400).
+
+## E-mails
+
+Os modelos de e-mail ficam na Resend (domínio `ceeplourdinhaguerra.com.br`), com cópia versionada em `emails/` (HTML e texto). São eles: aviso urgente, resumo de avisos, lembrete de prazo, redefinição de senha, senha alterada e conta criada. Veja `emails/README.md`. A chave da Resend nunca fica no repositório: em produção, entra como variável de ambiente. O conteúdo digitado pelos usuários precisa ter o HTML escapado antes do envio, porque a Resend não escapa.
 
 ## Regras de segurança e dados
 

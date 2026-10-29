@@ -1,0 +1,12 @@
+Olá, {{{NOME}}}.
+
+A senha da sua conta no C-Warning foi alterada em {{{DATA_HORA}}}.
+Se foi você, está tudo certo e não é preciso fazer nada.
+
+Não reconhece esta alteração? Procure a secretaria da escola o quanto antes para bloquear o acesso e recuperar sua conta.
+
+--
+Equipe C-Warning
+CEEP Lourdinha Guerra
+
+CEEP Lourdinha Guerra · Parnamirim/RN — Você recebe este e-mail porque tem uma conta no C-Warning.

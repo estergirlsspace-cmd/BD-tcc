@@ -1,0 +1,15 @@
+Olá, {{{NOME}}}.
+
+Recebemos um pedido para redefinir a senha da sua conta no C-Warning.
+Para criar uma nova senha, acesse:
+{{{LINK}}}
+
+Este link vale por {{{VALIDADE_MINUTOS}}} minutos e só pode ser usado uma vez.
+
+Não foi você? Pode ignorar este e-mail: sua senha atual continua valendo e nada será alterado.
+
+--
+Equipe C-Warning
+CEEP Lourdinha Guerra
+
+CEEP Lourdinha Guerra · Parnamirim/RN — Você recebe este e-mail porque tem uma conta no C-Warning.

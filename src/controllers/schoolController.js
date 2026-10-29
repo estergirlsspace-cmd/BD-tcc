@@ -407,10 +407,12 @@ function getSchedule(user, searchParams) {
     return database.prepare(`
         SELECT h.id_horario, h.id_turma, h.id_disciplina, h.dia_semana,
                h.hora_inicio, h.hora_fim, h.sala, h.carga_minutos,
-               t.nome_turma, d.nome_disciplina
+               t.nome_turma, d.nome_disciplina, COALESCE(p.nome, pu.nome) AS professor
         FROM horarios h
         JOIN turmas t ON t.id_turma = h.id_turma
         JOIN disciplinas d ON d.id_disciplina = h.id_disciplina
+        LEFT JOIN professores p ON p.id_professor = d.id_professor
+        LEFT JOIN usuarios pu ON pu.id_usuario = p.id_usuario
         ${filters.length ? `WHERE ${filters.join(' AND ')}` : ''}
         ORDER BY h.dia_semana, h.hora_inicio
     `).all(...params);
@@ -541,7 +543,9 @@ function getActivities(user) {
         where = 'WHERE (d.id_professor = ? OR a.id_usuario_autor = ?)';
         params = [user.id_professor || -1, user.id_usuario];
     }
-    return database.prepare(`
+    // A entrega só existe para o próprio aluno (o LEFT JOIN usa o usuário logado); para
+    // professor e gestão "entrega" vem sempre null.
+    const rows = database.prepare(`
         SELECT a.id_atividade, a.titulo, a.descricao, a.id_turma,
                a.id_disciplina, a.prazo, a.tipo, a.criado_em,
                t.nome_turma, d.nome_disciplina,
@@ -555,6 +559,10 @@ function getActivities(user) {
         ${where}
         ORDER BY a.prazo, a.criado_em DESC
     `).all(user.id_usuario, ...params);
+    return rows.map(({ id_entrega: submissionId, enviado_em, nota, feedback, ...activity }) => ({
+        ...activity,
+        entrega: submissionId ? { enviado_em, nota, feedback } : null
+    }));
 }
 
 async function createActivity(request, response, user) {
@@ -661,10 +669,13 @@ async function submitActivity(request, response, user, activityId) {
         throw new ApiError(403, message);
     }
     const activity = database.prepare(
-        'SELECT id_turma, prazo FROM atividades WHERE id_atividade = ?'
+        'SELECT id_turma, prazo, tipo FROM atividades WHERE id_atividade = ?'
     ).get(activityId);
     if (!activity || activity.id_turma !== user.id_turma) {
         throw new ApiError(404, 'Atividade não encontrada para sua turma.');
+    }
+    if (activity.tipo !== 'atividade') {
+        throw new ApiError(400, 'Esta publicação não recebe envio pelo portal (avaliações são presenciais).');
     }
     if (activity.prazo && deadlineTimestamp(activity.prazo) < Date.now()) {
         throw new ApiError(409, 'O prazo para envio desta atividade terminou.');
@@ -1021,4 +1032,4 @@ async function handleSchoolRequest(request, response, user, parts, searchParams)
     return false;
 }
 
-module.exports = { handleSchoolRequest };
+module.exports = { handleSchoolRequest, requireRole, getRecordId, rejectUnknownFields };

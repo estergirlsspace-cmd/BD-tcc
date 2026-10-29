@@ -2,145 +2,93 @@
 <html lang="pt-BR">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#6f8eaf">
-    <title>Portal do Aluno | C-Warning</title>
-    <link rel="stylesheet" href="/aluno.css">
-    <link rel="stylesheet" href="/navegacao.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#312782">
+    <title>Portal do Aluno · C·Warning</title>
+    <link rel="stylesheet" href="/vendor/fontes.css">
+    <link rel="stylesheet" href="/vendor/phosphor/regular.css">
+    <link rel="stylesheet" href="/vendor/phosphor/fill.css">
+    <link rel="stylesheet" href="/tema.css">
     <link rel="stylesheet" href="/notificacoes.css">
+    <link rel="stylesheet" href="/aluno.css">
     <script src="/datas.js" defer></script>
     <script src="/notificacoes.js" defer></script>
     <script src="/aluno.js" defer></script>
 </head>
 <body>
-    <div class="portal-layout">
-        <aside class="sidebar">
-            <a class="brand" href="/aluno" aria-label="C-Warning, início">
-                <span class="brand-icon" aria-hidden="true">🎓</span>
-                <span><strong>C-Warning</strong><small>Portal do Aluno</small></span>
+    <a class="pular-conteudo" href="#conteudo">Pular para o conteúdo</a>
+
+    <div class="app" id="app">
+        <!-- Rail (web): seções principais -->
+        <nav class="rail" aria-label="Seções do portal">
+            <a class="rail-marca" href="#/inicio" aria-label="C·Warning, início">
+                <span class="cw-marca" aria-hidden="true">C<span class="cw-marca__ponto"></span></span>
             </a>
-
-            <p class="sidebar-label">Menu principal</p>
-            <nav class="nav-list" aria-label="Navegação do portal">
-                <button class="nav-button active" type="button" data-page="comunicados">
-                    <span class="nav-icon" aria-hidden="true">📢</span> <span class="nav-text">Comunicados</span><span class="nav-short" aria-hidden="true">Avisos</span>
-                </button>
-                <button class="nav-button" type="button" data-page="lourdinha">
-                    <span class="nav-icon" aria-hidden="true">💬</span> <span class="nav-text">Lourdinha</span>
-                </button>
-                <button class="nav-button" type="button" data-page="perfil">
-                    <span class="nav-icon" aria-hidden="true">👤</span> <span class="nav-text">Meu perfil</span><span class="nav-short" aria-hidden="true">Perfil</span>
-                </button>
-                <button class="nav-button" type="button" data-page="salvos">
-                    <span class="nav-icon" aria-hidden="true">🔖</span> <span class="nav-text">Salvos</span>
-                </button>
-                <button class="nav-button nav-logout" type="button" data-logout>
-                    <span class="nav-icon" aria-hidden="true">🚪</span> <span class="nav-text">Sair</span>
-                </button>
-            </nav>
-
-            <div class="sidebar-bottom">
-                <div class="student-card">
-                    <span class="student-avatar" id="student-avatar" aria-hidden="true">A</span>
-                    <span><strong id="sidebar-name">Carregando...</strong><small id="sidebar-course">Carregando turma...</small></span>
-                </div>
-                <button class="logout-button" id="logout-button" type="button">Sair da conta</button>
+            <ul class="rail-lista">
+                <li><a class="rail-item" href="#/inicio" data-secao="inicio"><span class="rail-icone"><i class="ph ph-house" aria-hidden="true"></i></span><span class="rail-rotulo">Início</span></a></li>
+                <li><a class="rail-item" href="#/avisos/todos" data-secao="avisos"><span class="rail-icone"><i class="ph ph-megaphone-simple" aria-hidden="true"></i><span class="ponto-alerta" data-ponto-naolidos hidden></span></span><span class="rail-rotulo">Avisos</span><span class="visually-hidden" data-sr-naolidos></span></a></li>
+                <li><a class="rail-item" href="#/agenda/hoje" data-secao="agenda"><span class="rail-icone"><i class="ph ph-calendar-dots" aria-hidden="true"></i></span><span class="rail-rotulo">Agenda</span></a></li>
+                <li><a class="rail-item" href="#/atividades/pendentes" data-secao="atividades"><span class="rail-icone"><i class="ph ph-clipboard-text" aria-hidden="true"></i></span><span class="rail-rotulo">Atividades</span></a></li>
+                <li><a class="rail-item" href="#/frequencia/resumo" data-secao="frequencia"><span class="rail-icone"><i class="ph ph-list-checks" aria-hidden="true"></i></span><span class="rail-rotulo">Frequência</span></a></li>
+            </ul>
+            <div class="rail-rodape">
+                <a class="rail-item" href="#/ajustes/perfil" data-secao="ajustes"><span class="rail-icone"><i class="ph ph-gear-six" aria-hidden="true"></i></span><span class="rail-rotulo">Ajustes</span></a>
+                <a class="rail-avatar" href="#/ajustes/perfil" id="rail-avatar" aria-label="Meu perfil">··</a>
+                <button class="rail-sair" type="button" data-sair aria-label="Sair da conta" title="Sair da conta"><i class="ph ph-sign-out" aria-hidden="true"></i></button>
             </div>
-        </aside>
+        </nav>
 
-        <main class="main-area">
-            <header class="topbar">
-                <div>
-                    <p class="eyebrow">CEEP Lourdinha Guerra</p>
-                    <h1 id="topbar-title">Comunicados</h1>
-                    <p id="topbar-description">Avisos destinados ao seu curso e à sua série.</p>
+        <!-- Subnavegação (web) -->
+        <nav class="subnav" id="subnav" aria-labelledby="subnav-titulo" hidden>
+            <h2 class="subnav-titulo" id="subnav-titulo"></h2>
+            <div id="subnav-grupos"></div>
+        </nav>
+
+        <div class="coluna">
+            <header class="topo">
+                <a class="topo-voltar" id="topo-voltar" href="#/avisos/todos" hidden><i class="ph ph-arrow-left" aria-hidden="true"></i>Avisos</a>
+                <div class="topo-titulos">
+                    <p class="topo-trilha" id="topo-trilha"></p>
+                    <h1 class="topo-titulo" id="titulo-pagina" tabindex="-1">Carregando…</h1>
                 </div>
-                <span class="cohort-badge" id="cohort-badge">Turma</span>
+                <div class="topo-acoes">
+                    <form class="busca" id="busca" role="search">
+                        <label class="visually-hidden" for="busca-campo">Buscar avisos no C·Warning</label>
+                        <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+                        <input id="busca-campo" type="search" placeholder="Buscar no C·Warning" autocomplete="off" maxlength="100">
+                    </form>
+                    <button class="topo-botao" type="button" id="botao-busca" aria-label="Buscar avisos" aria-expanded="false" aria-controls="busca"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>
+                    <a class="topo-botao" href="#/avisos/naolidos" id="sino" aria-label="Avisos não lidos"><i class="ph ph-bell-simple" aria-hidden="true"></i><span class="ponto-alerta ponto-sino" data-ponto-naolidos hidden></span></a>
+                </div>
             </header>
 
-            <div class="container">
+            <main class="conteudo" id="conteudo" tabindex="-1">
+                <div class="esqueleto-pagina" aria-hidden="true">
+                    <div class="esqueleto esqueleto-linha"></div>
+                    <div class="esqueleto esqueleto-bloco"></div>
+                    <div class="esqueleto esqueleto-bloco"></div>
+                </div>
+            </main>
+        </div>
 
-                <section class="tab-content active" id="page-comunicados">
-                    <section class="content-card upcoming-card" id="upcoming-section" aria-labelledby="upcoming-title" hidden>
-                        <h2 id="upcoming-title">Próximos eventos</h2>
-                        <ol class="upcoming-list" id="upcoming-list"></ol>
-                    </section>
-                    <section class="content-card notices-card" aria-labelledby="notices-title">
-                        <h2 id="notices-title" class="visually-hidden">Comunicados da turma</h2>
-                        <label class="search-field">
-                            <span class="visually-hidden">Buscar comunicado</span>
-                            <input id="notice-search" type="search" placeholder="Buscar comunicado">
-                        </label>
-                        <div class="filter-row" id="notice-filters" aria-label="Filtrar comunicados">
-                            <button class="filter-button active" type="button" data-filter="todos">Todos</button>
-                            <button class="filter-button" type="button" data-filter="aviso">Avisos</button>
-                            <button class="filter-button" type="button" data-filter="evento">Eventos</button>
-                            <button class="filter-button" type="button" data-filter="atividade">Atividades</button>
-                            <button class="filter-button" type="button" data-filter="avaliacao">Avaliações</button>
-                        </div>
-                        <div id="notice-list" class="notice-list" aria-live="polite"></div>
-                    </section>
-                </section>
-
-                <section class="tab-content" id="page-lourdinha" hidden>
-                    <div class="page-heading">
-                        <h2>Lourdinha</h2>
-                        <p>Assistente virtual do CEEP</p>
-                    </div>
-                    <section class="chat-card">
-                        <div class="chat-header"><span aria-hidden="true">💬</span><div><strong>Lourdinha</strong><small>Assistente escolar</small></div></div>
-                        <div class="chat-messages" id="chat-messages" aria-live="polite">
-                            <p class="chat-bubble assistant">Olá! Posso ajudar com informações gerais do portal. Para horários, provas e avisos específicos, confira a aba Comunicados ou procure a escola.</p>
-                        </div>
-                        <form class="chat-form" id="chat-form">
-                            <label class="visually-hidden" for="chat-input">Mensagem para Lourdinha</label>
-                            <input id="chat-input" type="text" maxlength="500" placeholder="Digite sua pergunta..." autocomplete="off">
-                            <button type="submit">Enviar</button>
-                        </form>
-                    </section>
-                </section>
-
-                <section class="tab-content" id="page-perfil" hidden>
-                    <div class="page-heading"><h2>Meu perfil</h2><p>Seus dados de acesso</p></div>
-                    <section class="content-card profile-card">
-                        <div class="profile-avatar" aria-hidden="true">A</div>
-                        <dl>
-                            <div><dt>Nome</dt><dd id="profile-name">—</dd></div>
-                            <div><dt>Matrícula</dt><dd id="profile-matricula">—</dd></div>
-                            <div><dt>Curso</dt><dd id="profile-course">—</dd></div>
-                            <div><dt>Série</dt><dd id="profile-series">—</dd></div>
-                        </dl>
-                    </section>
-                    <section class="content-card">
-                        <h2>Horários</h2>
-                        <p class="muted">Os horários cadastrados para a turma aparecem aqui.</p>
-                        <div id="schedule-list" class="schedule-list"></div>
-                    </section>
-                    <section class="content-card password-card">
-                        <h2>Alterar minha senha</h2>
-                        <p class="muted">Sua senha é pessoal. Não compartilhe com colegas.</p>
-                        <form id="password-form" class="password-form">
-                            <label>Senha atual<input id="current-password" type="password" autocomplete="current-password" required></label>
-                            <label>Nova senha<input id="new-password" type="password" minlength="8" autocomplete="new-password" required></label>
-                            <button type="submit">Salvar senha</button>
-                        </form>
-                    </section>
-                </section>
-
-                <section class="tab-content" id="page-salvos" hidden>
-                    <div class="page-heading"><h2>Comunicados salvos</h2><p>Guarde avisos para consultar novamente neste navegador.</p></div>
-                    <section class="content-card">
-                        <div class="saved-toolbar">
-                            <label class="search-field"><span class="visually-hidden">Nome da pasta</span><input id="folder-name" type="text" maxlength="50" placeholder="Nome da nova pasta"></label>
-                            <button class="secondary-button" id="create-folder" type="button">Criar pasta</button>
-                        </div>
-                        <label class="saved-folder-label" for="saved-folder-select">Pasta</label>
-                        <select id="saved-folder-select"></select>
-                        <div id="saved-list" class="notice-list"></div>
-                    </section>
-                </section>
-            </div>
-        </main>
+        <!-- Abas inferiores (celular) -->
+        <nav class="abas" aria-label="Seções do portal">
+            <a class="aba" href="#/inicio" data-secao="inicio"><span class="aba-icone"><i class="ph ph-house" aria-hidden="true"></i></span><span>Início</span></a>
+            <a class="aba" href="#/avisos/todos" data-secao="avisos"><span class="aba-icone"><i class="ph ph-megaphone-simple" aria-hidden="true"></i><span class="ponto-alerta" data-ponto-naolidos hidden></span></span><span>Avisos</span><span class="visually-hidden" data-sr-naolidos></span></a>
+            <a class="aba" href="#/agenda/hoje" data-secao="agenda"><span class="aba-icone"><i class="ph ph-calendar-dots" aria-hidden="true"></i></span><span>Agenda</span></a>
+            <a class="aba" href="#/atividades/pendentes" data-secao="atividades"><span class="aba-icone"><i class="ph ph-clipboard-text" aria-hidden="true"></i></span><span>Atividades</span></a>
+            <a class="aba" href="#/ajustes/perfil" data-secao="ajustes"><span class="aba-icone"><i class="ph ph-gear-six" aria-hidden="true"></i></span><span>Ajustes</span></a>
+        </nav>
     </div>
+
+    <p class="visually-hidden" role="status" id="status-contadores"></p>
+
+    <dialog class="dialogo" id="dialogo" aria-labelledby="dialogo-titulo">
+        <div class="dialogo-cabecalho">
+            <h2 id="dialogo-titulo"></h2>
+            <button class="botao-icone" type="button" data-fechar-dialogo aria-label="Fechar"><i class="ph ph-x" aria-hidden="true"></i></button>
+        </div>
+        <div class="dialogo-corpo" id="dialogo-corpo"></div>
+    </dialog>
 </body>
 </html>

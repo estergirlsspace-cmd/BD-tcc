@@ -1,0 +1,13 @@
+Olá, {{{NOME}}}.
+
+Você tem {{{QUANTIDADE}}} aviso(s) não lido(s) no C-Warning:
+
+{{{LISTA_TEXTO}}}
+
+Veja seus avisos: {{{LINK}}}
+
+--
+Equipe C-Warning
+CEEP Lourdinha Guerra
+
+CEEP Lourdinha Guerra · Parnamirim/RN — Você recebe este e-mail porque tem uma conta no C-Warning.

@@ -2,19 +2,22 @@ const database = require('../database');
 const { ApiError } = require('../errors');
 const { readBody, sendJson } = require('../utils/http');
 const { parseBody } = require('../utils/validation');
+const { studentNoticeScope } = require('../utils/audience');
 
 function publicRecord(resource, record, user) {
     if (!record) {
         return record;
     }
 
+    const isNotice = resource.table === 'posts_avisos';
     const hiddenFields = [];
     if (resource.secret) hiddenFields.push(resource.secret);
-    if (resource.table === 'posts_avisos' && user.tipo_usuario === 'aluno') {
+    if (isNotice && user.tipo_usuario === 'aluno') {
         hiddenFields.push('id_usuario_autor');
     }
-    if (!hiddenFields.length) return record;
+    if (!hiddenFields.length && !isNotice) return record;
     const publicFields = { ...record };
+    if (isNotice) publicFields.urgente = Boolean(record.urgente);
     for (const field of hiddenFields) delete publicFields[field];
     return publicFields;
 }
@@ -100,18 +103,10 @@ function listRecords(resource, user) {
                 ? [user.curso, user.serie]
                 : [user.id_turma];
         } else if (resource.table === 'posts_avisos') {
-            where = user.conta_compartilhada
-                ? ` WHERE (id_turma IS NULL OR id_turma IN (
-                        SELECT id_turma FROM turmas WHERE curso = ? AND serie = ?
-                    ))
-                    AND (curso IS NULL OR curso = ?)
-                    AND (serie IS NULL OR serie = ?)`
-                : ` WHERE (id_turma IS NULL OR id_turma = ?)
-                    AND (curso IS NULL OR curso = ?)
-                    AND (serie IS NULL OR serie = ?)`;
-            params = user.conta_compartilhada
-                ? [user.curso, user.serie, user.curso, user.serie]
-                : [user.id_turma, user.curso, user.serie];
+            const scope = studentNoticeScope(user);
+            if (!scope) return [];
+            where = ` WHERE ${scope.clause}`;
+            params = scope.params;
         } else {
             return [];
         }

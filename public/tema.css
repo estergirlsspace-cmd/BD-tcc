@@ -1,0 +1,103 @@
+/* C-Warning - tokens de identidade visual e base comum a todas as paginas.
+   Ordem de carga: /vendor/fontes.css, /vendor/phosphor/regular.css,
+   /vendor/phosphor/fill.css, /tema.css, CSS da pagina. */
+
+:root {
+  --cw-indigo: #312782;      /* marca, titulos, botao principal (branco sobre ele 11,5:1) */
+  --cw-indigo-hover: #3d33a0;
+  --cw-indigo-escuro: #261e6b;
+  --cw-azul: #4A5BD6;        /* destaque, links, ativo (branco sobre ele 5,3:1) */
+  --cw-azul-suave: #E8EAFB;
+  --cw-vermelho: #E40913;    /* ponto do C-Warning, urgente, erro */
+  --cw-vermelho-suave: #fde7e8;
+  --cw-fundo: #f5f6fb;
+  --cw-superficie: #FFFFFF;
+  --cw-borda: #e4e5f0;
+  --cw-borda-campo: #8a8fa8; /* bordas de inputs: >=3:1 (WCAG 1.4.11) */
+  --cw-texto: #1f2033;
+  --cw-texto-2: #4b4d66;
+  --cw-texto-suave: #5f6178; /* metadados; NUNCA usar #8b8da6 para texto (3,3:1) */
+  --cw-chip: #f2f3f7;
+  --cw-foco: #f5a300;        /* contorno de foco 3px */
+  --cw-fonte: 'Figtree', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --cw-fonte-titulo: 'Sora', 'Figtree', system-ui, sans-serif;
+  --cw-raio: 16px; --cw-raio-sm: 10px;
+}
+
+/* Reset leve */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--cw-fonte);
+  color: var(--cw-texto);
+  background: var(--cw-fundo);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+:focus-visible {
+  outline: 3px solid var(--cw-foco);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Marca: <span class="cw-marca">C<span class="cw-marca__ponto" aria-hidden="true"></span>Warning</span> */
+.cw-marca {
+  display: inline-flex;
+  align-items: baseline;
+  font-family: var(--cw-fonte-titulo);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--cw-indigo);
+  white-space: nowrap;
+}
+
+.cw-marca__ponto {
+  display: inline-block;
+  flex: none;
+  width: 0.15em;
+  height: 0.15em;
+  margin: 0 0.07em 0 0.04em;
+  border-radius: 50%;
+  background: var(--cw-vermelho);
+}
+
+.cw-marca--clara {
+  color: #FFFFFF;
+}
+
+.cw-marca--clara .cw-marca__ponto {
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.9);
+}

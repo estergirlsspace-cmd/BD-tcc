@@ -253,6 +253,7 @@ async function submitNotice(event) {
             titulo: document.querySelector('#notice-title').value.trim(),
             conteudo: document.querySelector('#notice-content').value.trim(),
             tipo: document.querySelector('#notice-type').value,
+            urgente: document.querySelector('#notice-urgent').checked,
             data_evento: date || null,
             ...audienceFromForm()
         };
@@ -295,6 +296,7 @@ function startEditNotice(notice) {
     document.querySelector('#notice-title').value = notice.titulo;
     document.querySelector('#notice-content').value = notice.conteudo;
     document.querySelector('#notice-type').value = notice.tipo || 'aviso';
+    document.querySelector('#notice-urgent').checked = Boolean(notice.urgente);
     document.querySelector('#notice-date').value = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(notice.data_evento || '')
         ? notice.data_evento.slice(0, 16)
         : /^\d{4}-\d{2}-\d{2}$/.test(notice.data_evento || '') ? `${notice.data_evento}T00:00` : '';
@@ -324,9 +326,13 @@ function renderNotices() {
 function buildNoticeCard(notice) {
     const card = element('article', 'notice-card');
     card.dataset.type = notice.tipo || 'aviso';
+    card.classList.toggle('is-urgent', Boolean(notice.urgente));
 
     const top = element('div', 'notice-topline');
-    top.append(element('span', 'notice-type', typeNames[notice.tipo] || 'Aviso'));
+    const labels = element('div');
+    if (notice.urgente) labels.append(element('span', 'notice-type notice-urgent', 'Urgente'));
+    labels.append(element('span', 'notice-type', typeNames[notice.tipo] || 'Aviso'));
+    top.append(labels);
     top.append(element('span', 'notice-date', `Publicado em ${formatSchoolDate(notice.criado_em, { utc: true })}`));
     card.append(top);
 

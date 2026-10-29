@@ -189,7 +189,8 @@ async function publishNotice(event) {
             titulo: document.querySelector('#notice-title').value.trim(),
             conteudo: document.querySelector('#notice-content').value.trim(),
             id_turma: discipline.id_turma,
-            tipo: document.querySelector('#notice-type').value
+            tipo: document.querySelector('#notice-type').value,
+            urgente: document.querySelector('#notice-urgent').checked
         };
         const date = document.querySelector('#notice-date').value;
         if (date) payload.data_evento = date;
@@ -256,10 +257,17 @@ function buildNoticeCard(notice, { saved = false, allowDelete = false } = {}) {
     const type = typeLabel(notice.tipo);
     card.className = 'notice-card';
     card.dataset.type = type;
+    card.classList.toggle('is-urgent', Boolean(notice.urgente));
 
     const top = document.createElement('div');
     top.className = 'notice-topline';
     const labels = document.createElement('div');
+    if (notice.urgente) {
+        const urgent = document.createElement('span');
+        urgent.className = 'notice-type notice-urgent';
+        urgent.textContent = 'Urgente';
+        labels.append(urgent);
+    }
     const badge = document.createElement('span');
     badge.className = 'notice-type';
     badge.textContent = type;

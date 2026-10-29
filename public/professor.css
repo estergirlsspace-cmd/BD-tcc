@@ -138,6 +138,10 @@ button { cursor: pointer; }
 .notice-card[data-type="comunicado"] { border-left-color: #8b5cf6; }
 .notice-topline { display: flex; align-items: center; justify-content: space-between; gap: .8rem; padding: 1rem 1rem 0; }
 .notice-type, .notice-origin { padding: .25rem .55rem; border-radius: 20px; color: #66541f; background: var(--light); font-size: .72rem; font-weight: 700; text-transform: capitalize; }
+.notice-type.notice-urgent { margin-right: .35rem; color: #9b1c1c; background: #fde7e8; }
+.notice-card.is-urgent { border-left-color: #e40913; }
+.notice-form .check-field { display: flex; align-items: center; gap: .55rem; }
+.notice-form .check-field input { width: 1.15rem; height: 1.15rem; min-height: 0; padding: 0; accent-color: #e40913; }
 .notice-origin { margin-left: .4rem; color: #5b6673; background: #edf0f2; }
 .notice-date { color: var(--muted); font-size: .75rem; }
 .notice-card h3 { margin: .8rem 1rem .5rem; font-size: 1rem; }

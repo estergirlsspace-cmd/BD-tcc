@@ -89,6 +89,14 @@ async function parseBody(body, resource, isCreate) {
         throw new ApiError(400, 'Tipo de publicação inválido.');
     }
 
+    // "urgente" chega como boolean e é gravado como 0/1 (nulo não é aceito: a coluna é NOT NULL).
+    if (Object.hasOwn(body, 'urgente')) {
+        if (typeof body.urgente !== 'boolean') {
+            throw new ApiError(400, 'O campo "urgente" deve ser true ou false.');
+        }
+        body.urgente = body.urgente ? 1 : 0;
+    }
+
     for (const [field, value] of Object.entries(body)) {
         if (value === null) {
             if (resource.required.includes(field)) {

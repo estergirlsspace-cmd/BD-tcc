@@ -1,0 +1,15 @@
+Olá, {{{NOME}}}.
+
+Lembrete: a atividade abaixo vence amanhã.
+
+Atividade: {{{ATIVIDADE}}}
+Disciplina: {{{DISCIPLINA}}}
+Prazo: {{{PRAZO}}}
+
+Veja a atividade: {{{LINK}}}
+
+--
+Equipe C-Warning
+CEEP Lourdinha Guerra
+
+CEEP Lourdinha Guerra · Parnamirim/RN — Você recebe este e-mail porque tem uma conta no C-Warning.

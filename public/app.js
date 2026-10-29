@@ -1,10 +1,13 @@
 const form = document.querySelector('#login-form');
 const passwordInput = document.querySelector('#password');
 const togglePasswordButton = document.querySelector('#toggle-password');
+const togglePasswordIcon = document.querySelector('#toggle-password-icon');
 const message = document.querySelector('#form-message');
 const submitButton = document.querySelector('#submit-button');
 const loginInput = document.querySelector('#login-id');
 const loginLabel = document.querySelector('#login-label');
+const roleInputs = document.querySelectorAll('input[name="perfil"]');
+const firstAccessHint = document.querySelector('#first-access-hint');
 const staffAccessHint = document.querySelector('#staff-access-hint');
 const welcomePanel = document.querySelector('#welcome-panel');
 const welcomeTitle = document.querySelector('#welcome-title');
@@ -15,7 +18,7 @@ const logoutButton = document.querySelector('#logout-button');
 const changePasswordToggle = document.querySelector('#change-password-toggle');
 const passwordChangeForm = document.querySelector('#password-change-form');
 const passwordChangeMessage = document.querySelector('#password-change-message');
-const firstAccessHint = document.querySelector('#first-access-hint');
+const passwordChangeSuccess = document.querySelector('#password-change-success');
 const firstAccessForm = document.querySelector('#first-access-form');
 const firstAccessMessage = document.querySelector('#first-access-message');
 const firstAccessButton = document.querySelector('#first-access-button');
@@ -24,6 +27,12 @@ const state = {
     role: 'aluno',
     token: null,
     pendingLogin: null
+};
+
+const roleNames = {
+    aluno: 'aluno',
+    professor: 'professor',
+    gestao: 'gestor'
 };
 
 const seriesNames = {
@@ -37,38 +46,58 @@ const courseNames = {
     informatica: 'Informática'
 };
 
-function clearMessage() {
-    message.textContent = '';
-    message.classList.remove('is-success');
+function submitLabel() {
+    return `Entrar como ${roleNames[state.role]}`;
 }
 
-document.querySelectorAll('[data-role]').forEach((button) => {
-    button.addEventListener('click', () => {
-        state.role = button.dataset.role;
-        document.querySelectorAll('[data-role]').forEach((tab) => {
-            const selected = tab === button;
-            tab.classList.toggle('is-selected', selected);
-            tab.setAttribute('aria-selected', String(selected));
-        });
+function clearMessage() {
+    message.textContent = '';
+}
 
-        const isStudent = state.role === 'aluno';
-        loginLabel.textContent = isStudent ? 'Matrícula' : 'Usuário';
-        loginInput.placeholder = isStudent
-            ? 'Digite o número da sua matrícula'
-            : 'Digite seu usuário';
-        loginInput.inputMode = isStudent ? 'numeric' : 'text';
-        firstAccessHint.hidden = !isStudent;
-        staffAccessHint.hidden = isStudent;
-        clearMessage();
+function showView(view) {
+    form.hidden = view !== form;
+    firstAccessForm.hidden = view !== firstAccessForm;
+    welcomePanel.hidden = view !== welcomePanel;
+}
+
+function selectRole(role) {
+    state.role = role;
+    const isStudent = role === 'aluno';
+    loginLabel.textContent = isStudent ? 'Matrícula' : 'Usuário';
+    loginInput.placeholder = isStudent
+        ? 'Digite o número da sua matrícula'
+        : 'Digite seu usuário';
+    loginInput.inputMode = isStudent ? 'numeric' : 'text';
+    firstAccessHint.hidden = !isStudent;
+    staffAccessHint.hidden = isStudent;
+    submitButton.textContent = submitLabel();
+    clearMessage();
+}
+
+roleInputs.forEach((input) => {
+    input.addEventListener('change', () => {
+        if (input.checked) selectRole(input.value);
     });
 });
+
+// Mantém o perfil coerente se o navegador restaurar o formulário (voltar/avançar).
+const checkedRole = document.querySelector('input[name="perfil"]:checked');
+selectRole(checkedRole ? checkedRole.value : 'aluno');
 
 togglePasswordButton.addEventListener('click', () => {
     const showing = passwordInput.type === 'password';
     passwordInput.type = showing ? 'text' : 'password';
     togglePasswordButton.setAttribute('aria-pressed', String(showing));
-    togglePasswordButton.setAttribute('aria-label', showing ? 'Ocultar senha' : 'Mostrar senha');
+    togglePasswordIcon.classList.toggle('ph-eye', !showing);
+    togglePasswordIcon.classList.toggle('ph-eye-slash', showing);
 });
+
+function resetPasswordVisibility() {
+    passwordInput.type = 'password';
+    togglePasswordButton.setAttribute('aria-pressed', 'false');
+    togglePasswordIcon.classList.add('ph-eye');
+    togglePasswordIcon.classList.remove('ph-eye-slash');
+}
 
 function showWelcome(user) {
     const isStudent = user.tipo_usuario === 'aluno';
@@ -87,12 +116,10 @@ function showWelcome(user) {
     sharedAccountNotice.hidden = !user.conta_compartilhada;
     logoutMessage.textContent = '';
     passwordChangeMessage.textContent = '';
+    passwordChangeSuccess.textContent = '';
     passwordChangeForm.hidden = true;
-    passwordChangeForm.classList.add('is-hidden');
-    form.hidden = true;
-    form.classList.add('is-hidden');
-    welcomePanel.hidden = false;
-    welcomePanel.classList.remove('is-hidden');
+    changePasswordToggle.setAttribute('aria-expanded', 'false');
+    showView(welcomePanel);
 }
 
 form.addEventListener('submit', async (event) => {
@@ -119,6 +146,7 @@ form.addEventListener('submit', async (event) => {
 
         state.token = result.token;
         passwordInput.value = '';
+        resetPasswordVisibility();
         if (result.usuario.deve_trocar_senha) {
             state.pendingLogin = { usuario: result.usuario, senha: typedPassword };
             showFirstAccess();
@@ -132,34 +160,28 @@ form.addEventListener('submit', async (event) => {
         passwordInput.focus();
     } finally {
         submitButton.disabled = false;
-        submitButton.textContent = 'Entrar';
+        submitButton.textContent = submitLabel();
     }
 });
 
+const portalPaths = {
+    aluno: '/aluno',
+    professor: '/professor',
+    gestao: '/gestao'
+};
+
 function enterPortal(usuario) {
-    if (usuario.tipo_usuario === 'aluno') {
+    const portalPath = portalPaths[usuario.tipo_usuario];
+    if (portalPath) {
         sessionStorage.setItem('cwarning-token', state.token);
-        window.location.assign('/aluno');
-        return;
-    }
-    if (usuario.tipo_usuario === 'professor') {
-        sessionStorage.setItem('cwarning-token', state.token);
-        window.location.assign('/professor');
-        return;
-    }
-    if (usuario.tipo_usuario === 'gestao') {
-        sessionStorage.setItem('cwarning-token', state.token);
-        window.location.assign('/gestao');
+        window.location.assign(portalPath);
         return;
     }
     showWelcome(usuario);
 }
 
 function showFirstAccess() {
-    form.hidden = true;
-    form.classList.add('is-hidden');
-    firstAccessForm.hidden = false;
-    firstAccessForm.classList.remove('is-hidden');
+    showView(firstAccessForm);
     firstAccessMessage.textContent = '';
     document.querySelector('#first-new-password').focus();
 }
@@ -196,7 +218,6 @@ firstAccessForm.addEventListener('submit', async (event) => {
         newPassword.value = '';
         confirmPassword.value = '';
         firstAccessForm.hidden = true;
-        firstAccessForm.classList.add('is-hidden');
         enterPortal({ ...usuario, deve_trocar_senha: false });
     } catch (error) {
         firstAccessMessage.textContent = error instanceof TypeError
@@ -209,10 +230,10 @@ firstAccessForm.addEventListener('submit', async (event) => {
 });
 
 changePasswordToggle.addEventListener('click', () => {
-    const showing = !passwordChangeForm.hidden;
-    passwordChangeForm.hidden = showing;
-    passwordChangeForm.classList.toggle('is-hidden', showing);
-    if (!showing) {
+    const opening = passwordChangeForm.hidden;
+    passwordChangeForm.hidden = !opening;
+    changePasswordToggle.setAttribute('aria-expanded', String(opening));
+    if (opening) {
         document.querySelector('#current-password').focus();
     }
 });
@@ -220,6 +241,7 @@ changePasswordToggle.addEventListener('click', () => {
 passwordChangeForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     passwordChangeMessage.textContent = '';
+    passwordChangeSuccess.textContent = '';
     const currentPassword = document.querySelector('#current-password');
     const newPassword = document.querySelector('#new-password');
     try {
@@ -236,12 +258,10 @@ passwordChangeForm.addEventListener('submit', async (event) => {
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.erro || 'Não foi possível alterar a senha.');
-        passwordChangeMessage.textContent = 'Senha alterada com sucesso.';
-        passwordChangeMessage.classList.add('is-success');
+        passwordChangeSuccess.textContent = 'Senha alterada com sucesso.';
         currentPassword.value = '';
         newPassword.value = '';
     } catch (error) {
-        passwordChangeMessage.classList.remove('is-success');
         passwordChangeMessage.textContent = error instanceof TypeError
             ? 'Não foi possível conectar ao servidor.'
             : error.message;
@@ -268,11 +288,8 @@ logoutButton.addEventListener('click', async () => {
     state.token = null;
     logoutMessage.textContent = '';
     passwordChangeMessage.textContent = '';
-    welcomePanel.hidden = true;
-    welcomePanel.classList.add('is-hidden');
-    form.hidden = false;
-    form.classList.remove('is-hidden');
+    passwordChangeSuccess.textContent = '';
+    showView(form);
     clearMessage();
     passwordInput.focus();
 });
-

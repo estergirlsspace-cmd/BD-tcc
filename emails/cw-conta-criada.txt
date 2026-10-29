@@ -1,0 +1,17 @@
+Olá, {{{NOME}}}.
+
+Sua conta no C-Warning, o sistema de avisos do CEEP Lourdinha Guerra, foi criada pela gestão da escola.
+
+Seu login: {{{LOGIN}}}
+
+Por segurança, a senha provisória não é enviada por e-mail: ela será entregue a você pessoalmente pela secretaria. No primeiro acesso, troque-a por uma senha só sua.
+
+Acesse: {{{LINK}}}
+
+Se você não esperava este e-mail, procure a secretaria da escola.
+
+--
+Equipe C-Warning
+CEEP Lourdinha Guerra
+
+CEEP Lourdinha Guerra · Parnamirim/RN — Você recebe este e-mail porque tem uma conta no C-Warning.

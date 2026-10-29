@@ -5,6 +5,7 @@ const { handleCollection, handleRecord } = require('../controllers/resourceContr
 const { handleLogin, handleLogout } = require('../controllers/authController');
 const { authenticate } = require('../middleware/authenticate');
 const { handleSchoolRequest } = require('../controllers/schoolController');
+const { handleMuralRequest } = require('../controllers/muralController');
 
 function authorizeResource(user, resourceName, method) {
     if (['usuarios', 'alunos', 'professores'].includes(resourceName)) {
@@ -47,6 +48,7 @@ async function handleApiRequest(request, response) {
                 ...Object.keys(resources).map((name) => `/api/${name}`),
                 '/api/matriculas',
                 '/api/avisos',
+                '/api/mural',
                 '/api/horarios',
                 '/api/atividades',
                 '/api/frequencias',
@@ -79,6 +81,11 @@ async function handleApiRequest(request, response) {
     const isProfileRoute = parts[1] === 'me' && parts.length === 2;
     if (user.deve_trocar_senha && !isPasswordRoute && !isProfileRoute) {
         throw new ApiError(403, 'Crie sua nova senha antes de continuar.');
+    }
+
+    if (parts[1] === 'mural') {
+        await handleMuralRequest(request, response, user, parts);
+        return;
     }
 
     if (await handleSchoolRequest(request, response, user, parts, url.searchParams)) {

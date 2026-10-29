@@ -1,0 +1,15 @@
+Olá, {{{NOME}}}.
+
+Foi publicado um aviso urgente no C-Warning:
+
+{{{TITULO}}}
+{{{RESUMO}}}
+Publicado por {{{AUTOR}}}
+
+Leia o aviso completo: {{{LINK}}}
+
+--
+Equipe C-Warning
+CEEP Lourdinha Guerra
+
+CEEP Lourdinha Guerra · Parnamirim/RN — Você recebe este e-mail porque tem uma conta no C-Warning.

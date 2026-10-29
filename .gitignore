@@ -7,3 +7,4 @@ data/*.antes-exemplo.sqlite
 data/alunos-exemplo.csv
 data/*.sqlite
 data/*.csv
+docs/design/

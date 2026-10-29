@@ -191,6 +191,7 @@ ensureColumn('posts_avisos', 'curso', "TEXT CHECK (curso IS NULL OR curso IN ('i
 ensureColumn('posts_avisos', 'serie', 'INTEGER CHECK (serie IS NULL OR serie BETWEEN 1 AND 3)');
 ensureColumn('posts_avisos', 'tipo', "TEXT NOT NULL DEFAULT 'aviso' CHECK (tipo IN ('aviso', 'evento', 'avaliacao', 'atividade', 'comunicado'))");
 ensureColumn('posts_avisos', 'data_evento', 'TEXT');
+ensureColumn('posts_avisos', 'urgente', 'INTEGER NOT NULL DEFAULT 0 CHECK (urgente IN (0, 1))');
 ensureColumn('horarios', 'carga_minutos', 'INTEGER');
 ensureColumn('usuarios', 'nome', 'TEXT');
 ensureColumn('professores', 'nome', 'TEXT');
@@ -215,6 +216,17 @@ database.exec(`
     CREATE INDEX IF NOT EXISTS horarios_turma_idx ON horarios (id_turma, dia_semana, hora_inicio);
     CREATE INDEX IF NOT EXISTS atividades_turma_prazo_idx ON atividades (id_turma, prazo);
     CREATE INDEX IF NOT EXISTS frequencias_aluno_data_idx ON frequencias (id_aluno, data_aula);
+    -- Estado do aviso por pessoa (leitura confirmada, salvo). Só existe linha quando houve
+    -- interação; o CHECK impede guardar estado vazio (a linha é apagada nesse caso).
+    CREATE TABLE IF NOT EXISTS avisos_usuarios (
+        id_post INTEGER NOT NULL REFERENCES posts_avisos(id_post) ON DELETE CASCADE,
+        id_usuario INTEGER NOT NULL REFERENCES usuarios(id_usuario) ON DELETE CASCADE,
+        lido_em TEXT,
+        salvo_em TEXT,
+        PRIMARY KEY (id_post, id_usuario),
+        CHECK (lido_em IS NOT NULL OR salvo_em IS NOT NULL)
+    );
+    CREATE INDEX IF NOT EXISTS avisos_usuarios_usuario_idx ON avisos_usuarios (id_usuario);
 `);
 database.exec('PRAGMA foreign_keys = ON');
 

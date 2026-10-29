@@ -3,109 +3,138 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#2584bd">
-    <title>C-Warning | CEEP Lourdinha Guerra</title>
+    <meta name="theme-color" content="#312782">
+    <title>Entrar | C-Warning</title>
+    <link rel="stylesheet" href="/vendor/fontes.css">
+    <link rel="stylesheet" href="/vendor/phosphor/regular.css">
+    <link rel="stylesheet" href="/vendor/phosphor/fill.css">
+    <link rel="stylesheet" href="/tema.css">
     <link rel="stylesheet" href="/styles.css">
     <script src="/app.js" defer></script>
 </head>
-<body>
-    <main class="page-shell">
-        <section class="login-card" aria-labelledby="page-title">
-            <header class="brand">
-                <div class="brand-icon" aria-hidden="true">👩‍🏫</div>
-                <h1 id="page-title">C-Warning</h1>
-                <p>CEEP Lourdinha Guerra</p>
-            </header>
-
-            <div class="role-tabs" role="tablist" aria-label="Tipo de acesso">
-                <button class="role-tab is-selected" id="role-aluno" type="button"
-                    role="tab" aria-selected="true" data-role="aluno">Aluno</button>
-                <button class="role-tab" id="role-professor" type="button"
-                    role="tab" aria-selected="false" data-role="professor">Professor</button>
-                <button class="role-tab" id="role-gestao" type="button"
-                    role="tab" aria-selected="false" data-role="gestao">Gestão</button>
-            </div>
-
-            <form class="login-form" id="login-form">
-                <label class="field-group" for="login-id" id="login-field">
-                    <span class="field-label" id="login-label">Matrícula</span>
-                    <input class="text-input" id="login-id" name="username" type="text"
-                        inputmode="numeric" autocomplete="username" autocapitalize="none"
-                        spellcheck="false" placeholder="Digite o número da sua matrícula" required>
-                </label>
-
-                <label class="field-group password-group" for="password">
-                    <span class="field-label">Senha</span>
-                    <span class="password-control">
-                        <input id="password" name="password" type="password"
-                            placeholder="Digite a senha" autocomplete="current-password" required>
-                        <button class="visibility-button" id="toggle-password" type="button"
-                            aria-label="Mostrar senha" aria-pressed="false">👁</button>
+<body class="login-body">
+    <main class="login">
+        <section class="login-hero" aria-label="C-Warning, CEEP Lourdinha Guerra">
+            <div class="login-mapa" aria-hidden="true">
+                <img class="login-mapa__imagem" src="/assets/mapa-rn-parnamirim.svg" alt=""
+                    aria-hidden="true" width="1400" height="851">
+                <span class="login-mapa__pino">
+                    <i class="ph-fill ph-map-pin login-mapa__icone"></i>
+                    <span class="login-mapa__legenda">
+                        <span class="login-mapa__cidade">Parnamirim</span>
+                        <span class="login-mapa__estado">Rio Grande do Norte</span>
                     </span>
-                </label>
-
-                <p class="field-hint" id="first-access-hint">
-                    Primeiro acesso? Use <strong>ceep@</strong> seguido dos 4 primeiros números do seu CPF.
-                </p>
-                <p class="field-hint" id="staff-access-hint" hidden>
-                    Primeiro acesso? Use a senha provisória entregue pela gestão.
-                </p>
-
-                <p class="form-message" id="form-message" role="status" aria-live="polite"></p>
-                <button class="submit-button" id="submit-button" type="submit">Entrar</button>
-            </form>
-
-            <form class="login-form is-hidden" id="first-access-form" hidden>
-                <h2 class="first-access-title">Crie sua senha</h2>
-                <p class="field-hint">
-                    Este é o seu primeiro acesso. Crie uma senha só sua, com pelo menos 8 caracteres.
-                    Ela substitui a senha inicial.
-                </p>
-                <label class="field-group" for="first-new-password">
-                    <span class="field-label">Nova senha</span>
-                    <input class="text-input" id="first-new-password" type="password"
-                        minlength="8" maxlength="128" autocomplete="new-password" required>
-                </label>
-                <label class="field-group" for="first-confirm-password">
-                    <span class="field-label">Repita a nova senha</span>
-                    <input class="text-input" id="first-confirm-password" type="password"
-                        minlength="8" maxlength="128" autocomplete="new-password" required>
-                </label>
-                <p class="form-message" id="first-access-message" role="status" aria-live="polite"></p>
-                <button class="submit-button" id="first-access-button" type="submit">Salvar e entrar</button>
-            </form>
-
-            <section class="welcome-panel is-hidden" id="welcome-panel" aria-live="polite" hidden>
-                <div class="welcome-icon" aria-hidden="true">✓</div>
-                <h2 id="welcome-title">Acesso realizado</h2>
-                <p id="welcome-details"></p>
-                <p class="form-message shared-account-notice" id="shared-account-notice" hidden>
-                    Este acesso é compartilhado por toda a turma. A alteração de senha vale para todos;
-                    entregas, notas e frequência não podem ser identificadas individualmente por esta conta.
-                </p>
-                <button class="text-button" id="change-password-toggle" type="button">
-                    Alterar senha
-                </button>
-                <form class="password-change-form is-hidden" id="password-change-form" hidden>
-                    <label class="field-group" for="current-password">
-                        <span class="field-label">Senha atual</span>
-                        <input class="text-input" id="current-password" type="password"
-                            autocomplete="current-password" required>
-                    </label>
-                    <label class="field-group" for="new-password">
-                        <span class="field-label">Nova senha</span>
-                        <input class="text-input" id="new-password" type="password"
-                            minlength="8" autocomplete="new-password" required>
-                    </label>
-                    <p class="form-message" id="password-change-message" role="status"
-                        aria-live="polite"></p>
-                    <button class="submit-button" type="submit">Salvar nova senha</button>
-                </form>
-                <p class="form-message" id="logout-message" role="status" aria-live="polite"></p>
-                <button class="submit-button" id="logout-button" type="button">Sair</button>
-            </section>
+                </span>
+            </div>
+            <p class="login-hero__marca">
+                <span class="cw-marca cw-marca--clara">C<span class="cw-marca__ponto" aria-hidden="true"></span>Warning</span>
+            </p>
+            <p class="login-hero__titulo">Toda a comunicação do CEEP em um só lugar.</p>
         </section>
-        <footer class="page-footer">CEEP Lourdinha Guerra <span aria-hidden="true">·</span> C-Warning</footer>
+
+        <section class="login-painel">
+            <div class="login-conteudo">
+                <form class="login-form" id="login-form">
+                    <h1 class="login-titulo login-titulo--acesso" id="login-title">Acesse sua conta</h1>
+
+                    <fieldset class="perfil">
+                        <legend class="visually-hidden">Tipo de acesso</legend>
+                        <label class="perfil__opcao">
+                            <input class="perfil__radio" type="radio" name="perfil" value="aluno" checked>
+                            <span class="perfil__texto">Aluno</span>
+                        </label>
+                        <label class="perfil__opcao">
+                            <input class="perfil__radio" type="radio" name="perfil" value="professor">
+                            <span class="perfil__texto">Professor</span>
+                        </label>
+                        <label class="perfil__opcao">
+                            <input class="perfil__radio" type="radio" name="perfil" value="gestao">
+                            <span class="perfil__texto">Gestor</span>
+                        </label>
+                    </fieldset>
+
+                    <div class="campo">
+                        <label class="campo__rotulo" for="login-id" id="login-label">Matrícula</label>
+                        <input class="campo__entrada" id="login-id" name="username" type="text"
+                            inputmode="numeric" autocomplete="username" autocapitalize="none"
+                            spellcheck="false" placeholder="Digite o número da sua matrícula" required>
+                    </div>
+
+                    <div class="campo">
+                        <label class="campo__rotulo" for="password">Senha</label>
+                        <div class="campo__controle">
+                            <input class="campo__entrada campo__entrada--senha" id="password" name="password"
+                                type="password" placeholder="Digite a senha" autocomplete="current-password" required>
+                            <button class="campo__mostrar" id="toggle-password" type="button"
+                                aria-label="Mostrar senha" aria-pressed="false" aria-controls="password">
+                                <i class="ph ph-eye" id="toggle-password-icon" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <p class="login-mensagem" id="form-message" role="alert"></p>
+
+                    <button class="login-botao" id="submit-button" type="submit">Entrar como aluno</button>
+
+                    <p class="login-ajuda" id="first-access-hint">
+                        Primeiro acesso? Use <strong>ceep@</strong> seguido dos 4 primeiros números do seu CPF.
+                    </p>
+                    <p class="login-ajuda" id="staff-access-hint" hidden>
+                        Primeiro acesso? Use a senha provisória entregue pela gestão.
+                    </p>
+                    <p class="login-ajuda">Esqueceu a senha? Procure a secretaria da escola.</p>
+                </form>
+
+                <form class="login-form" id="first-access-form" hidden>
+                    <h1 class="login-titulo">Crie sua senha</h1>
+                    <p class="login-ajuda login-ajuda--intro">
+                        Este é o seu primeiro acesso. Crie uma senha só sua, com pelo menos 8 caracteres.
+                        Ela substitui a senha inicial.
+                    </p>
+                    <div class="campo">
+                        <label class="campo__rotulo" for="first-new-password">Nova senha</label>
+                        <input class="campo__entrada" id="first-new-password" type="password"
+                            minlength="8" maxlength="128" autocomplete="new-password" required>
+                    </div>
+                    <div class="campo">
+                        <label class="campo__rotulo" for="first-confirm-password">Repita a nova senha</label>
+                        <input class="campo__entrada" id="first-confirm-password" type="password"
+                            minlength="8" maxlength="128" autocomplete="new-password" required>
+                    </div>
+                    <p class="login-mensagem" id="first-access-message" role="alert"></p>
+                    <button class="login-botao" id="first-access-button" type="submit">Salvar e entrar</button>
+                </form>
+
+                <section class="login-form" id="welcome-panel" aria-labelledby="welcome-title" hidden>
+                    <h1 class="login-titulo" id="welcome-title">Acesso realizado</h1>
+                    <p class="login-ajuda" id="welcome-details"></p>
+                    <p class="login-aviso" id="shared-account-notice" hidden>
+                        Este acesso é compartilhado por toda a turma. A alteração de senha vale para todos;
+                        entregas, notas e frequência não podem ser identificadas individualmente por esta conta.
+                    </p>
+                    <button class="login-botao login-botao--secundario" id="change-password-toggle" type="button"
+                        aria-expanded="false" aria-controls="password-change-form">Alterar senha</button>
+                    <form class="login-subform" id="password-change-form" hidden>
+                        <div class="campo">
+                            <label class="campo__rotulo" for="current-password">Senha atual</label>
+                            <input class="campo__entrada" id="current-password" type="password"
+                                autocomplete="current-password" required>
+                        </div>
+                        <div class="campo">
+                            <label class="campo__rotulo" for="new-password">Nova senha</label>
+                            <input class="campo__entrada" id="new-password" type="password"
+                                minlength="8" autocomplete="new-password" required>
+                        </div>
+                        <p class="login-mensagem" id="password-change-message" role="alert"></p>
+                        <p class="login-mensagem login-mensagem--sucesso" id="password-change-success"
+                            role="status"></p>
+                        <button class="login-botao" type="submit">Salvar nova senha</button>
+                    </form>
+                    <p class="login-mensagem" id="logout-message" role="alert"></p>
+                    <button class="login-botao" id="logout-button" type="button">Sair</button>
+                </section>
+            </div>
+        </section>
     </main>
 </body>
 </html>
