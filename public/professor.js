@@ -317,7 +317,7 @@ function renderNotices() {
             : 'Ainda não há comunicados disponíveis para suas turmas.'));
         return;
     }
-    filtered.slice().reverse().forEach((notice) => {
+    filtered.forEach((notice) => {
         noticeList.append(buildNoticeCard(notice, { allowDelete: true }));
     });
 }
@@ -330,7 +330,7 @@ function renderReceivedNotices() {
         container.append(emptyState('Não há comunicados recebidos para as turmas vinculadas.'));
         return;
     }
-    received.slice().reverse().forEach((notice) => {
+    received.forEach((notice) => {
         container.append(buildNoticeCard(notice));
     });
 }

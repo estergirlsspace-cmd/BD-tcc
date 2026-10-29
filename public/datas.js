@@ -39,6 +39,23 @@ function noticeDateLabel(notice) {
     return '';
 }
 
+// Número do dia no calendário de Brasília, para comparar datas sem efeito de fuso.
+function schoolDayNumber(date) {
+    return Math.floor((date.getTime() + SCHOOL_UTC_OFFSET_HOURS * 3600000) / 86400000);
+}
+
+// Dias entre hoje e a data (0 = hoje, 1 = amanhã, negativo = passou).
+function daysUntil(value) {
+    const date = parseSchoolDate(value);
+    return date ? schoolDayNumber(date) - schoolDayNumber(new Date()) : null;
+}
+
+function relativeDayLabel(days) {
+    if (days === 0) return 'Hoje';
+    if (days === 1) return 'Amanhã';
+    return `Em ${days} dias`;
+}
+
 // Valor ISO para o atributo datetime de <time>.
 function isoDateTime(notice) {
     const value = notice.data_evento || notice.criado_em;

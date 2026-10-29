@@ -113,6 +113,7 @@ function openPage(pageName) {
 
 async function loadNotices() {
     notices = await api('/api/avisos');
+    renderUpcoming();
     renderNotices();
 }
 
@@ -133,6 +134,7 @@ function buildNoticeCard(notice, { saved = false } = {}) {
     const type = typeLabel(notice.tipo);
     card.className = 'notice-card';
     card.dataset.type = type;
+    if (!saved) card.id = `aviso-${notice.id_post}`;
 
     const top = document.createElement('div');
     top.className = 'notice-topline';
@@ -162,6 +164,37 @@ function buildNoticeCard(notice, { saved = false } = {}) {
     footer.append(target, saveButton);
     card.append(top, title, content, footer);
     return card;
+}
+
+const UPCOMING_WINDOW_DAYS = 14;
+const UPCOMING_LIMIT = 3;
+
+function renderUpcoming() {
+    const section = document.querySelector('#upcoming-section');
+    const list = document.querySelector('#upcoming-list');
+    const upcoming = notices
+        .map((notice) => ({ notice, days: daysUntil(notice.data_evento) }))
+        .filter(({ days }) => days !== null && days >= 0 && days <= UPCOMING_WINDOW_DAYS)
+        .sort((a, b) => parseSchoolDate(a.notice.data_evento) - parseSchoolDate(b.notice.data_evento))
+        .slice(0, UPCOMING_LIMIT);
+    section.hidden = !upcoming.length;
+    list.replaceChildren(...upcoming.map(({ notice, days }) => {
+        const item = document.createElement('li');
+        const link = document.createElement('a');
+        link.className = 'upcoming-item';
+        link.href = `#aviso-${notice.id_post}`;
+        const when = document.createElement('span');
+        when.className = 'upcoming-when';
+        when.textContent = relativeDayLabel(days);
+        const title = document.createElement('strong');
+        title.textContent = notice.titulo;
+        const date = document.createElement('time');
+        date.dateTime = isoDateTime(notice);
+        date.textContent = formatSchoolDate(notice.data_evento);
+        link.append(when, title, date);
+        item.append(link);
+        return item;
+    }));
 }
 
 function renderNotices() {

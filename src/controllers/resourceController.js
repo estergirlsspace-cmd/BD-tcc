@@ -91,8 +91,12 @@ function listRecords(resource, user) {
         }
     }
 
+    // Avisos: do mais recente para o mais antigo, como em um mural.
+    const orderBy = resource.table === 'posts_avisos'
+        ? 'criado_em DESC, id_post DESC'
+        : resource.id;
     return database.prepare(
-        `SELECT * FROM ${resource.table}${where} ORDER BY ${resource.id}`
+        `SELECT * FROM ${resource.table}${where} ORDER BY ${orderBy}`
     ).all(...params)
         .map((record) => publicRecord(resource, record, user));
 }
