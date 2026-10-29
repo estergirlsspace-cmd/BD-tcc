@@ -22,7 +22,64 @@
   --cw-fonte: 'Figtree', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --cw-fonte-titulo: 'Sora', 'Figtree', system-ui, sans-serif;
   --cw-raio: 16px; --cw-raio-sm: 10px;
+  /* Texto colorido (sprint 2): use estes para TEXTO; --cw-indigo/--cw-azul/--cw-vermelho para fundos. */
+  --cw-texto-marca: #312782;    /* títulos e textos na cor da marca */
+  --cw-link: #3a4bc4;           /* links e ícones ativos: 6,3:1 sobre branco */
+  --cw-vermelho-texto: #c4070f; /* textos de alerta: 5,9:1 sobre branco */
+  --cw-sombra: 0 8px 24px -12px rgba(49, 39, 130, .25);
+  color-scheme: light;
 }
+
+/* Modo escuro: <html data-tema="escuro">, ou data-tema="auto" seguindo o sistema.
+   Todas as combinações texto/fundo abaixo passam AA (≥ 4,5:1) sobre --cw-superficie. */
+:root[data-tema="escuro"] {
+  --cw-indigo: #4a3fc0;
+  --cw-indigo-hover: #5b51d0;
+  --cw-indigo-escuro: #1a1546;
+  --cw-azul: #6c7cf0;
+  --cw-azul-suave: #262b63;
+  --cw-vermelho-suave: #3b1520;
+  --cw-fundo: #11102a;
+  --cw-superficie: #1b1a3b;
+  --cw-borda: #2f2c5e;
+  --cw-borda-campo: #7f7bbd;
+  --cw-texto: #eceafb;
+  --cw-texto-2: #cfcdec;
+  --cw-texto-suave: #aeabd8;
+  --cw-chip: #26244e;
+  --cw-texto-marca: #cdc9f5;
+  --cw-link: #9fabff;
+  --cw-vermelho-texto: #ff8a8f;
+  --cw-sombra: 0 8px 24px -12px rgba(0, 0, 0, .6);
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-tema="auto"] {
+    --cw-indigo: #4a3fc0;
+    --cw-indigo-hover: #5b51d0;
+    --cw-indigo-escuro: #1a1546;
+    --cw-azul: #6c7cf0;
+    --cw-azul-suave: #262b63;
+    --cw-vermelho-suave: #3b1520;
+    --cw-fundo: #11102a;
+    --cw-superficie: #1b1a3b;
+    --cw-borda: #2f2c5e;
+    --cw-borda-campo: #7f7bbd;
+    --cw-texto: #eceafb;
+    --cw-texto-2: #cfcdec;
+    --cw-texto-suave: #aeabd8;
+    --cw-chip: #26244e;
+    --cw-texto-marca: #cdc9f5;
+    --cw-link: #9fabff;
+    --cw-vermelho-texto: #ff8a8f;
+    --cw-sombra: 0 8px 24px -12px rgba(0, 0, 0, .6);
+    color-scheme: dark;
+  }
+}
+
+/* Tamanho do texto escolhido em Ajustes › Aparência (<html data-texto="...">). */
+:root[data-texto="pequeno"] { zoom: .92; }
+:root[data-texto="grande"] { zoom: 1.12; }
 
 /* Reset leve */
 *,

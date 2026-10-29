@@ -1,0 +1,15 @@
+Olá, {{{NOME}}}.
+
+Este endereço foi informado na sua conta do C-Warning para receber avisos urgentes, lembretes de prazo e mensagens.
+Para confirmar, acesse:
+{{{LINK}}}
+
+Este link vale por {{{VALIDADE_HORAS}}} horas e só pode ser usado uma vez.
+
+Não foi você? Pode ignorar este e-mail: sem a confirmação, este endereço não será usado.
+
+--
+Equipe C-Warning
+CEEP Lourdinha Guerra
+
+CEEP Lourdinha Guerra · Parnamirim/RN — Você recebe este e-mail porque tem uma conta no C-Warning.

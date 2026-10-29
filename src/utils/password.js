@@ -28,4 +28,16 @@ async function verifyPassword(password, storedHash) {
     return timingSafeEqual(actual, expected);
 }
 
-module.exports = { hashPassword, hashPasswordSync, verifyPassword };
+// Regras de uma senha nova escolhida pela própria pessoa (mesmas da troca em /api/auth/password).
+// Devolve a mensagem de erro, ou null se a senha for aceitável.
+function newPasswordProblem(newPassword) {
+    if (typeof newPassword !== 'string' || newPassword.length < 8 || newPassword.length > 128) {
+        return 'A nova senha deve ter entre 8 e 128 caracteres.';
+    }
+    if (/^ceep@\d{4}$/i.test(newPassword)) {
+        return 'Escolha uma senha diferente do padrão do primeiro acesso.';
+    }
+    return null;
+}
+
+module.exports = { hashPassword, hashPasswordSync, verifyPassword, newPasswordProblem };

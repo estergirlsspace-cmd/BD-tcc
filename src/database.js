@@ -230,6 +230,96 @@ database.exec(`
 `);
 database.exec('PRAGMA foreign_keys = ON');
 
+// ---- Sprint 2: arquivos, justificativas, ocorrências, mensagens, e-mail e sessões ----
+ensureColumn('usuarios', 'email', 'TEXT'); // só e-mail confirmado (ou cadastrado pela gestão)
+ensureColumn('sessoes', 'dispositivo', 'TEXT');
+ensureColumn('sessoes', 'ultimo_acesso', 'INTEGER');
+database.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS usuarios_email_unique ON usuarios (lower(email))
+        WHERE email IS NOT NULL;
+
+    -- Metadados dos arquivos enviados; o conteúdo fica em DATA_DIR/arquivos/<id_arquivo>.
+    CREATE TABLE IF NOT EXISTS arquivos (
+        id_arquivo INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_usuario INTEGER NOT NULL REFERENCES usuarios(id_usuario),
+        nome TEXT NOT NULL,
+        tipo_mime TEXT NOT NULL CHECK (tipo_mime IN ('application/pdf', 'image/jpeg', 'image/png')),
+        tamanho INTEGER NOT NULL CHECK (tamanho > 0 AND tamanho <= 5242880),
+        sha256 TEXT NOT NULL,
+        criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS justificativas (
+        id_justificativa INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_aluno INTEGER NOT NULL REFERENCES alunos(id_aluno) ON DELETE CASCADE,
+        id_disciplina INTEGER NOT NULL REFERENCES disciplinas(id_disciplina) ON DELETE CASCADE,
+        data_falta TEXT NOT NULL,
+        motivo TEXT NOT NULL,
+        id_arquivo INTEGER REFERENCES arquivos(id_arquivo) ON DELETE SET NULL,
+        situacao TEXT NOT NULL DEFAULT 'pendente'
+            CHECK (situacao IN ('pendente', 'aceita', 'recusada')),
+        id_usuario_analise INTEGER REFERENCES usuarios(id_usuario) ON DELETE SET NULL,
+        analisado_em TEXT,
+        resposta TEXT,
+        criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (id_aluno, id_disciplina, data_falta)
+    );
+    CREATE INDEX IF NOT EXISTS justificativas_situacao_idx ON justificativas (situacao, criado_em);
+
+    CREATE TABLE IF NOT EXISTS ocorrencias (
+        id_ocorrencia INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_aluno INTEGER NOT NULL REFERENCES alunos(id_aluno) ON DELETE CASCADE,
+        id_usuario_autor INTEGER NOT NULL REFERENCES usuarios(id_usuario),
+        descricao TEXT NOT NULL,
+        situacao TEXT NOT NULL DEFAULT 'aberta' CHECK (situacao IN ('aberta', 'resolvida')),
+        criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        resolvida_em TEXT
+    );
+    CREATE INDEX IF NOT EXISTS ocorrencias_aluno_idx ON ocorrencias (id_aluno, criado_em);
+
+    -- Conversa 1:1; o par é guardado em ordem (a < b) para existir uma só conversa por dupla.
+    CREATE TABLE IF NOT EXISTS conversas (
+        id_conversa INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_usuario_a INTEGER NOT NULL REFERENCES usuarios(id_usuario) ON DELETE CASCADE,
+        id_usuario_b INTEGER NOT NULL REFERENCES usuarios(id_usuario) ON DELETE CASCADE,
+        criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CHECK (id_usuario_a < id_usuario_b),
+        UNIQUE (id_usuario_a, id_usuario_b)
+    );
+    CREATE TABLE IF NOT EXISTS mensagens (
+        id_mensagem INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_conversa INTEGER NOT NULL REFERENCES conversas(id_conversa) ON DELETE CASCADE,
+        id_autor INTEGER NOT NULL REFERENCES usuarios(id_usuario) ON DELETE CASCADE,
+        texto TEXT NOT NULL,
+        criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        lida_em TEXT
+    );
+    CREATE INDEX IF NOT EXISTS mensagens_conversa_idx ON mensagens (id_conversa, id_mensagem);
+
+    -- Tokens de uso único (hash SHA-256): redefinir senha e confirmar e-mail (dado = e-mail novo).
+    CREATE TABLE IF NOT EXISTS tokens (
+        token_hash TEXT PRIMARY KEY,
+        id_usuario INTEGER NOT NULL REFERENCES usuarios(id_usuario) ON DELETE CASCADE,
+        finalidade TEXT NOT NULL CHECK (finalidade IN ('redefinir_senha', 'confirmar_email')),
+        dado TEXT,
+        expira_em INTEGER NOT NULL
+    );
+
+    -- Notificações por e-mail são ligadas por padrão; aqui ficam só as que a pessoa desligou.
+    CREATE TABLE IF NOT EXISTS notificacoes_silenciadas (
+        id_usuario INTEGER NOT NULL REFERENCES usuarios(id_usuario) ON DELETE CASCADE,
+        tipo TEXT NOT NULL CHECK (tipo IN ('urgente', 'turma', 'prazos', 'eventos', 'mensagens')),
+        PRIMARY KEY (id_usuario, tipo)
+    );
+
+    -- Idempotência de e-mails automáticos (ex.: "prazo:12:34", "resumo:2026-W44:34").
+    CREATE TABLE IF NOT EXISTS envios_email (
+        chave TEXT PRIMARY KEY,
+        enviado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+`);
+ensureColumn('posts_avisos', 'id_arquivo', 'INTEGER REFERENCES arquivos(id_arquivo) ON DELETE SET NULL');
+
 // Instalação nova (banco vazio): cria a primeira conta da gestão a partir de variáveis de
 // ambiente. A senha é provisória e precisa ser trocada no primeiro acesso.
 const hasManager = database.prepare(

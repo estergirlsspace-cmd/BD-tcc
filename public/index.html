@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#312782">
     <title>Entrar | C-Warning</title>
+    <script src="/preferencias.js"></script>
     <link rel="stylesheet" href="/vendor/fontes.css">
     <link rel="stylesheet" href="/vendor/phosphor/regular.css">
     <link rel="stylesheet" href="/vendor/phosphor/fill.css">
@@ -82,7 +83,35 @@
                     <p class="login-ajuda" id="staff-access-hint" hidden>
                         Primeiro acesso? Use a senha provisória entregue pela gestão.
                     </p>
-                    <p class="login-ajuda">Esqueceu a senha? Procure a secretaria da escola.</p>
+                    <button class="login-link" id="forgot-link" type="button">Esqueci minha senha</button>
+                </form>
+
+                <form class="login-form" id="recover-form" aria-labelledby="recover-title" hidden>
+                    <h1 class="login-titulo" id="recover-title" tabindex="-1">Recuperar senha</h1>
+                    <div class="login-subform" id="recover-fields">
+                        <p class="login-ajuda login-ajuda--intro">
+                            Digite sua matrícula (alunos) ou seu usuário (professores e gestão). Se a conta tiver
+                            um e-mail cadastrado, enviamos um link para você criar uma senha nova.
+                        </p>
+                        <div class="campo">
+                            <label class="campo__rotulo" for="recover-login">Matrícula ou usuário</label>
+                            <input class="campo__entrada" id="recover-login" name="recover-login" type="text"
+                                autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="80" required>
+                        </div>
+                        <p class="login-mensagem" id="recover-message" role="alert"></p>
+                        <button class="login-botao" id="recover-button" type="submit">Enviar link</button>
+                    </div>
+                    <div class="login-confirmacao" id="recover-done" role="status" hidden>
+                        <i class="ph ph-envelope-simple-open login-confirmacao__icone" aria-hidden="true"></i>
+                        <p class="login-ajuda" id="recover-done-text"></p>
+                        <p class="login-ajuda">
+                            O link vale por 30 minutos. Não chegou? Confira a caixa de spam. Se você não tem e-mail
+                            cadastrado, procure a secretaria da escola.
+                        </p>
+                    </div>
+                    <button class="login-link login-link--voltar" id="recover-back" type="button">
+                        <i class="ph ph-arrow-left" aria-hidden="true"></i>Voltar para entrar
+                    </button>
                 </form>
 
                 <form class="login-form" id="first-access-form" hidden>

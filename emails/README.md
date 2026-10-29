@@ -15,6 +15,8 @@ Domínio de envio verificado: `ceeplourdinhaguerra.com.br`. A chave fica fora do
 | `cw-redefinir-senha` | Pedido de "Esqueci minha senha" (link de uso único) | `NOME`, `LINK`, `VALIDADE_MINUTOS` (número) | Redefinição de senha do C-Warning | C-Warning &lt;seguranca@ceeplourdinhaguerra.com.br&gt; | `61aa8ac6-06cf-49b0-a251-29b6ceb88188` |
 | `cw-senha-alterada` | Logo após qualquer troca de senha (alerta de segurança) | `NOME`, `DATA_HORA` | Sua senha do C-Warning foi alterada | seguranca@ | `6786cbe8-c342-415d-b80a-829726f8b56b` |
 | `cw-conta-criada` | Gestão cadastra professor ou membro da gestão (sem senha: a provisória é entregue pessoalmente) | `NOME`, `LOGIN`, `LINK` | Sua conta no C-Warning está pronta | avisos@ | `f610bf0e-5d11-4fb4-b470-52e8096abd66` |
+| `cw-confirmar-email` | Pessoa informa um e-mail na conta (link de uso único para o endereço novo) | `NOME`, `LINK`, `VALIDADE_HORAS` (número) | Confirme seu e-mail no C-Warning | seguranca@ | `e8fea22f-6b58-4651-85f2-6a8392e1a03c` |
+| `cw-nova-mensagem` | Nova mensagem recebida; no máximo 1 por conversa a cada 30 min (silenciável em "mensagens") | `NOME`, `REMETENTE`, `TRECHO`, `LINK` | Nova mensagem de {{{REMETENTE}}} no C-Warning | avisos@ | `9efd0cbb-7dc6-4904-b645-71691359b189` |
 
 Remetente e assunto ficam gravados no template; se a aplicação mandar `from`/`subject` no envio,
 eles têm prioridade sobre os do template.
@@ -61,3 +63,7 @@ ignora cantos arredondados (o layout continua correto).
 
 Teste de renderização: envio de `cw-aviso-urgente` para `delivered@resend.dev` em 29/10/2026
 (id `01a185a1-227a-723c-98aa-21629e90cb03`, status `delivered`, assunto e variáveis substituídos).
+
+Teste dos templates `cw-confirmar-email` e `cw-nova-mensagem` para `delivered@resend.dev` em
+29/10/2026 (ids `01a185c0-b709-7d48-98ac-fa1b18fd7888` e `01a185c0-b808-7f0d-9a86-33347751bfd9`, status
+`delivered`). Na aplicação, o envio fica em `src/services/email.js`.

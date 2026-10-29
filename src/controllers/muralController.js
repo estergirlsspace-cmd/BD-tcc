@@ -2,6 +2,7 @@ const database = require('../database');
 const { ApiError } = require('../errors');
 const { readBody, sendJson } = require('../utils/http');
 const { studentNoticeScope } = require('../utils/audience');
+const { attachmentColumns, attachmentFrom } = require('../utils/arquivos');
 const { requireRole, getRecordId, rejectUnknownFields } = require('./schoolController');
 
 // Mural do aluno: avisos visíveis para ele com o estado pessoal (lido/salvo) de avisos_usuarios.
@@ -39,7 +40,8 @@ function toMuralItem(notice) {
         },
         publico: noticeAudience(notice),
         lido_em: notice.lido_em,
-        salvo: notice.salvo_em !== null
+        salvo: notice.salvo_em !== null,
+        anexo: attachmentFrom(notice)
     };
 }
 
@@ -50,10 +52,11 @@ function getMural(user) {
         SELECT p.id_post, p.titulo, p.conteudo, p.tipo, p.urgente, p.data_evento, p.criado_em,
                p.id_turma, p.curso, p.serie,
                u.tipo_usuario AS autor_perfil, COALESCE(pr.nome, u.nome) AS autor_nome,
-               au.lido_em, au.salvo_em
+               au.lido_em, au.salvo_em, ${attachmentColumns('arq')}
         FROM posts_avisos p
         JOIN usuarios u ON u.id_usuario = p.id_usuario_autor
         LEFT JOIN professores pr ON pr.id_usuario = u.id_usuario
+        LEFT JOIN arquivos arq ON arq.id_arquivo = p.id_arquivo
         LEFT JOIN avisos_usuarios au ON au.id_post = p.id_post AND au.id_usuario = ?
         WHERE ${scope.clause}
         ORDER BY p.urgente DESC, p.criado_em DESC, p.id_post DESC

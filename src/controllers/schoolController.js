@@ -2,8 +2,10 @@ const database = require('../database');
 const { ApiError } = require('../errors');
 const { readBody, sendJson } = require('../utils/http');
 const { randomInt } = require('node:crypto');
-const { hashPassword, verifyPassword } = require('../utils/password');
+const { hashPassword, verifyPassword, newPasswordProblem } = require('../utils/password');
 const { parseSchoolDate, deadlineTimestamp } = require('../utils/dates');
+const notificacoes = require('../services/notificacoes');
+const { optionalAccountEmail } = require('../services/email');
 
 function requireRole(user, roles) {
     if (!roles.includes(user.tipo_usuario)) {
@@ -113,8 +115,9 @@ async function initialPasswordHash(cpfStart) {
 async function enrollStudent(request, response, user) {
     requireRole(user, ['gestao']);
     const body = await readBody(request);
-    rejectUnknownFields(body, ['matricula', 'nome', 'id_turma', 'cpf_inicio']);
+    rejectUnknownFields(body, ['matricula', 'nome', 'id_turma', 'cpf_inicio', 'email']);
     requireFields(body, ['matricula', 'nome', 'id_turma', 'cpf_inicio']);
+    const email = optionalAccountEmail(body.email);
     if (typeof body.matricula !== 'string' || !MATRICULA_PATTERN.test(body.matricula.trim())) {
         throw new ApiError(400, 'A matrícula deve conter apenas números (3 a 20 dígitos).');
     }
@@ -135,9 +138,9 @@ async function enrollStudent(request, response, user) {
     database.exec('BEGIN IMMEDIATE');
     try {
         const result = database.prepare(`
-            INSERT INTO usuarios (login, senha, tipo_usuario, curso, serie, ativo, deve_trocar_senha)
-            VALUES (?, ?, 'aluno', ?, ?, 1, 1)
-        `).run(matricula, passwordHash, schoolClass.curso, schoolClass.serie);
+            INSERT INTO usuarios (login, senha, tipo_usuario, curso, serie, ativo, deve_trocar_senha, email)
+            VALUES (?, ?, 'aluno', ?, ?, 1, 1, ?)
+        `).run(matricula, passwordHash, schoolClass.curso, schoolClass.serie, email);
         const userId = Number(result.lastInsertRowid);
         const studentResult = database.prepare(`
             INSERT INTO alunos (id_usuario, nome, id_turma)
@@ -153,6 +156,7 @@ async function enrollStudent(request, response, user) {
             nome_turma: schoolClass.nome_turma,
             curso: schoolClass.curso,
             serie: schoolClass.serie,
+            email,
             senha_inicial: 'ceep@ + 4 primeiros dígitos do CPF',
             deve_trocar_senha: true
         });
@@ -203,8 +207,9 @@ function provisionalPassword() {
 async function createStaffMember(request, response, user) {
     requireRole(user, ['gestao']);
     const body = await readBody(request);
-    rejectUnknownFields(body, ['login', 'tipo_usuario', 'nome', 'area']);
+    rejectUnknownFields(body, ['login', 'tipo_usuario', 'nome', 'area', 'email']);
     requireFields(body, ['login', 'tipo_usuario', 'nome']);
+    const email = optionalAccountEmail(body.email);
     if (typeof body.login !== 'string' || !STAFF_LOGIN_PATTERN.test(body.login.trim())) {
         throw new ApiError(400,
             'O usuário deve ter de 3 a 50 caracteres: letras, números, ponto, hífen ou sublinhado.');
@@ -233,9 +238,9 @@ async function createStaffMember(request, response, user) {
     database.exec('BEGIN IMMEDIATE');
     try {
         const userId = Number(database.prepare(`
-            INSERT INTO usuarios (login, nome, senha, tipo_usuario, ativo, deve_trocar_senha)
-            VALUES (?, ?, ?, ?, 1, 1)
-        `).run(login, body.nome.trim(), passwordHash, body.tipo_usuario).lastInsertRowid);
+            INSERT INTO usuarios (login, nome, senha, tipo_usuario, ativo, deve_trocar_senha, email)
+            VALUES (?, ?, ?, ?, 1, 1, ?)
+        `).run(login, body.nome.trim(), passwordHash, body.tipo_usuario, email).lastInsertRowid);
         let teacherId = null;
         if (body.tipo_usuario === 'professor') {
             teacherId = Number(database.prepare(
@@ -243,6 +248,7 @@ async function createStaffMember(request, response, user) {
             ).run(userId, body.nome.trim(), body.area).lastInsertRowid);
         }
         database.exec('COMMIT');
+        notificacoes.onStaffCreated(userId);
         sendJson(response, 201, {
             id_usuario: userId,
             id_professor: teacherId,
@@ -250,6 +256,7 @@ async function createStaffMember(request, response, user) {
             nome: body.nome.trim(),
             tipo_usuario: body.tipo_usuario,
             area: body.area ?? null,
+            email,
             senha_provisoria: password,
             aviso: 'Entregue esta senha à pessoa. Ela não será exibida de novo e deve ser trocada no primeiro acesso.'
         });
@@ -345,15 +352,13 @@ async function changePassword(request, response, user) {
     const body = await readBody(request);
     rejectUnknownFields(body, ['senha_atual', 'nova_senha']);
     requireFields(body, ['senha_atual', 'nova_senha']);
-    if (typeof body.senha_atual !== 'string' || typeof body.nova_senha !== 'string'
-        || body.nova_senha.length < 8 || body.nova_senha.length > 128) {
-        throw new ApiError(400, 'A nova senha deve ter entre 8 e 128 caracteres.');
+    if (typeof body.senha_atual !== 'string') {
+        throw new ApiError(400, 'Informe a senha atual.');
     }
+    const problem = newPasswordProblem(body.nova_senha);
+    if (problem) throw new ApiError(400, problem);
     if (body.nova_senha === body.senha_atual) {
         throw new ApiError(400, 'A nova senha precisa ser diferente da senha atual.');
-    }
-    if (/^ceep@\d{4}$/i.test(body.nova_senha)) {
-        throw new ApiError(400, 'Escolha uma senha diferente do padrão do primeiro acesso.');
     }
     const account = database.prepare(
         'SELECT senha FROM usuarios WHERE id_usuario = ? AND ativo = 1'
@@ -377,6 +382,7 @@ async function changePassword(request, response, user) {
         database.exec('ROLLBACK');
         throw error;
     }
+    notificacoes.onPasswordChanged(user.id_usuario);
     sendJson(response, 200, { mensagem: 'Senha atualizada com sucesso.' });
 }
 
@@ -713,13 +719,13 @@ function getSubmissions(activityId, user) {
         `).all(activityId, user.id_aluno);
     }
     requireRole(user, ['professor', 'gestao']);
+    // Professor: só o da disciplina (404 fora do escopo, sem revelar que a atividade existe).
     if (!canAccessClass(user, activity.id_turma, activity.id_disciplina)) {
-        throw new ApiError(403, 'Você não está vinculado a essa turma e disciplina.');
+        throw new ApiError(404, 'Atividade não encontrada.');
     }
-    const gradeFields = user.tipo_usuario === 'gestao' ? ', e.nota, e.feedback' : '';
     return database.prepare(`
-        SELECT e.id_entrega, e.id_atividade, e.id_aluno, e.resposta, e.enviado_em
-               ${gradeFields}, a.nome
+        SELECT e.id_entrega, e.id_atividade, e.id_aluno, e.resposta, e.enviado_em,
+               e.nota, e.feedback, a.nome
         FROM entregas_atividades e
         JOIN alunos a ON a.id_aluno = e.id_aluno
         WHERE e.id_atividade = ?
@@ -727,8 +733,9 @@ function getSubmissions(activityId, user) {
     `).all(activityId);
 }
 
+// Correção: gestão ou o professor da disciplina da atividade.
 async function gradeSubmission(request, response, user, submissionId) {
-    requireRole(user, ['gestao']);
+    requireRole(user, ['professor', 'gestao']);
     const body = await readBody(request);
     rejectUnknownFields(body, ['nota', 'feedback']);
     if (body.nota === undefined && body.feedback === undefined) {
@@ -743,10 +750,15 @@ async function gradeSubmission(request, response, user, submissionId) {
         && (typeof body.feedback !== 'string' || body.feedback.length > 2000)) {
         throw new ApiError(400, 'O feedback deve ser texto com até 2000 caracteres.');
     }
-    const current = database.prepare(
-        'SELECT nota, feedback FROM entregas_atividades WHERE id_entrega = ?'
-    ).get(submissionId);
-    if (!current) throw new ApiError(404, 'Entrega não encontrada.');
+    const current = database.prepare(`
+        SELECT e.nota, e.feedback, a.id_turma, a.id_disciplina
+        FROM entregas_atividades e
+        JOIN atividades a ON a.id_atividade = e.id_atividade
+        WHERE e.id_entrega = ?
+    `).get(submissionId);
+    if (!current || !canAccessClass(user, current.id_turma, current.id_disciplina)) {
+        throw new ApiError(404, 'Entrega não encontrada.');
+    }
     const nota = body.nota === undefined ? current.nota : body.nota;
     const feedback = body.feedback === undefined ? current.feedback : body.feedback;
     database.prepare(
@@ -771,16 +783,23 @@ function getAttendance(user, searchParams) {
         filters.push('f.id_aluno = ?');
         params.push(getRecordId(searchParams.get('id_aluno')));
     }
+    // Falta justificada é derivada: existe justificativa para aluno + disciplina + data.
     return database.prepare(`
         SELECT f.id_frequencia, f.id_aluno, f.id_disciplina, f.data_aula,
-               f.presente, f.observacao, a.nome, d.nome_disciplina, t.nome_turma
+               f.presente, f.observacao, a.nome, d.nome_disciplina, t.nome_turma,
+               j.situacao AS justificativa_situacao
         FROM frequencias f
         JOIN alunos a ON a.id_aluno = f.id_aluno
         JOIN disciplinas d ON d.id_disciplina = f.id_disciplina
         JOIN turmas t ON t.id_turma = d.id_turma
+        LEFT JOIN justificativas j ON f.presente = 0 AND j.id_aluno = f.id_aluno
+            AND j.id_disciplina = f.id_disciplina AND j.data_falta = f.data_aula
         ${filters.length ? `WHERE ${filters.join(' AND ')}` : ''}
         ORDER BY f.data_aula DESC, a.nome
-    `).all(...params);
+    `).all(...params).map(({ justificativa_situacao: situacao, ...record }) => ({
+        ...record,
+        justificativa: situacao ? { situacao } : null
+    }));
 }
 
 async function recordAttendance(request, response, user) {
@@ -1032,4 +1051,15 @@ async function handleSchoolRequest(request, response, user, parts, searchParams)
     return false;
 }
 
-module.exports = { handleSchoolRequest, requireRole, getRecordId, rejectUnknownFields };
+module.exports = {
+    handleSchoolRequest,
+    requireRole,
+    requireFields,
+    getRecordId,
+    positiveId,
+    rejectUnknownFields,
+    requiredText,
+    optionalText,
+    canAccessClass,
+    isTeacherAssignedToClass
+};

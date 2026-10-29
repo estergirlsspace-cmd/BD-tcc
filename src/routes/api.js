@@ -5,6 +5,25 @@ const { handleCollection, handleRecord } = require('../controllers/resourceContr
 const { handleLogin, handleLogout } = require('../controllers/authController');
 const { authenticate } = require('../middleware/authenticate');
 const { handleSchoolRequest } = require('../controllers/schoolController');
+const { handleArquivosRequest } = require('../controllers/arquivosController');
+const { handleJustificativasRequest } = require('../controllers/justificativasController');
+const { handleOcorrenciasRequest } = require('../controllers/ocorrenciasController');
+const { handleChamadasRequest } = require('../controllers/chamadasController');
+const { handlePainelRequest } = require('../controllers/painelController');
+const { handleMensagensRequest } = require('../controllers/mensagensController');
+const { handleContaRequest, handlePublicAccountRequest } = require('../controllers/contaController');
+
+// Módulos por prefixo: /api/<prefixo>/... → handler(request, response, user, parts, searchParams).
+const MODULE_ROUTES = {
+    arquivos: handleArquivosRequest,
+    justificativas: handleJustificativasRequest,
+    ocorrencias: handleOcorrenciasRequest,
+    chamadas: handleChamadasRequest,
+    painel: handlePainelRequest,
+    relatorios: handlePainelRequest,
+    mensagens: handleMensagensRequest,
+    conta: handleContaRequest
+};
 const { handleMuralRequest } = require('../controllers/muralController');
 
 function authorizeResource(user, resourceName, method) {
@@ -69,6 +88,10 @@ async function handleApiRequest(request, response) {
         return;
     }
 
+    if (await handlePublicAccountRequest(request, response, parts)) {
+        return;
+    }
+
     const user = authenticate(request);
 
     if (parts[1] === 'auth' && parts.length === 3 && parts[2] === 'logout'
@@ -81,6 +104,11 @@ async function handleApiRequest(request, response) {
     const isProfileRoute = parts[1] === 'me' && parts.length === 2;
     if (user.deve_trocar_senha && !isPasswordRoute && !isProfileRoute) {
         throw new ApiError(403, 'Crie sua nova senha antes de continuar.');
+    }
+
+    if (MODULE_ROUTES[parts[1]]) {
+        await MODULE_ROUTES[parts[1]](request, response, user, parts, url.searchParams);
+        return;
     }
 
     if (parts[1] === 'mural') {

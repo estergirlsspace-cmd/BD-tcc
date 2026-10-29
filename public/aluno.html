@@ -5,14 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#312782">
     <title>Portal do Aluno · C·Warning</title>
+    <script src="/preferencias.js"></script>
     <link rel="stylesheet" href="/vendor/fontes.css">
     <link rel="stylesheet" href="/vendor/phosphor/regular.css">
     <link rel="stylesheet" href="/vendor/phosphor/fill.css">
     <link rel="stylesheet" href="/tema.css">
     <link rel="stylesheet" href="/notificacoes.css">
+    <link rel="stylesheet" href="/componentes/mensagens.css">
     <link rel="stylesheet" href="/aluno.css">
     <script src="/datas.js" defer></script>
     <script src="/notificacoes.js" defer></script>
+    <script src="/componentes/mensagens.js" defer></script>
     <script src="/aluno.js" defer></script>
 </head>
 <body>
@@ -30,6 +33,7 @@
                 <li><a class="rail-item" href="#/agenda/hoje" data-secao="agenda"><span class="rail-icone"><i class="ph ph-calendar-dots" aria-hidden="true"></i></span><span class="rail-rotulo">Agenda</span></a></li>
                 <li><a class="rail-item" href="#/atividades/pendentes" data-secao="atividades"><span class="rail-icone"><i class="ph ph-clipboard-text" aria-hidden="true"></i></span><span class="rail-rotulo">Atividades</span></a></li>
                 <li><a class="rail-item" href="#/frequencia/resumo" data-secao="frequencia"><span class="rail-icone"><i class="ph ph-list-checks" aria-hidden="true"></i></span><span class="rail-rotulo">Frequência</span></a></li>
+                <li><a class="rail-item" href="#/mensagens" data-secao="mensagens"><span class="rail-icone"><i class="ph ph-chat-circle-dots" aria-hidden="true"></i><span class="badge-contador" data-badge-mensagens aria-hidden="true" hidden></span></span><span class="rail-rotulo">Mensagens</span><span class="visually-hidden" data-sr-mensagens></span></a></li>
             </ul>
             <div class="rail-rodape">
                 <a class="rail-item" href="#/ajustes/perfil" data-secao="ajustes"><span class="rail-icone"><i class="ph ph-gear-six" aria-hidden="true"></i></span><span class="rail-rotulo">Ajustes</span></a>
@@ -73,10 +77,10 @@
 
         <!-- Abas inferiores (celular) -->
         <nav class="abas" aria-label="Seções do portal">
-            <a class="aba" href="#/inicio" data-secao="inicio"><span class="aba-icone"><i class="ph ph-house" aria-hidden="true"></i></span><span>Início</span></a>
+            <a class="aba" href="#/inicio" data-secao="inicio" data-inclui="atividades frequencia"><span class="aba-icone"><i class="ph ph-house" aria-hidden="true"></i></span><span>Início</span></a>
             <a class="aba" href="#/avisos/todos" data-secao="avisos"><span class="aba-icone"><i class="ph ph-megaphone-simple" aria-hidden="true"></i><span class="ponto-alerta" data-ponto-naolidos hidden></span></span><span>Avisos</span><span class="visually-hidden" data-sr-naolidos></span></a>
             <a class="aba" href="#/agenda/hoje" data-secao="agenda"><span class="aba-icone"><i class="ph ph-calendar-dots" aria-hidden="true"></i></span><span>Agenda</span></a>
-            <a class="aba" href="#/atividades/pendentes" data-secao="atividades"><span class="aba-icone"><i class="ph ph-clipboard-text" aria-hidden="true"></i></span><span>Atividades</span></a>
+            <a class="aba" href="#/mensagens" data-secao="mensagens"><span class="aba-icone"><i class="ph ph-chat-circle-dots" aria-hidden="true"></i><span class="badge-contador" data-badge-mensagens aria-hidden="true" hidden></span></span><span>Mensagens</span><span class="visually-hidden" data-sr-mensagens></span></a>
             <a class="aba" href="#/ajustes/perfil" data-secao="ajustes"><span class="aba-icone"><i class="ph ph-gear-six" aria-hidden="true"></i></span><span>Ajustes</span></a>
         </nav>
     </div>

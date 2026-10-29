@@ -22,6 +22,14 @@ const passwordChangeSuccess = document.querySelector('#password-change-success')
 const firstAccessForm = document.querySelector('#first-access-form');
 const firstAccessMessage = document.querySelector('#first-access-message');
 const firstAccessButton = document.querySelector('#first-access-button');
+const forgotLink = document.querySelector('#forgot-link');
+const recoverForm = document.querySelector('#recover-form');
+const recoverInput = document.querySelector('#recover-login');
+const recoverMessage = document.querySelector('#recover-message');
+const recoverButton = document.querySelector('#recover-button');
+const recoverFields = document.querySelector('#recover-fields');
+const recoverDone = document.querySelector('#recover-done');
+const recoverDoneText = document.querySelector('#recover-done-text');
 
 const state = {
     role: 'aluno',
@@ -58,7 +66,61 @@ function showView(view) {
     form.hidden = view !== form;
     firstAccessForm.hidden = view !== firstAccessForm;
     welcomePanel.hidden = view !== welcomePanel;
+    recoverForm.hidden = view !== recoverForm;
 }
+
+// "Esqueci minha senha": formulário no mesmo painel; a resposta é sempre genérica
+// (não revela se a matrícula/usuário existe ou tem e-mail).
+forgotLink.addEventListener('click', () => {
+    recoverInput.value = loginInput.value.trim();
+    recoverMessage.textContent = '';
+    recoverFields.hidden = false;
+    recoverDone.hidden = true;
+    showView(recoverForm);
+    recoverInput.focus();
+});
+
+document.querySelector('#recover-back').addEventListener('click', () => {
+    showView(form);
+    forgotLink.focus();
+});
+
+recoverForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    recoverMessage.textContent = '';
+    const login = recoverInput.value.trim();
+    if (!login) {
+        recoverMessage.textContent = 'Digite sua matrícula ou seu usuário.';
+        recoverInput.focus();
+        return;
+    }
+    recoverButton.disabled = true;
+    recoverButton.textContent = 'Enviando...';
+    try {
+        const response = await fetch('/api/auth/recuperar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ login })
+        });
+        if (response.status === 429) throw new Error('Muitas tentativas. Aguarde alguns minutos e tente de novo.');
+        if (response.status === 501) throw new Error('A recuperação de senha ainda está em construção. Procure a secretaria da escola.');
+        if (!response.ok) {
+            const result = await response.json().catch(() => ({}));
+            throw new Error(result.erro || 'Não foi possível enviar agora. Tente novamente.');
+        }
+        recoverDoneText.textContent = `Pronto! Se a conta ${login} tiver um e-mail cadastrado, enviamos um link para criar uma nova senha.`;
+        recoverFields.hidden = true;
+        recoverDone.hidden = false;
+        document.querySelector('#recover-title').focus();
+    } catch (error) {
+        recoverMessage.textContent = error instanceof TypeError
+            ? 'Não foi possível conectar ao servidor.'
+            : error.message;
+    } finally {
+        recoverButton.disabled = false;
+        recoverButton.textContent = 'Enviar link';
+    }
+});
 
 function selectRole(role) {
     state.role = role;

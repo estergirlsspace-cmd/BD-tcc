@@ -1,0 +1,16 @@
+Olá, {{{NOME}}}.
+
+{{{REMETENTE}}} enviou uma mensagem para você no C-Warning:
+
+"{{{TRECHO}}}"
+
+Para ler e responder, acesse:
+{{{LINK}}}
+
+Você pode desligar estes e-mails em Ajustes › Notificações.
+
+--
+Equipe C-Warning
+CEEP Lourdinha Guerra
+
+CEEP Lourdinha Guerra · Parnamirim/RN — Você recebe este e-mail porque tem uma conta no C-Warning.

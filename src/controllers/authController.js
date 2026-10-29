@@ -14,8 +14,6 @@ const MAX_TRACKED_KEYS = 10000;
 
 // Tentativas de login malsucedidas por IP + usuário, mantidas em memória.
 const failedAttempts = new Map();
-// Todas as tentativas de login por IP (certas ou erradas) na janela atual de 1 minuto.
-const attemptsPerIp = new Map();
 // Hash usado quando o usuário não existe, para o tempo de resposta não revelar contas válidas.
 let dummyPasswordHash;
 
@@ -36,11 +34,6 @@ function attemptKey(request, login) {
 
 // Remove registros vencidos para os mapas não crescerem sem limite.
 function pruneAttempts(now) {
-    if (attemptsPerIp.size > MAX_TRACKED_KEYS) {
-        for (const [ip, entry] of attemptsPerIp) {
-            if (now - entry.windowStart > IP_WINDOW_MS) attemptsPerIp.delete(ip);
-        }
-    }
     if (failedAttempts.size > MAX_TRACKED_KEYS) {
         for (const [key, entry] of failedAttempts) {
             if (entry.lockedUntil < now && now - entry.firstFailure > FAILURE_WINDOW_MS) {
@@ -50,20 +43,50 @@ function pruneAttempts(now) {
     }
 }
 
+// Limitador por IP em janela fixa, em memória. Reaproveitado pelo login e por
+// "Esqueci minha senha" (contaController), cada um com o próprio mapa e limite.
+function createIpLimiter({ max, windowMs, message }) {
+    const attempts = new Map();
+    return function assertRate(request) {
+        const now = Date.now();
+        if (attempts.size > MAX_TRACKED_KEYS) {
+            for (const [ip, entry] of attempts) {
+                if (now - entry.windowStart > windowMs) attempts.delete(ip);
+            }
+        }
+        const ip = clientAddress(request);
+        const entry = attempts.get(ip);
+        if (!entry || now - entry.windowStart > windowMs) {
+            attempts.set(ip, { count: 1, windowStart: now });
+            return;
+        }
+        entry.count += 1;
+        if (entry.count > max) throw new ApiError(429, message);
+    };
+}
+
 // Limite geral por IP: barra quem testa muitos usuários diferentes antes de calcular qualquer hash.
-function assertIpRate(request) {
-    const now = Date.now();
-    pruneAttempts(now);
-    const ip = clientAddress(request);
-    const entry = attemptsPerIp.get(ip);
-    if (!entry || now - entry.windowStart > IP_WINDOW_MS) {
-        attemptsPerIp.set(ip, { count: 1, windowStart: now });
-        return;
-    }
-    entry.count += 1;
-    if (entry.count > MAX_ATTEMPTS_PER_IP) {
-        throw new ApiError(429, 'Muitas tentativas de login a partir desta rede. Aguarde 1 minuto.');
-    }
+const assertIpRate = createIpLimiter({
+    max: MAX_ATTEMPTS_PER_IP,
+    windowMs: IP_WINDOW_MS,
+    message: 'Muitas tentativas de login a partir desta rede. Aguarde 1 minuto.'
+});
+
+// Resumo do User-Agent para a lista de dispositivos conectados, ex.: "Chrome · Windows".
+function describeDevice(userAgent) {
+    const ua = String(userAgent || '').slice(0, 512);
+    const browsers = [
+        [/Edg(e|A|iOS)?\//, 'Edge'], [/OPR\/|Opera/, 'Opera'], [/SamsungBrowser\//, 'Samsung Internet'],
+        [/Firefox\/|FxiOS\//, 'Firefox'], [/Chrome\/|CriOS\//, 'Chrome'], [/Safari\//, 'Safari']
+    ];
+    const systems = [
+        [/Windows/, 'Windows'], [/Android/, 'Android'], [/iPhone|iPod/, 'iPhone'], [/iPad/, 'iPad'],
+        [/CrOS/, 'ChromeOS'], [/Mac OS X|Macintosh/, 'macOS'], [/Linux/, 'Linux']
+    ];
+    const browser = browsers.find(([pattern]) => pattern.test(ua))?.[1];
+    const system = systems.find(([pattern]) => pattern.test(ua))?.[1];
+    if (!browser && !system) return 'Dispositivo desconhecido';
+    return [browser || 'Navegador', system].filter(Boolean).join(' · ');
 }
 
 function assertNotLocked(key) {
@@ -140,9 +163,11 @@ async function handleLogin(request, response) {
     const token = randomBytes(32).toString('base64url');
     const expiresAt = Math.floor(Date.now() / 1000) + SESSION_LIFETIME_SECONDS;
     database.prepare('DELETE FROM sessoes WHERE expira_em <= ?').run(Math.floor(Date.now() / 1000));
-    database.prepare(
-        'INSERT INTO sessoes (token_hash, id_usuario, curso, expira_em) VALUES (?, ?, ?, ?)'
-    ).run(hashToken(token), user.id_usuario, user.curso, expiresAt);
+    database.prepare(`
+        INSERT INTO sessoes (token_hash, id_usuario, curso, expira_em, dispositivo, ultimo_acesso)
+        VALUES (?, ?, ?, ?, ?, ?)
+    `).run(hashToken(token), user.id_usuario, user.curso, expiresAt,
+        describeDevice(request.headers['user-agent']), Math.floor(Date.now() / 1000));
 
     sendJson(response, 200, {
         token,
@@ -172,4 +197,4 @@ async function handleLogout(request, response, session) {
     response.end();
 }
 
-module.exports = { handleLogin, handleLogout, hashToken };
+module.exports = { handleLogin, handleLogout, hashToken, clientAddress, createIpLimiter };

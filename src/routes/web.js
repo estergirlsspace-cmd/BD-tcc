@@ -7,7 +7,10 @@ const pageRoutes = new Map([
     ['/', 'index.html'],
     ['/aluno', 'aluno.html'],
     ['/professor', 'professor.html'],
-    ['/gestao', 'gestao.html']
+    ['/gestao', 'gestao.html'],
+    // Links dos e-mails (token no hash, nunca na query): a mesma página trata os dois casos.
+    ['/redefinir', 'redefinir.html'],
+    ['/confirmar-email', 'redefinir.html']
 ]);
 
 const contentTypes = new Map([

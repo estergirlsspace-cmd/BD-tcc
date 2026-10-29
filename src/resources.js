@@ -34,7 +34,7 @@ const resources = {
         table: 'posts_avisos',
         id: 'id_post',
         fields: ['titulo', 'conteudo', 'id_usuario_autor', 'id_turma', 'curso', 'serie',
-            'tipo', 'data_evento', 'urgente'],
+            'tipo', 'data_evento', 'urgente', 'id_arquivo'],
         required: ['titulo', 'conteudo']
     }
 };

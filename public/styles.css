@@ -18,10 +18,23 @@
     --cw-login-vidro: rgba(255, 255, 255, 0.08);
 }
 
+/* Modo escuro (ver /tema.css): verde de sucesso legível sobre fundo escuro. */
+:root[data-tema="escuro"] {
+    --cw-login-sucesso: #8ee6b2;
+    --cw-login-sucesso-suave: #143424;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root[data-tema="auto"] {
+        --cw-login-sucesso: #8ee6b2;
+        --cw-login-sucesso-suave: #143424;
+    }
+}
+
 .login-body {
     min-height: 100vh;
     background: var(--cw-indigo);
-    color: var(--cw-superficie);
+    color: #FFFFFF;
 }
 
 .login {
@@ -148,7 +161,7 @@
 }
 
 .perfil__radio:checked + .perfil__texto {
-    background: var(--cw-superficie);
+    background: #FFFFFF;
     color: var(--cw-indigo);
     box-shadow: 0 1px 3px var(--cw-login-sombra);
 }
@@ -181,7 +194,7 @@
     border: 1.5px solid var(--cw-login-borda-escura);
     border-radius: var(--cw-raio-sm);
     background: var(--cw-login-vidro);
-    color: var(--cw-superficie);
+    color: #FFFFFF;
     font: inherit;
     font-size: 16px;
 }
@@ -194,7 +207,7 @@
 .campo__entrada:focus-visible {
     outline: 3px solid var(--cw-foco);
     outline-offset: 2px;
-    border-color: var(--cw-superficie);
+    border-color: #FFFFFF;
 }
 
 .campo__entrada--senha {
@@ -219,7 +232,7 @@
 }
 
 .campo__mostrar:hover {
-    color: var(--cw-superficie);
+    color: #FFFFFF;
 }
 
 /* Botões */
@@ -232,7 +245,7 @@
     padding: 0 20px;
     border: 0;
     border-radius: var(--cw-raio-sm);
-    background: var(--cw-superficie);
+    background: #FFFFFF;
     color: var(--cw-indigo);
     font: inherit;
     font-size: 16px;
@@ -242,7 +255,7 @@
 }
 
 .login-botao:hover {
-    background: var(--cw-azul-suave);
+    background: color-mix(in srgb, #FFFFFF 86%, var(--cw-indigo));
 }
 
 .login-botao:disabled {
@@ -259,7 +272,7 @@
 .login-botao--secundario {
     border: 1.5px solid var(--cw-login-borda-escura);
     background: transparent;
-    color: var(--cw-superficie);
+    color: #FFFFFF;
 }
 
 .login-botao--secundario:hover {
@@ -275,7 +288,7 @@
 }
 
 .login-ajuda strong {
-    color: var(--cw-superficie);
+    color: #FFFFFF;
 }
 
 .login-ajuda--intro {
@@ -297,7 +310,7 @@
     padding: 10px 14px;
     border-radius: var(--cw-raio-sm);
     background: var(--cw-vermelho-suave);
-    color: var(--cw-login-erro);
+    color: var(--cw-vermelho-texto);
     font-size: 14px;
     font-weight: 600;
     line-height: 1.45;
@@ -310,6 +323,53 @@
 
 .login-mensagem:empty {
     display: none;
+}
+
+/* "Esqueci minha senha" e "Voltar para entrar": botões com aparência de link. */
+.login-link {
+    align-self: flex-start;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #FFFFFF;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+}
+
+.login-link:focus-visible {
+    outline: 3px solid var(--cw-foco);
+    outline-offset: 2px;
+}
+
+.login-link--voltar {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+}
+
+.login-confirmacao {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.login-confirmacao__icone {
+    font-size: 40px;
+}
+
+a.login-botao {
+    text-decoration: none;
+}
+
+.login-titulo[tabindex='-1']:focus {
+    outline: none;
+    box-shadow: none;
 }
 
 /* ---------- Web: duas colunas ---------- */
@@ -335,7 +395,7 @@
         overflow: hidden;
         padding: 56px;
         background: var(--cw-indigo);
-        color: var(--cw-superficie);
+        color: #FFFFFF;
     }
 
     .login-hero__marca {
@@ -380,7 +440,7 @@
         position: absolute;
         bottom: -4px;
         left: -20px;
-        color: var(--cw-superficie);
+        color: #FFFFFF;
         font-size: 40px;
         line-height: 1;
         filter: drop-shadow(0 4px 6px var(--cw-login-sombra));
@@ -399,7 +459,7 @@
     }
 
     .login-mapa__cidade {
-        color: var(--cw-superficie);
+        color: #FFFFFF;
         font-size: 14px;
         font-weight: 700;
     }
@@ -445,7 +505,7 @@
     }
 
     .perfil {
-        background: var(--cw-login-segmento);
+        background: var(--cw-chip);
     }
 
     .perfil__texto {
@@ -453,7 +513,8 @@
     }
 
     .perfil__radio:checked + .perfil__texto {
-        color: var(--cw-indigo);
+        background: var(--cw-superficie);
+        color: var(--cw-texto-marca);
         box-shadow: 0 1px 3px var(--cw-login-sombra-leve);
     }
 
@@ -484,12 +545,12 @@
     }
 
     .campo__mostrar:hover {
-        color: var(--cw-indigo);
+        color: var(--cw-texto-marca);
     }
 
     .login-botao {
         background: var(--cw-indigo);
-        color: var(--cw-superficie);
+        color: #FFFFFF;
     }
 
     .login-botao:hover {
@@ -499,7 +560,7 @@
     .login-botao--secundario {
         border-color: var(--cw-indigo);
         background: var(--cw-superficie);
-        color: var(--cw-indigo);
+        color: var(--cw-texto-marca);
     }
 
     .login-botao--secundario:hover {
@@ -518,5 +579,13 @@
 
     .login-ajuda strong {
         color: var(--cw-texto);
+    }
+
+    .login-link {
+        color: var(--cw-link);
+    }
+
+    .login-confirmacao__icone {
+        color: var(--cw-link);
     }
 }

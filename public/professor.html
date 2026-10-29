@@ -2,185 +2,95 @@
 <html lang="pt-BR">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#b58a2a">
-    <title>Portal do Professor | C-Warning</title>
-    <link rel="stylesheet" href="/professor.css">
-    <link rel="stylesheet" href="/navegacao.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#312782">
+    <title>Portal do Professor · C·Warning</title>
+    <script src="/preferencias.js"></script>
+    <link rel="stylesheet" href="/vendor/fontes.css">
+    <link rel="stylesheet" href="/vendor/phosphor/regular.css">
+    <link rel="stylesheet" href="/vendor/phosphor/fill.css">
+    <link rel="stylesheet" href="/tema.css">
     <link rel="stylesheet" href="/notificacoes.css">
+    <link rel="stylesheet" href="/componentes/mensagens.css">
+    <link rel="stylesheet" href="/professor.css">
     <script src="/datas.js" defer></script>
     <script src="/notificacoes.js" defer></script>
+    <script src="/componentes/mensagens.js" defer></script>
     <script src="/professor.js" defer></script>
 </head>
 <body>
-    <div class="portal-layout">
-        <aside class="sidebar">
-            <a class="brand" href="/professor" aria-label="C-Warning, início">
-                <span class="brand-icon" aria-hidden="true">👩‍🏫</span>
-                <span><strong>C-Warning</strong><small>Portal do Professor</small></span>
+    <a class="pular-conteudo" href="#conteudo">Pular para o conteúdo</a>
+
+    <div class="app">
+        <!-- Barra lateral (web) -->
+        <aside class="lateral" aria-label="Menu do portal">
+            <a class="lateral-marca" href="#/inicio" aria-label="C·Warning, início do Portal do Professor">
+                <span class="cw-marca cw-marca--clara" aria-hidden="true">C<span class="cw-marca__ponto"></span>Warning</span>
+                <span class="lateral-subtitulo" aria-hidden="true">Portal do Professor</span>
             </a>
-
-            <p class="sidebar-label">Menu principal</p>
-            <nav class="nav-list" aria-label="Navegação do portal">
-                <button class="nav-button active" type="button" data-page="comunicados">
-                    <span class="nav-icon" aria-hidden="true">📢</span> <span class="nav-text">Comunicados</span><span class="nav-short" aria-hidden="true">Avisos</span>
-                </button>
-                <button class="nav-button" type="button" data-page="salvos">
-                    <span class="nav-icon" aria-hidden="true">🔖</span> <span class="nav-text">Salvos</span>
-                </button>
-                <button class="nav-button" type="button" data-page="horario">
-                    <span class="nav-icon" aria-hidden="true">🗓️</span> <span class="nav-text">Horário</span>
-                </button>
-                <button class="nav-button" type="button" data-page="turmas">
-                    <span class="nav-icon" aria-hidden="true">🏫</span> <span class="nav-text">Minhas turmas</span><span class="nav-short" aria-hidden="true">Turmas</span>
-                </button>
-                <button class="nav-button" type="button" data-page="recebidos">
-                    <span class="nav-icon" aria-hidden="true">📨</span> <span class="nav-text">Comunicados recebidos</span><span class="nav-short" aria-hidden="true">Recebidos</span>
-                </button>
-                <button class="nav-button nav-logout" type="button" data-logout>
-                    <span class="nav-icon" aria-hidden="true">🚪</span> <span class="nav-text">Sair</span>
-                </button>
+            <nav class="lateral-nav" aria-label="Seções do portal">
+                <ul class="lateral-lista">
+                    <li><a class="lateral-item" href="#/inicio" data-secao="inicio"><i class="ph ph-house" aria-hidden="true"></i><span>Início</span></a></li>
+                    <li><a class="lateral-item" href="#/turmas" data-secao="turmas"><i class="ph ph-users-three" aria-hidden="true"></i><span>Turmas</span></a></li>
+                    <li><a class="lateral-item" href="#/chamada" data-secao="chamada"><i class="ph ph-list-checks" aria-hidden="true"></i><span>Chamada</span></a></li>
+                    <li><a class="lateral-item" href="#/atividades" data-secao="atividades"><i class="ph ph-clipboard-text" aria-hidden="true"></i><span>Atividades</span></a></li>
+                    <li><a class="lateral-item" href="#/avisos" data-secao="avisos"><i class="ph ph-megaphone-simple" aria-hidden="true"></i><span>Avisos</span></a></li>
+                    <li><a class="lateral-item" href="#/ocorrencias" data-secao="ocorrencias"><i class="ph ph-warning-octagon" aria-hidden="true"></i><span>Ocorrências</span></a></li>
+                    <li><a class="lateral-item" href="#/mensagens" data-secao="mensagens"><i class="ph ph-chats-circle" aria-hidden="true"></i><span>Mensagens</span><span class="lateral-contador" data-contador-mensagens hidden></span></a></li>
+                </ul>
             </nav>
-
-            <div class="sidebar-bottom">
-                <div class="teacher-card">
-                    <span class="teacher-avatar" aria-hidden="true">P</span>
-                    <span><strong id="teacher-login">Professor</strong><small id="teacher-area">Área docente</small></span>
+            <div class="lateral-rodape">
+                <a class="lateral-item" href="#/configuracoes/perfil" data-secao="configuracoes"><i class="ph ph-gear-six" aria-hidden="true"></i><span>Configurações</span></a>
+                <div class="cartao-usuario">
+                    <span class="avatar avatar-claro" id="usuario-avatar" aria-hidden="true">··</span>
+                    <span class="cartao-usuario-texto">
+                        <strong id="usuario-nome">Carregando…</strong>
+                        <small id="usuario-detalhe">Professor(a)</small>
+                    </span>
+                    <button class="botao-sair" type="button" data-sair aria-label="Sair da conta" title="Sair da conta"><i class="ph ph-sign-out" aria-hidden="true"></i></button>
                 </div>
-                <button class="logout-button" id="logout-button" type="button">Sair do portal</button>
             </div>
         </aside>
 
-        <main class="main-area">
-            <header class="topbar">
-                <div>
-                    <p class="eyebrow">CEEP Lourdinha Guerra</p>
-                    <h1 id="topbar-title">Comunicados</h1>
-                    <p id="topbar-description">Publique informações para as turmas vinculadas ao seu perfil.</p>
+        <div class="coluna">
+            <header class="topo">
+                <a class="topo-marca" href="#/inicio" aria-label="C·Warning, início">
+                    <span class="cw-marca" aria-hidden="true">C<span class="cw-marca__ponto"></span>Warning</span>
+                </a>
+                <div class="topo-titulos">
+                    <p class="topo-trilha" id="topo-trilha"></p>
+                    <h1 class="topo-titulo" id="titulo-pagina" tabindex="-1">Carregando…</h1>
                 </div>
-                <span class="cohort-badge">Portal do Professor</span>
+                <div class="topo-acoes" id="topo-acoes"></div>
             </header>
 
-            <div class="container">
-                <p class="assignment-notice" id="assignment-notice" hidden>
-                    Seu perfil ainda não está vinculado a disciplinas e turmas. Peça à Gestão para associar
-                    seu cadastro às disciplinas; depois disso, elas aparecerão aqui para publicar avisos.
-                </p>
+            <main class="conteudo" id="conteudo" tabindex="-1">
+                <div class="esqueleto-lista" aria-hidden="true">
+                    <div class="esqueleto esqueleto-linha"></div>
+                    <div class="esqueleto esqueleto-bloco"></div>
+                    <div class="esqueleto esqueleto-bloco"></div>
+                </div>
+            </main>
+        </div>
 
-                <section class="tab-content active" id="page-comunicados">
-                    <div class="welcome-card">
-                        <h2>Organize seus comunicados</h2>
-                        <p>As publicações ficam associadas à sua conta e só podem ser direcionadas às turmas vinculadas ao seu perfil.</p>
-                    </div>
-
-                    <section class="content-card">
-                        <h2>Criar novo comunicado</h2>
-                        <p class="muted">Selecione uma disciplina vinculada; a turma de destino é definida pelo cadastro escolar.</p>
-                        <form class="notice-form" id="notice-form">
-                            <label>
-                                Disciplina e turma
-                                <select id="notice-discipline" required>
-                                    <option value="">Carregando disciplinas...</option>
-                                </select>
-                            </label>
-                            <label>
-                                Título
-                                <input id="notice-title" type="text" maxlength="200" placeholder="Ex.: Avaliação da disciplina" required>
-                            </label>
-                            <label>
-                                Mensagem
-                                <textarea id="notice-content" maxlength="10000" rows="5" placeholder="Escreva as informações para a turma..." required></textarea>
-                            </label>
-                            <div class="form-row">
-                                <label>
-                                    Tipo
-                                    <select id="notice-type">
-                                        <option value="aviso">Aviso</option>
-                                        <option value="evento">Evento</option>
-                                        <option value="atividade">Atividade</option>
-                                        <option value="avaliacao">Avaliação</option>
-                                        <option value="comunicado">Comunicado</option>
-                                    </select>
-                                </label>
-                                <label>
-                                    Data do evento <span class="optional">(opcional)</span>
-                                    <input id="notice-date" type="datetime-local">
-                                </label>
-                            </div>
-                            <label class="check-field">
-                                <input id="notice-urgent" type="checkbox">
-                                Marcar como urgente
-                            </label>
-                            <button class="primary-button" id="publish-button" type="submit">Publicar comunicado</button>
-                        </form>
-                    </section>
-
-                    <section class="content-card">
-                        <h2>Publicações disponíveis</h2>
-                        <p class="muted">Consulte publicações suas e comunicados destinados às suas turmas.</p>
-                        <label class="search-field">
-                            <span class="visually-hidden">Buscar comunicado</span>
-                            <input id="notice-search" type="search" placeholder="Buscar comunicado">
-                        </label>
-                        <div class="filter-row" aria-label="Filtrar comunicados">
-                            <button class="filter-button active" type="button" data-filter="todos">Todos</button>
-                            <button class="filter-button" type="button" data-filter="aviso">Avisos</button>
-                            <button class="filter-button" type="button" data-filter="evento">Eventos</button>
-                            <button class="filter-button" type="button" data-filter="atividade">Atividades</button>
-                            <button class="filter-button" type="button" data-filter="avaliacao">Avaliações</button>
-                        </div>
-                        <div id="notice-list" class="notice-list" aria-live="polite"></div>
-                    </section>
-                </section>
-
-                <section class="tab-content" id="page-salvos" hidden>
-                    <div class="page-heading">
-                        <h2>Comunicados salvos</h2>
-                        <p>Organize referências neste navegador em pastas de sua preferência.</p>
-                    </div>
-                    <section class="content-card">
-                        <form class="saved-toolbar" id="folder-form">
-                            <label class="visually-hidden" for="folder-name">Nome da pasta</label>
-                            <input id="folder-name" type="text" maxlength="50" placeholder="Nome da nova pasta" required>
-                            <button class="secondary-button" type="submit">Criar pasta</button>
-                            <label class="visually-hidden" for="saved-folder-select">Pasta selecionada</label>
-                            <select id="saved-folder-select"></select>
-                        </form>
-                        <div id="saved-list" class="notice-list"></div>
-                    </section>
-                </section>
-
-                <section class="tab-content" id="page-horario" hidden>
-                    <div class="page-heading">
-                        <h2>Horário dos professores</h2>
-                        <p>Horários cadastrados para as turmas e disciplinas vinculadas ao seu perfil.</p>
-                    </div>
-                    <section class="content-card">
-                        <div id="schedule-list" class="schedule-list" aria-live="polite"></div>
-                    </section>
-                </section>
-
-                <section class="tab-content" id="page-turmas" hidden>
-                    <div class="page-heading">
-                        <h2>Minhas turmas e disciplinas</h2>
-                        <p>Vínculos cadastrados pela Gestão escolar.</p>
-                    </div>
-                    <section class="content-card">
-                        <div id="class-list" class="class-list" aria-live="polite"></div>
-                    </section>
-                </section>
-
-                <section class="tab-content" id="page-recebidos" hidden>
-                    <div class="page-heading">
-                        <h2>Comunicados recebidos</h2>
-                        <p>Informações da escola destinadas às turmas vinculadas ao seu perfil.</p>
-                    </div>
-                    <section class="content-card">
-                        <div id="received-list" class="notice-list" aria-live="polite"></div>
-                    </section>
-                </section>
-            </div>
-        </main>
+        <!-- Abas inferiores (celular) -->
+        <nav class="abas" aria-label="Seções do portal">
+            <a class="aba" href="#/inicio" data-secao="inicio"><i class="ph ph-house" aria-hidden="true"></i><span>Início</span></a>
+            <a class="aba" href="#/chamada" data-secao="chamada"><i class="ph ph-list-checks" aria-hidden="true"></i><span>Chamada</span></a>
+            <a class="aba" href="#/avisos" data-secao="avisos"><i class="ph ph-megaphone-simple" aria-hidden="true"></i><span>Avisos</span></a>
+            <a class="aba" href="#/mensagens" data-secao="mensagens"><span class="aba-icone"><i class="ph ph-chats-circle" aria-hidden="true"></i><span class="ponto-alerta" data-ponto-mensagens hidden></span></span><span>Mensagens</span></a>
+            <a class="aba" href="#/mais" data-secao="mais"><i class="ph ph-dots-three-outline" aria-hidden="true"></i><span>Mais</span></a>
+        </nav>
     </div>
+
+    <p class="visually-hidden" role="status" id="status-leitor"></p>
+
+    <dialog class="dialogo" id="dialogo" aria-labelledby="dialogo-titulo">
+        <div class="dialogo-cabecalho">
+            <h2 id="dialogo-titulo"></h2>
+            <button class="botao-icone" type="button" data-fechar-dialogo aria-label="Fechar"><i class="ph ph-x" aria-hidden="true"></i></button>
+        </div>
+        <div class="dialogo-corpo" id="dialogo-corpo"></div>
+    </dialog>
 </body>
 </html>

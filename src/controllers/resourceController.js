@@ -2,7 +2,38 @@ const database = require('../database');
 const { ApiError } = require('../errors');
 const { readBody, sendJson } = require('../utils/http');
 const { parseBody } = require('../utils/validation');
-const { studentNoticeScope } = require('../utils/audience');
+const notificacoes = require('../services/notificacoes');
+const { studentNoticeScope, teacherNoticeScope, noticeAudienceFrom } = require('../utils/audience');
+const { assertOwnFile, attachmentColumns, attachmentFrom } = require('../utils/arquivos');
+
+// Avisos com o anexo (metadados do arquivo) e, para quem acompanha as leituras, a contagem.
+const NOTICE_SELECT = `SELECT posts_avisos.*, ${attachmentColumns('arq')}
+    FROM posts_avisos LEFT JOIN arquivos arq ON arq.id_arquivo = posts_avisos.id_arquivo`;
+
+// Público = alunos ativos alcançados pelo aviso; confirmadas = os desses que confirmaram leitura.
+const noticeReadsStatement = database.prepare(`
+    SELECT (SELECT COUNT(*) ${noticeAudienceFrom('p')}) AS publico_total,
+           (SELECT COUNT(*) ${noticeAudienceFrom('p')}
+                AND EXISTS (SELECT 1 FROM avisos_usuarios lu
+                    WHERE lu.id_post = p.id_post AND lu.id_usuario = aud_u.id_usuario
+                      AND lu.lido_em IS NOT NULL)) AS confirmadas
+    FROM posts_avisos p WHERE p.id_post = ?
+`);
+
+// Leituras: o autor vê as dos próprios avisos; a gestão, as de todos.
+function canSeeReads(user, notice) {
+    return user.tipo_usuario === 'gestao'
+        || (user.tipo_usuario === 'professor' && notice.id_usuario_autor === user.id_usuario);
+}
+
+function noticeReads(postId) {
+    const { confirmadas, publico_total: total } = noticeReadsStatement.get(postId);
+    return { confirmadas, publico_total: total };
+}
+
+function fetchNotice(postId) {
+    return database.prepare(`${NOTICE_SELECT} WHERE posts_avisos.id_post = ?`).get(postId);
+}
 
 function publicRecord(resource, record, user) {
     if (!record) {
@@ -17,7 +48,11 @@ function publicRecord(resource, record, user) {
     }
     if (!hiddenFields.length && !isNotice) return record;
     const publicFields = { ...record };
-    if (isNotice) publicFields.urgente = Boolean(record.urgente);
+    if (isNotice) {
+        publicFields.urgente = Boolean(record.urgente);
+        publicFields.anexo = attachmentFrom(publicFields);
+        if (canSeeReads(user, record)) publicFields.leituras = noticeReads(record.id_post);
+    }
     for (const field of hiddenFields) delete publicFields[field];
     return publicFields;
 }
@@ -32,11 +67,15 @@ const HISTORY_CHECKS = {
         ['frequências como aluno', `SELECT COUNT(*) AS n FROM frequencias f
             JOIN alunos a ON a.id_aluno = f.id_aluno WHERE a.id_usuario = ?`],
         ['entregas de atividades', `SELECT COUNT(*) AS n FROM entregas_atividades e
-            JOIN alunos a ON a.id_aluno = e.id_aluno WHERE a.id_usuario = ?`]
+            JOIN alunos a ON a.id_aluno = e.id_aluno WHERE a.id_usuario = ?`],
+        ['ocorrências registradas', 'SELECT COUNT(*) AS n FROM ocorrencias WHERE id_usuario_autor = ?'],
+        ['arquivos enviados', 'SELECT COUNT(*) AS n FROM arquivos WHERE id_usuario = ?']
     ],
     alunos: [
         ['frequências', 'SELECT COUNT(*) AS n FROM frequencias WHERE id_aluno = ?'],
-        ['entregas de atividades', 'SELECT COUNT(*) AS n FROM entregas_atividades WHERE id_aluno = ?']
+        ['entregas de atividades', 'SELECT COUNT(*) AS n FROM entregas_atividades WHERE id_aluno = ?'],
+        ['justificativas', 'SELECT COUNT(*) AS n FROM justificativas WHERE id_aluno = ?'],
+        ['ocorrências', 'SELECT COUNT(*) AS n FROM ocorrencias WHERE id_aluno = ?']
     ],
     turmas: [
         ['alunos matriculados', 'SELECT COUNT(*) AS n FROM alunos WHERE id_turma = ?'],
@@ -47,7 +86,8 @@ const HISTORY_CHECKS = {
     disciplinas: [
         ['atividades', 'SELECT COUNT(*) AS n FROM atividades WHERE id_disciplina = ?'],
         ['frequências', 'SELECT COUNT(*) AS n FROM frequencias WHERE id_disciplina = ?'],
-        ['horários', 'SELECT COUNT(*) AS n FROM horarios WHERE id_disciplina = ?']
+        ['horários', 'SELECT COUNT(*) AS n FROM horarios WHERE id_disciplina = ?'],
+        ['justificativas', 'SELECT COUNT(*) AS n FROM justificativas WHERE id_disciplina = ?']
     ]
 };
 
@@ -121,33 +161,19 @@ function listRecords(resource, user) {
             where = ' WHERE id_professor = ?';
             params = [user.id_professor || -1];
         } else if (resource.table === 'posts_avisos') {
-            where = ` WHERE id_usuario_autor = ?
-                OR id_turma IN (SELECT id_turma FROM disciplinas WHERE id_professor = ?)
-                OR (id_turma IS NULL AND EXISTS (
-                    SELECT 1
-                    FROM disciplinas d
-                    JOIN turmas t ON t.id_turma = d.id_turma
-                    WHERE d.id_professor = ?
-                      AND (posts_avisos.curso IS NULL OR posts_avisos.curso = t.curso)
-                      AND (posts_avisos.serie IS NULL OR posts_avisos.serie = t.serie)
-                ))`;
-            params = [
-                user.id_usuario,
-                user.id_professor || -1,
-                user.id_professor || -1
-            ];
+            const scope = teacherNoticeScope(user);
+            where = ` WHERE ${scope.clause}`;
+            params = scope.params;
         } else {
             return [];
         }
     }
 
-    // Avisos: do mais recente para o mais antigo, como em um mural.
-    const orderBy = resource.table === 'posts_avisos'
-        ? 'criado_em DESC, id_post DESC'
-        : resource.id;
-    return database.prepare(
-        `SELECT * FROM ${resource.table}${where} ORDER BY ${orderBy}`
-    ).all(...params)
+    // Avisos: do mais recente para o mais antigo, como em um mural, com o anexo.
+    const sql = resource.table === 'posts_avisos'
+        ? `${NOTICE_SELECT}${where} ORDER BY posts_avisos.criado_em DESC, posts_avisos.id_post DESC`
+        : `SELECT * FROM ${resource.table}${where} ORDER BY ${resource.id}`;
+    return database.prepare(sql).all(...params)
         .map((record) => publicRecord(resource, record, user));
 }
 
@@ -174,7 +200,10 @@ async function handleCollection(request, response, resource, user) {
         body.id_usuario_autor = user.id_usuario;
     }
     const values = await parseBody(body, resource, true);
-    if (resource.table === 'posts_avisos') assertCoherentAudience(values);
+    if (resource.table === 'posts_avisos') {
+        assertCoherentAudience(values);
+        assertOwnFile(user, values.id_arquivo);
+    }
     if (resource.table === 'alunos') {
         const student = database.prepare(
             'SELECT tipo_usuario, curso, serie FROM usuarios WHERE id_usuario = ?'
@@ -195,10 +224,12 @@ async function handleCollection(request, response, resource, user) {
     const result = database.prepare(
         `INSERT INTO ${resource.table} (${fields.join(', ')}) VALUES (${placeholders})`
     ).run(...fields.map((field) => values[field]));
-    const record = database.prepare(
-        `SELECT * FROM ${resource.table} WHERE ${resource.id} = ?`
-    ).get(Number(result.lastInsertRowid));
+    const recordId = Number(result.lastInsertRowid);
+    const record = resource.table === 'posts_avisos'
+        ? fetchNotice(recordId)
+        : database.prepare(`SELECT * FROM ${resource.table} WHERE ${resource.id} = ?`).get(recordId);
 
+    if (resource.table === 'posts_avisos') notificacoes.onNoticePublished(record.id_post);
     sendJson(response, 201, publicRecord(resource, record, user));
 }
 
@@ -226,7 +257,7 @@ async function handleRecord(request, response, resource, id, user) {
         if (!record) {
             throw new ApiError(404, 'Registro não encontrado.');
         }
-        sendJson(response, 200, publicRecord(resource, record, user));
+        sendJson(response, 200, record);
         return;
     }
 
@@ -266,6 +297,7 @@ async function handleRecord(request, response, resource, id, user) {
     const values = await parseBody(body, resource, false);
     if (resource.table === 'posts_avisos' && currentRecord) {
         assertCoherentAudience({ ...currentRecord, ...values });
+        assertOwnFile(user, values.id_arquivo, currentRecord.id_arquivo);
     }
     const fields = Object.keys(values);
     if (fields.length === 0) {
@@ -343,9 +375,9 @@ async function handleRecord(request, response, resource, id, user) {
         throw new ApiError(404, 'Registro não encontrado.');
     }
 
-    const updated = database.prepare(
-        `SELECT * FROM ${resource.table} WHERE ${resource.id} = ?`
-    ).get(recordId);
+    const updated = resource.table === 'posts_avisos'
+        ? fetchNotice(recordId)
+        : database.prepare(`SELECT * FROM ${resource.table} WHERE ${resource.id} = ?`).get(recordId);
     sendJson(response, 200, publicRecord(resource, updated, user));
 }
 

@@ -1,7 +1,8 @@
 // Portal do Aluno (C·Warning).
 // Aplicação de página única: navegação por hash (#/secao/sub), dados reais da API,
 // renderização só com createElement/textContent (nada de innerHTML com dados).
-// Depende de /datas.js (datas no horário de Brasília) e /notificacoes.js (notify).
+// Depende de /datas.js (datas no horário de Brasília), /notificacoes.js (notify),
+// /preferencias.js (cwAparencia) e /componentes/mensagens.js (CwMensagens).
 
 'use strict';
 
@@ -10,6 +11,10 @@ const token = sessionStorage.getItem(TOKEN_KEY);
 const FUSO_ESCOLA = 'America/Sao_Paulo';
 const FREQUENCIA_MINIMA = 75;
 const MOBILE_QUERY = window.matchMedia('(max-width: 899.98px)');
+const UNREAD_POLL_MS = 30000;
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+const JUSTIFY_BUSINESS_DAYS = 5;
+const UPLOAD_TYPES = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png' };
 
 const COURSE_NAMES = { informatica: 'Técnico em Informática', redes: 'Técnico em Redes de Computadores' };
 const SERIES_NAMES = { 1: '1ª série', 2: '2ª série', 3: '3ª série' };
@@ -41,8 +46,28 @@ const SECTIONS = {
     agenda: { title: 'Agenda', defaultSub: 'hoje' },
     atividades: { title: 'Atividades', defaultSub: 'pendentes' },
     frequencia: { title: 'Frequência', defaultSub: 'resumo' },
+    mensagens: { title: 'Mensagens', defaultSub: null },
     ajustes: { title: 'Ajustes', defaultSub: 'perfil' }
 };
+
+// Situação da falta: derivada de frequencias[].justificativa (ou da lista de justificativas).
+const ABSENCE_STATUS = {
+    sem: { label: 'Sem justificativa', className: 'selo-vermelho', icon: 'warning-circle' },
+    pendente: { label: 'Em análise', className: 'selo-azul', icon: 'hourglass-medium' },
+    aceita: { label: 'Justificada', className: 'selo-neutro', icon: 'check-circle' },
+    recusada: { label: 'Recusada', className: 'selo-vermelho', icon: 'x-circle' }
+};
+
+const NOTIFICATION_TYPES = [
+    ['urgente', 'Avisos urgentes', 'Fechamentos, mudanças de sala e emergências', 'warning-circle'],
+    ['turma', 'Avisos da turma', 'Comunicados dos seus professores', 'users-three'],
+    ['prazos', 'Prazos de atividades', 'Lembrete às 18h do dia anterior ao prazo', 'clipboard-text'],
+    ['eventos', 'Eventos da escola', 'Feira, reuniões e datas do calendário', 'calendar-dots'],
+    ['mensagens', 'Mensagens', 'Respostas de professores e coordenação', 'chat-circle-dots']
+];
+
+const THEMES = [['claro', 'Claro'], ['escuro', 'Escuro'], ['auto', 'Automático']];
+const TEXT_SIZES = [['pequeno', 'Pequeno'], ['medio', 'Médio'], ['grande', 'Grande']];
 
 const FAQ = [
     ['Como confirmo que li um aviso?',
@@ -51,10 +76,12 @@ const FAQ = [
         'Em Avisos › Salvos. Use o botão "Salvar" dentro do aviso para guardar os mais importantes.'],
     ['Como envio uma atividade?',
         'Em Atividades › Pendentes, toque em "Enviar", escreva sua resposta e confirme antes do prazo. Até o prazo terminar você pode reenviar.'],
+    ['Como justifico uma falta?',
+        'Em Frequência › Histórico de faltas, toque em "Justificar" na falta, escreva o motivo e anexe o atestado (PDF, JPG ou PNG, até 5 MB). Envie em até 5 dias úteis depois da falta.'],
     ['Minha frequência está abaixo de 75%. E agora?',
         'O mínimo para aprovação é 75% de presença. Procure a coordenação para entender a situação e combinar a reposição.'],
     ['Esqueci minha senha. O que faço?',
-        'Procure a secretaria da escola para redefinir a senha. No primeiro acesso depois disso, você cria uma senha nova.']
+        'Na tela de entrada, toque em "Esqueci minha senha". Se você tiver um e-mail cadastrado em Ajustes › Perfil, enviamos um link para criar uma senha nova. Sem e-mail, procure a secretaria.']
 ];
 
 // ---------------------------------------------------------------- estado
@@ -69,9 +96,15 @@ const state = {
         desempenho: { status: 'loading', data: null, error: null },
         atividades: { status: 'loading', data: null, error: null },
         horarios: { status: 'loading', data: null, error: null },
-        frequencias: { status: 'loading', data: null, error: null }
+        frequencias: { status: 'loading', data: null, error: null },
+        ocorrencias: { status: 'loading', data: null, error: null },
+        justificativas: { status: 'loading', data: null, error: null }
     },
-    lastUnreadAnnounced: null
+    lastUnreadAnnounced: null,
+    unreadMessages: null,
+    messagesPanel: null,
+    pendingEmail: null,
+    focusEmailField: false
 };
 
 const SOURCE_PATHS = {
@@ -79,7 +112,9 @@ const SOURCE_PATHS = {
     desempenho: '/api/desempenho',
     atividades: '/api/atividades',
     horarios: '/api/horarios',
-    frequencias: '/api/frequencias'
+    frequencias: '/api/frequencias',
+    ocorrencias: '/api/ocorrencias',
+    justificativas: '/api/justificativas'
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -111,8 +146,70 @@ async function api(path, options = {}) {
         leaveToLogin();
         throw new Error('Sua sessão expirou. Entre novamente.');
     }
+    if (response.status === 501) throw new Error('Este recurso ainda está em construção. Tente de novo mais tarde.');
     if (!response.ok) throw new Error(result?.erro || 'Não foi possível concluir a solicitação.');
     return result;
+}
+
+// Download autenticado: o token vai no cabeçalho (nunca na URL); o arquivo vira um link temporário.
+async function downloadFile(file, trigger) {
+    if (trigger) {
+        trigger.disabled = true;
+        trigger.setAttribute('aria-busy', 'true');
+    }
+    try {
+        const response = await fetch(`/api/arquivos/${encodeURIComponent(file.id_arquivo)}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        if (response.status === 401) {
+            leaveToLogin();
+            return;
+        }
+        if (!response.ok) {
+            let message = null;
+            try {
+                message = (await response.json())?.erro;
+            } catch {
+                // Resposta sem JSON: usa a mensagem padrão.
+            }
+            throw new Error(response.status === 501 ? 'Download ainda em construção. Tente mais tarde.'
+                : message || 'Não foi possível baixar o anexo.');
+        }
+        const url = URL.createObjectURL(await response.blob());
+        const link = el('a', { href: url, download: file.nome || 'anexo' });
+        document.body.append(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (error) {
+        notify(error.message || 'Não foi possível baixar o anexo.', 'erro');
+    } finally {
+        if (trigger) {
+            trigger.disabled = false;
+            trigger.removeAttribute('aria-busy');
+        }
+    }
+}
+
+// Envia um arquivo cru (POST /api/arquivos) e devolve { id_arquivo, nome, tipo_mime, tamanho }.
+function uploadFile(file) {
+    return api('/api/arquivos', {
+        method: 'POST',
+        body: file,
+        headers: { 'Content-Type': uploadType(file), 'X-Nome-Arquivo': encodeURIComponent(file.name) }
+    });
+}
+
+function uploadType(file) {
+    const extension = String(file.name || '').split('.').pop().toLowerCase();
+    return Object.values(UPLOAD_TYPES).includes(file.type) ? file.type : UPLOAD_TYPES[extension] || '';
+}
+
+function formatSize(bytes) {
+    const value = Number(bytes) || 0;
+    if (value < 1024) return `${value} B`;
+    if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`;
+    return `${(value / (1024 * 1024)).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} MB`;
 }
 
 async function logout() {
@@ -124,19 +221,58 @@ async function logout() {
     leaveToLogin();
 }
 
-async function loadSource(name) {
+function loadSource(name) {
     const source = state.sources[name];
     source.status = 'loading';
     source.error = null;
     render();
+    source.promise = (async () => {
+        try {
+            source.data = await api(SOURCE_PATHS[name]);
+            source.status = 'ok';
+        } catch (error) {
+            source.status = 'error';
+            source.error = error.message;
+        }
+        render();
+        return source;
+    })();
+    return source.promise;
+}
+
+// Resolve quando a fonte terminou de carregar (com sucesso ou erro).
+function whenSource(name) {
+    const source = state.sources[name];
+    if (source.status === 'ok' || source.status === 'error') return Promise.resolve(source);
+    return source.promise || loadSource(name);
+}
+
+// ---------------------------------------------------------------- mensagens não lidas (badge)
+
+async function refreshUnreadMessages() {
+    if (document.hidden) return;
     try {
-        source.data = await api(SOURCE_PATHS[name]);
-        source.status = 'ok';
-    } catch (error) {
-        source.status = 'error';
-        source.error = error.message;
+        const result = await api('/api/mensagens/nao-lidas');
+        setUnreadMessages(Number(result?.total) || 0);
+    } catch {
+        setUnreadMessages(null);
     }
-    render();
+}
+
+function setUnreadMessages(total) {
+    const previous = state.unreadMessages;
+    state.unreadMessages = total;
+    document.querySelectorAll('[data-badge-mensagens]').forEach((badge) => {
+        badge.hidden = !total;
+        badge.textContent = total > 99 ? '99+' : String(total || '');
+    });
+    document.querySelectorAll('[data-sr-mensagens]').forEach((span) => {
+        span.textContent = total ? `, ${plural(total, 'mensagem não lida', 'mensagens não lidas')}` : '';
+    });
+    if (previous !== null && total !== null && total > previous) {
+        $('#status-contadores').textContent = `${plural(total, 'mensagem não lida', 'mensagens não lidas')}.`;
+        if (state.messagesPanel && state.route.section === 'mensagens') state.messagesPanel.atualizar();
+    }
 }
 
 async function initialize() {
@@ -158,7 +294,10 @@ async function initialize() {
     setupShell();
     applyRoute(parseHash(), { focus: false });
     window.addEventListener('hashchange', () => applyRoute(parseHash(), { focus: true }));
-    MOBILE_QUERY.addEventListener('change', render);
+    MOBILE_QUERY.addEventListener('change', () => render({ force: true }));
+    refreshUnreadMessages();
+    window.setInterval(refreshUnreadMessages, UNREAD_POLL_MS);
+    document.addEventListener('visibilitychange', refreshUnreadMessages);
     await Promise.all(Object.keys(SOURCE_PATHS).map(loadSource));
 }
 
@@ -439,6 +578,71 @@ function absences() {
     return (state.sources.frequencias.data || []).filter((record) => !record.presente);
 }
 
+function justifications() {
+    const data = state.sources.justificativas.data;
+    return Array.isArray(data) ? data : data?.justificativas || [];
+}
+
+// Justificativa mais recente para a falta (aluno + disciplina + data), vinda da lista do aluno.
+function justificationFor(group) {
+    return justifications()
+        .filter((item) => String(item.data_falta || '').slice(0, 10) === group.data)
+        .filter((item) => {
+            const discipline = item.disciplina;
+            const id = item.id_disciplina ?? discipline?.id_disciplina;
+            if (id !== undefined && id !== null) return Number(id) === Number(group.id_disciplina);
+            const name = typeof discipline === 'string' ? discipline : discipline?.nome_disciplina || discipline?.nome;
+            return name === group.nome_disciplina;
+        })
+        .sort((a, b) => String(b.criado_em || '').localeCompare(String(a.criado_em || '')))[0] || null;
+}
+
+// Faltas agrupadas por disciplina + dia (a justificativa vale para o dia inteiro daquela disciplina).
+function absenceGroups() {
+    const groups = new Map();
+    for (const record of absences()) {
+        const data = String(record.data_aula || '').slice(0, 10);
+        const key = `${record.id_disciplina}_${data}`;
+        const group = groups.get(key) || {
+            key, data, id_disciplina: record.id_disciplina, nome_disciplina: record.nome_disciplina || 'Disciplina',
+            aulas: 0, situacao: null, observacao: record.observacao || null
+        };
+        group.aulas += 1;
+        if (record.justificativa?.situacao) group.situacao = record.justificativa.situacao;
+        groups.set(key, group);
+    }
+    return [...groups.values()].map((group) => {
+        const detail = justificationFor(group);
+        const situacao = group.situacao || detail?.situacao || null;
+        return { ...group, detalhe: detail, status: ABSENCE_STATUS[situacao] ? situacao : 'sem' };
+    }).sort((a, b) => b.data.localeCompare(a.data));
+}
+
+// Último dia para justificar: 5 dias úteis (seg–sex) depois da falta.
+function justifyDeadline(ymd) {
+    const date = new Date(`${ymd}T12:00:00Z`);
+    let count = 0;
+    while (count < JUSTIFY_BUSINESS_DAYS) {
+        date.setUTCDate(date.getUTCDate() + 1);
+        const weekday = date.getUTCDay();
+        if (weekday !== 0 && weekday !== 6) count += 1;
+    }
+    return date.toISOString().slice(0, 10);
+}
+
+function canJustify(group) {
+    return (group.status === 'sem' || group.status === 'recusada') && schoolParts().ymd <= justifyDeadline(group.data);
+}
+
+function occurrences() {
+    const data = state.sources.ocorrencias.data;
+    return Array.isArray(data) ? data : data?.ocorrencias || [];
+}
+
+function isOpenOccurrence(item) {
+    return (item.situacao || 'aberta') === 'aberta';
+}
+
 // Itens da agenda dos próximos 7 dias: aulas semanais, prazos e eventos.
 function agendaDays() {
     const today = schoolParts();
@@ -546,12 +750,19 @@ function subnavGroups(section) {
             ['Acompanhar', [
                 ['resumo', 'Resumo', 'chart-bar', null],
                 ['faltas', 'Histórico de faltas', 'calendar-x', countIf(absencesReady, absences().length)]
+            ]],
+            ['Solicitar', [
+                ['justificar', 'Justificar falta', 'file-arrow-up', null]
             ]]
         ],
         ajustes: [
             ['Conta', [
                 ['perfil', 'Perfil', 'user-circle', null],
                 ['seguranca', 'Senha e segurança', 'lock-key', null]
+            ]],
+            ['Preferências', [
+                ['notificacoes', 'Notificações', 'bell-simple', null],
+                ['aparencia', 'Aparência', 'paint-brush', null]
             ]],
             ['Suporte', [
                 ['ajuda', 'Ajuda', 'question', null]
@@ -621,6 +832,12 @@ function parseHash() {
         id = Number(sub);
         sub = null;
     }
+    if (section === 'frequencia' && sub === 'justificar' && /^\d+_\d{4}-\d{2}-\d{2}$/.test(parts[2] || '')) {
+        id = parts[2];
+    }
+    if (section === 'mensagens') {
+        return { section, sub: sub === 'nova' ? 'nova' : null, id: null };
+    }
     const groups = subnavGroups(section);
     if (groups && !id && !groups.some(([, items]) => items.some(([key]) => key === sub))) {
         sub = SECTIONS[section].defaultSub;
@@ -629,6 +846,10 @@ function parseHash() {
 }
 
 function applyRoute(route, { focus }) {
+    if (route.section !== 'mensagens' && state.messagesPanel) {
+        state.messagesPanel.desmontar();
+        state.messagesPanel = null;
+    }
     state.route = route;
     if (route.section === 'avisos' && route.sub) state.lastNoticeSub = route.sub;
     render();
@@ -677,7 +898,9 @@ function renderShell(pageTitle, trail) {
     const { section, id } = state.route;
     document.querySelectorAll('.rail-item, .aba').forEach((link) => {
         const active = link.dataset.secao === section;
-        link.classList.toggle('ativo', active);
+        // No celular, Atividades e Frequência ficam "dentro" do Início (atalhos no painel).
+        const parent = (link.dataset.inclui || '').split(' ').includes(section);
+        link.classList.toggle('ativo', active || parent);
         if (active) link.setAttribute('aria-current', 'page');
         else link.removeAttribute('aria-current');
     });
@@ -714,22 +937,33 @@ function renderShell(pageTitle, trail) {
 
 // ---------------------------------------------------------------- renderização
 
-function render() {
+// Telas com formulário ou componente vivo: depois de desenhadas, só redesenham ao mudar de rota
+// (não apagam o que o aluno digita quando uma fonte termina de carregar).
+function isStableRoute() {
+    const { section, sub } = state.route;
+    if (section === 'ajustes' || section === 'mensagens') return true;
+    return section === 'frequencia' && sub === 'justificar' && state.sources.frequencias.status === 'ok';
+}
+
+function render({ force = false } = {}) {
     if (!state.user) return;
     const { section, sub, id } = state.route;
     let pageTitle = SECTIONS[section].title;
     let trail = ['Aluno'];
-    let content;
+    let build;
 
     if (section === 'inicio') {
         pageTitle = 'Painel do dia';
         trail = ['Aluno', 'Início'];
-        content = renderHome();
+        build = renderHome;
+    } else if (section === 'mensagens') {
+        trail = ['Aluno', 'Mensagens'];
+        build = renderMessages;
     } else if (section === 'avisos' && id) {
         const notice = notices().find((item) => item.id_post === id);
         pageTitle = notice ? truncate(notice.titulo, 46) : 'Aviso';
         trail = ['Avisos', 'Aviso'];
-        content = renderNoticeDetail(id);
+        build = () => renderNoticeDetail(id);
     } else {
         const label = subLabel(section, sub) || SECTIONS[section].title;
         pageTitle = label;
@@ -738,23 +972,29 @@ function render() {
             avisos: renderNoticeList,
             agenda: renderAgenda,
             atividades: renderActivities,
-            frequencia: sub === 'faltas' ? renderAbsences : renderAttendanceSummary,
-            ajustes: { perfil: renderProfile, seguranca: renderSecurity, ajuda: renderHelp }[sub] || renderProfile
+            frequencia: { faltas: renderAbsences, justificar: renderJustify }[sub] || renderAttendanceSummary,
+            ajustes: {
+                perfil: renderProfile, seguranca: renderSecurity, notificacoes: renderNotifications,
+                aparencia: renderAppearance, ajuda: renderHelp
+            }[sub] || renderProfile
         };
-        content = [chipsNav(), renderers[section]()];
+        build = () => [chipsNav(), renderers[section]()];
     }
 
     renderShell(pageTitle, trail);
     renderSubnav();
     const main = $('#conteudo');
-    // Ajustes não dependem das fontes carregadas: não redesenhar evita apagar o que o aluno digita.
     const routeKey = `${section}/${sub}/${id}`;
-    if (section === 'ajustes' && main.dataset.rota === routeKey) return;
+    if (!force && main.dataset.rota === routeKey && main.dataset.estavel === '1') return;
+    if (force && section === 'mensagens' && main.dataset.rota === routeKey) return;
+    const content = build();
     main.dataset.rota = routeKey;
+    main.dataset.estavel = isStableRoute() ? '1' : '0';
     const keepFocus = main.contains(document.activeElement) ? document.activeElement : null;
     const keepId = keepFocus?.id;
     main.replaceChildren(...[content].flat(Infinity).filter(Boolean));
     main.classList.toggle('conteudo-detalhe', section === 'avisos' && Boolean(id));
+    main.classList.toggle('conteudo-mensagens', section === 'mensagens');
     if (keepId) document.getElementById(keepId)?.focus({ preventScroll: true });
 }
 
@@ -780,8 +1020,9 @@ function renderHome() {
         }
     }
 
+    nodes.push(homeShortcuts());
     nodes.push(el('div', { class: 'grade-cartoes' },
-        homeAttendanceCard(), homeUnreadCard(), homeDeliveryCard()));
+        homeAttendanceCard(), homeOccurrencesCard(), homeDeliveryCard()));
 
     nodes.push(el('div', { class: 'grade-inicio' }, homeRecentNotices(), homeLessonsToday()));
     return nodes;
@@ -817,14 +1058,38 @@ function attendanceBar(percent) {
     return setBarValue(bar, percent);
 }
 
-function homeUnreadCard() {
-    const guard = sourceGuard('mural', 1);
-    if (guard) return card('cartao-kpi', cardHeader('envelope-simple', 'Avisos não lidos'), guard);
-    const link = el('a', { class: 'cartao cartao-link cartao-kpi', href: '#/avisos/naolidos' },
-        cardHeader('envelope-simple', 'Avisos não lidos'));
-    const unread = unreadCount();
-    link.append(el('span', { class: 'kpi-valor', text: String(unread) }),
-        el('span', { class: 'meta empurra', text: unread ? 'Confirme a leitura em Avisos' : 'Tudo em dia' }));
+// Atalhos do celular: Atividades e Frequência não têm aba própria (as abas são Início, Avisos,
+// Agenda, Mensagens e Ajustes). No web ficam escondidos, porque o rail já mostra as duas seções.
+function homeShortcuts() {
+    const pending = state.sources.atividades.status === 'ok'
+        ? deliverables().filter((activity) => activityStatus(activity) === 'pendentes').length : null;
+    const absencesToJustify = state.sources.frequencias.status === 'ok'
+        ? absenceGroups().filter(canJustify).length : null;
+    const shortcut = (href, iconName, label, detail) => el('li', {},
+        el('a', { class: 'atalho', href },
+            el('span', { class: 'icone-quadrado' }, icon(iconName)),
+            el('span', { class: 'atalho-texto' },
+                el('span', { class: 'atalho-titulo', text: label }),
+                detail ? el('span', { class: 'meta', text: detail }) : null),
+            icon('caret-right')));
+    return el('nav', { class: 'atalhos', 'aria-label': 'Mais seções' },
+        el('ul', {},
+            shortcut('#/atividades/pendentes', 'clipboard-text', 'Atividades',
+                pending === null ? null : pending ? plural(pending, 'pendente', 'pendentes') : 'Tudo entregue'),
+            shortcut('#/frequencia/resumo', 'list-checks', 'Frequência',
+                absencesToJustify ? plural(absencesToJustify, 'falta para justificar', 'faltas para justificar') : 'Resumo e faltas')));
+}
+
+function homeOccurrencesCard() {
+    const guard = sourceGuard('ocorrencias', 1);
+    if (guard) return card('cartao-kpi', cardHeader('seal-check', 'Ocorrências'), guard);
+    const list = occurrences();
+    const open = list.filter(isOpenOccurrence).length;
+    const link = el('a', { class: 'cartao cartao-link cartao-kpi', href: '#/ajustes/perfil' },
+        cardHeader('seal-check', 'Ocorrências'));
+    link.append(el('span', { class: 'kpi-valor', text: String(list.length) }),
+        el('span', { class: 'meta empurra', text: !list.length ? 'Nenhuma ocorrência registrada'
+            : open ? `${open} em aberto · ver em Perfil` : 'Todas resolvidas · ver em Perfil' }));
     return link;
 }
 
@@ -992,12 +1257,29 @@ function renderNoticeDetail(id) {
         notice.data_evento ? el('p', { class: 'aviso-data-evento' }, icon('calendar-blank'),
             el('span', {}, el('strong', { text: 'Data do evento: ' }), formatSchoolDate(notice.data_evento))) : null,
         el('div', { class: 'aviso-corpo' }, paragraphs.map((text) => el('p', { text }))),
+        notice.anexo ? attachmentButton(notice.anexo) : null,
         el('div', { class: 'aviso-rodape' },
             el('button', {
                 class: `botao botao-primario botao-leitura${read ? ' confirmado' : ''}`, type: 'button',
                 'aria-pressed': String(read), on: { click: () => toggleRead(notice) }
             }, icon('check-circle', read), read ? 'Leitura confirmada' : 'Confirmar leitura'),
             read && notice.lido_em ? el('span', { class: 'meta', text: `Confirmada em ${fullDateTime(notice.lido_em)}` }) : null));
+}
+
+function attachmentButton(file) {
+    const isPdf = /pdf/i.test(file.tipo_mime || file.nome || '');
+    const kind = isPdf ? 'PDF' : /png/i.test(file.tipo_mime || '') ? 'PNG' : 'Imagem';
+    const button = el('button', {
+        class: 'anexo', type: 'button',
+        'aria-label': `Baixar anexo ${file.nome || ''} (${kind}, ${formatSize(file.tamanho)})`,
+        on: { click: () => downloadFile(file, button) }
+    },
+    el('span', { class: 'icone-quadrado' }, icon(isPdf ? 'file-pdf' : 'file-image')),
+    el('span', { class: 'anexo-texto' },
+        el('span', { class: 'anexo-nome', text: file.nome || 'Anexo' }),
+        el('span', { class: 'meta', text: `${kind} · ${formatSize(file.tamanho)}` })),
+    el('span', { class: 'anexo-baixar' }, icon('download-simple')));
+    return el('div', { class: 'anexos' }, el('p', { class: 'campo-rotulo', text: 'Anexo' }), button);
 }
 
 // Atualização otimista: aplica, chama a API e desfaz em caso de erro.
@@ -1281,22 +1563,246 @@ function renderAttendanceSummary() {
     return nodes;
 }
 
+function statusBadge(status) {
+    const config = ABSENCE_STATUS[status];
+    return el('span', { class: `selo ${config.className}` }, icon(config.icon), config.label);
+}
+
 function renderAbsences() {
     const guard = sourceGuard('frequencias', 3);
     if (guard) return guard;
-    const list = absences();
-    if (!list.length) return emptyState('Nenhuma falta registrada. Continue assim!', 'calendar-check');
-    return card('cartao-tabela',
-        el('table', { class: 'tabela' },
-            el('caption', { class: 'visually-hidden', text: 'Histórico de faltas' }),
-            el('thead', {}, el('tr', {},
-                el('th', { scope: 'col', text: 'Data' }),
-                el('th', { scope: 'col', text: 'Disciplina' }),
-                el('th', { scope: 'col', text: 'Observação' }))),
-            el('tbody', {}, list.map((record) => el('tr', {},
-                el('td', { class: 'tabela-data', 'data-rotulo': 'Data', text: formatSchoolDate(record.data_aula) }),
-                el('td', { class: 'tabela-forte', 'data-rotulo': 'Disciplina', text: record.nome_disciplina || '—' }),
-                el('td', { 'data-rotulo': 'Observação', text: record.observacao || '—' }))))));
+    const groups = absenceGroups();
+    if (!groups.length) return emptyState('Nenhuma falta registrada. Continue assim!', 'calendar-check');
+    const toJustify = groups.filter(canJustify).length;
+    return [
+        el('p', { class: 'meta', text: toJustify
+            ? `${plural(toJustify, 'falta pode', 'faltas podem')} ser justificada${toJustify === 1 ? '' : 's'}. Envie em até ${JUSTIFY_BUSINESS_DAYS} dias úteis depois da falta.`
+            : `Justificativas são aceitas em até ${JUSTIFY_BUSINESS_DAYS} dias úteis depois da falta.` }),
+        card('cartao-tabela',
+            el('table', { class: 'tabela tabela-faltas' },
+                el('caption', { class: 'visually-hidden', text: 'Histórico de faltas' }),
+                el('thead', {}, el('tr', {},
+                    el('th', { scope: 'col', text: 'Data' }),
+                    el('th', { scope: 'col', text: 'Disciplina' }),
+                    el('th', { scope: 'col', text: 'Aulas' }),
+                    el('th', { scope: 'col', text: 'Situação' }),
+                    el('th', { scope: 'col' }, srText('Ação')))),
+                el('tbody', {}, groups.map((group) => {
+                    const titleId = `falta-${group.key}`;
+                    const answer = group.status === 'recusada' && group.detalhe?.resposta
+                        ? el('span', { class: 'meta resposta-justificativa', text: `Resposta: ${group.detalhe.resposta}` }) : null;
+                    let action;
+                    if (canJustify(group)) {
+                        action = el('a', {
+                            class: 'botao botao-contorno botao-pequeno', href: `#/frequencia/justificar/${group.key}`,
+                            'aria-describedby': titleId
+                        }, icon('file-arrow-up'), group.status === 'recusada' ? 'Enviar de novo' : 'Justificar');
+                    } else if (group.status === 'sem' || group.status === 'recusada') {
+                        action = el('span', { class: 'meta', text: 'Prazo encerrado' });
+                    }
+                    return el('tr', {},
+                        el('td', { class: 'tabela-data', id: titleId, text: formatSchoolDate(group.data) }),
+                        el('td', { class: 'tabela-forte', text: group.nome_disciplina }),
+                        el('td', { class: 'tabela-aulas', text: plural(group.aulas, 'aula', 'aulas') }),
+                        el('td', { class: 'tabela-situacao' }, statusBadge(group.status), answer),
+                        el('td', { class: 'tabela-acao' }, action));
+                }))))
+    ];
+}
+
+function renderJustify() {
+    const guard = sourceGuard('frequencias', 2);
+    if (guard) return guard;
+    const eligible = absenceGroups().filter(canJustify);
+    const chosen = state.route.id ? absenceGroups().find((group) => group.key === state.route.id) : null;
+
+    if (chosen && !canJustify(chosen)) {
+        return [emptyState(chosen.status === 'pendente' ? 'Essa falta já tem uma justificativa em análise.'
+            : chosen.status === 'aceita' ? 'Essa falta já foi justificada.'
+                : `O prazo para justificar essa falta terminou (${JUSTIFY_BUSINESS_DAYS} dias úteis).`, 'calendar-x'),
+        el('a', { class: 'link-seta', href: '#/frequencia/faltas' }, icon('arrow-left'), 'Voltar ao histórico de faltas')];
+    }
+    if (!eligible.length) {
+        return [emptyState(`Nenhuma falta para justificar agora. Só dá para justificar faltas sem justificativa, em até ${JUSTIFY_BUSINESS_DAYS} dias úteis.`, 'calendar-check'),
+            el('a', { class: 'link-seta', href: '#/frequencia/faltas' }, icon('arrow-left'), 'Ver histórico de faltas')];
+    }
+
+    const absenceLabel = (group) => `${formatSchoolDate(group.data)} · ${group.nome_disciplina} · ${plural(group.aulas, 'aula', 'aulas')}`;
+    let selector;
+    if (chosen) {
+        selector = el('div', { class: 'grade-campos' },
+            el('div', { class: 'campo' },
+                el('label', { class: 'campo-rotulo', for: 'just-data', text: 'Data da falta' }),
+                el('input', { class: 'campo-leitura', id: 'just-data', type: 'text', readonly: true, value: formatSchoolDate(chosen.data) })),
+            el('div', { class: 'campo' },
+                el('label', { class: 'campo-rotulo', for: 'just-disciplina', text: 'Disciplina' }),
+                el('input', {
+                    class: 'campo-leitura', id: 'just-disciplina', type: 'text', readonly: true,
+                    value: `${chosen.nome_disciplina} · ${plural(chosen.aulas, 'aula', 'aulas')}`
+                })));
+    } else {
+        const select = el('select', { id: 'just-falta', name: 'falta', class: 'campo-select', required: true },
+            el('option', { value: '', text: 'Escolha a falta' }),
+            eligible.map((group) => el('option', { value: group.key, text: absenceLabel(group) })));
+        if (eligible.length === 1) select.value = eligible[0].key;
+        selector = el('div', { class: 'campo' },
+            el('label', { class: 'campo-rotulo', for: 'just-falta', text: 'Falta a justificar' }), select);
+    }
+
+    const motive = el('textarea', {
+        id: 'just-motivo', name: 'motivo', rows: '4', maxlength: '1000', required: true,
+        placeholder: 'Descreva brevemente o motivo da falta', 'aria-describedby': 'just-motivo-ajuda'
+    });
+    const picker = filePicker();
+    const errorLine = el('p', { class: 'erro-formulario', id: 'just-erro', role: 'alert' });
+    const submit = el('button', { class: 'botao botao-primario', type: 'submit' }, icon('paper-plane-tilt'), 'Enviar justificativa');
+    const form = el('form', { class: 'cartao formulario cartao-justificar', novalidate: true, 'aria-labelledby': 'titulo-pagina' },
+        el('p', { class: 'meta', text: `Envie em até ${JUSTIFY_BUSINESS_DAYS} dias úteis depois da falta. A coordenação analisa e você acompanha a situação em Histórico de faltas.` }),
+        selector,
+        el('div', { class: 'campo' },
+            el('label', { class: 'campo-rotulo', for: 'just-motivo', text: 'Motivo' }),
+            motive,
+            el('p', { class: 'meta', id: 'just-motivo-ajuda', text: 'Até 1.000 caracteres.' })),
+        picker.node,
+        errorLine,
+        el('div', { class: 'acoes' },
+            el('a', { class: 'botao botao-contorno', href: '#/frequencia/faltas' }, 'Cancelar'),
+            submit));
+
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        errorLine.textContent = '';
+        const key = chosen ? chosen.key : form.querySelector('#just-falta').value;
+        const group = absenceGroups().find((item) => item.key === key);
+        if (!group) return fieldError(form.querySelector('#just-falta'), 'Escolha a falta que você quer justificar.');
+        const reason = motive.value.trim();
+        if (reason.length < 5) return fieldError(motive, 'Escreva o motivo da falta (pelo menos 5 caracteres).');
+        if (picker.error()) return fieldError(picker.input, picker.error());
+
+        submit.disabled = true;
+        submit.setAttribute('aria-busy', 'true');
+        try {
+            let fileId;
+            const file = picker.file();
+            if (file) {
+                submit.replaceChildren(icon('upload-simple'), 'Enviando anexo…');
+                fileId = (await uploadFile(file))?.id_arquivo;
+            }
+            submit.replaceChildren(icon('paper-plane-tilt'), 'Enviando…');
+            await api('/api/justificativas', {
+                method: 'POST',
+                body: JSON.stringify({
+                    id_disciplina: Number(group.id_disciplina), data_falta: group.data, motivo: reason,
+                    ...(fileId ? { id_arquivo: fileId } : {})
+                })
+            });
+            clearErrorNotifications();
+            notify('Justificativa enviada! A coordenação vai analisar.', 'sucesso');
+            loadSource('justificativas');
+            loadSource('frequencias');
+            navigate('#/frequencia/faltas');
+        } catch (error) {
+            errorLine.textContent = error.message;
+            notify(error.message, 'erro');
+        } finally {
+            submit.disabled = false;
+            submit.removeAttribute('aria-busy');
+            submit.replaceChildren(icon('paper-plane-tilt'), 'Enviar justificativa');
+        }
+        return undefined;
+    });
+    return form;
+}
+
+// Campo de anexo opcional (PDF, JPG ou PNG até 5 MB), com arrastar e soltar.
+function filePicker() {
+    let chosen = null;
+    let problem = null;
+    const input = el('input', {
+        class: 'visually-hidden', id: 'just-anexo', type: 'file', name: 'anexo',
+        accept: '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png', 'aria-describedby': 'just-anexo-ajuda'
+    });
+    const info = el('div', { class: 'anexo-escolhido', 'aria-live': 'polite' });
+    const zone = el('label', { class: 'zona-anexo', for: 'just-anexo' },
+        el('span', { class: 'icone-quadrado' }, icon('file-arrow-up')),
+        el('span', { class: 'zona-anexo-texto' },
+            el('span', { class: 'zona-anexo-titulo', text: 'Anexar atestado ou declaração (opcional)' }),
+            el('span', { class: 'meta', id: 'just-anexo-ajuda', text: 'PDF, JPG ou PNG · até 5 MB. Toque para escolher ou arraste o arquivo.' })));
+
+    function choose(file) {
+        chosen = null;
+        problem = null;
+        if (file) {
+            if (!uploadType(file)) problem = 'O anexo precisa ser PDF, JPG ou PNG.';
+            else if (file.size > MAX_UPLOAD_BYTES) problem = 'O anexo passa de 5 MB. Escolha um arquivo menor.';
+            else chosen = file;
+        }
+        paint();
+    }
+
+    function paint() {
+        zone.classList.toggle('com-erro', Boolean(problem));
+        if (problem) {
+            input.setAttribute('aria-invalid', 'true');
+            info.replaceChildren(el('p', { class: 'erro-formulario', text: problem }));
+            return;
+        }
+        input.removeAttribute('aria-invalid');
+        if (!chosen) {
+            info.replaceChildren();
+            return;
+        }
+        info.replaceChildren(el('div', { class: 'anexo anexo-estatico' },
+            el('span', { class: 'icone-quadrado' }, icon(/pdf/.test(uploadType(chosen)) ? 'file-pdf' : 'file-image')),
+            el('span', { class: 'anexo-texto' },
+                el('span', { class: 'anexo-nome', text: chosen.name }),
+                el('span', { class: 'meta', text: formatSize(chosen.size) })),
+            el('button', {
+                class: 'botao-icone', type: 'button', 'aria-label': `Remover anexo ${chosen.name}`,
+                on: { click: () => { input.value = ''; choose(null); input.focus(); } }
+            }, icon('x'))));
+    }
+
+    input.addEventListener('change', () => choose(input.files[0] || null));
+    zone.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        zone.classList.add('arrastando');
+    });
+    zone.addEventListener('dragleave', () => zone.classList.remove('arrastando'));
+    zone.addEventListener('drop', (event) => {
+        event.preventDefault();
+        zone.classList.remove('arrastando');
+        choose(event.dataTransfer?.files?.[0] || null);
+    });
+
+    return {
+        node: el('div', { class: 'campo' }, input, zone, info),
+        input,
+        file: () => chosen,
+        error: () => problem
+    };
+}
+
+// ---------------------------------------------------------------- Mensagens
+
+function renderMessages() {
+    if (state.messagesPanel) {
+        state.messagesPanel.desmontar();
+        state.messagesPanel = null;
+    }
+    if (!window.CwMensagens) return errorState('Não foi possível carregar as mensagens.', () => window.location.reload());
+    const host = el('div', { class: 'mensagens-host' });
+    state.messagesPanel = window.CwMensagens.montar(host, {
+        api,
+        usuario: state.user,
+        aoMudarNaoLidas: (total) => setUnreadMessages(total)
+    });
+    if (state.route.sub === 'nova') {
+        const panel = state.messagesPanel;
+        window.setTimeout(() => panel.novaConversa(), 0);
+        window.history.replaceState(null, '', '#/mensagens');
+    }
+    return host;
 }
 
 // ---------------------------------------------------------------- Ajustes
@@ -1323,8 +1829,154 @@ function renderProfile() {
             el('dl', { class: 'dados' }, rows.map(([key, value]) => el('div', { class: 'dado' },
                 el('dt', { text: key }), el('dd', { text: value })))),
             el('p', { class: 'meta', text: 'Algum dado errado? Procure a secretaria da escola.' })),
+        emailCard(),
+        occurrencesCard(),
         logoutCard()
     ];
+}
+
+// ---------------------------------------------------------------- Ajustes: conta (e-mail)
+
+let accountPromise = null;
+
+function loadAccount({ force = false } = {}) {
+    if (force || !accountPromise) {
+        accountPromise = api('/api/conta').catch((error) => {
+            accountPromise = null;
+            throw error;
+        });
+    }
+    return accountPromise;
+}
+
+// Cartão que carrega os próprios dados (não depende do render global, que não redesenha Ajustes).
+function asyncCard(className, title, load, paint, { titleId } = {}) {
+    const body = el('div', { class: 'cartao-corpo' });
+    const section = card(className, el('h2', { class: 'cartao-titulo', id: titleId, tabindex: '-1', text: title }), body);
+    const controller = {
+        node: section,
+        data: null,
+        async reload(options) {
+            body.replaceChildren(skeletonList(1));
+            try {
+                controller.data = await load(options);
+                controller.repaint();
+            } catch (error) {
+                body.replaceChildren(errorState(error.message, () => controller.reload({ force: true })));
+            }
+        },
+        repaint() {
+            body.replaceChildren(...[paint(controller.data, controller)].flat().filter(Boolean));
+        }
+    };
+    controller.reload();
+    return { node: section, controller };
+}
+
+function emailCard() {
+    const { node } = asyncCard('cartao-email', 'E-mail', (options) => loadAccount(options), (account, controller) => {
+        const nodes = [];
+        if (account.email) {
+            nodes.push(el('div', { class: 'email-atual' },
+                el('span', { class: 'icone-quadrado' }, icon('envelope-simple')),
+                el('span', { class: 'email-texto' },
+                    el('span', { class: 'email-endereco', text: account.email }),
+                    el('span', { class: 'meta', text: 'Confirmado · usado para recuperar a senha e receber notificações' }))));
+        } else {
+            nodes.push(el('p', { class: 'meta', text: 'Cadastre um e-mail para recuperar a senha sozinho(a) e receber avisos importantes por e-mail.' }));
+        }
+        if (state.pendingEmail) {
+            nodes.push(el('div', { class: 'caixa-info', role: 'status' }, icon('paper-plane-tilt'),
+                el('p', {}, 'Enviamos um link de confirmação para ', el('strong', { text: state.pendingEmail }),
+                    '. Abra o e-mail e toque no link para concluir. Não chegou? Confira o spam ou envie de novo.')));
+        }
+
+        const field = el('input', {
+            id: 'email-novo', name: 'email', type: 'email', autocomplete: 'email', inputmode: 'email',
+            maxlength: '254', required: true, placeholder: 'seuemail@exemplo.com', spellcheck: 'false'
+        });
+        const submit = el('button', { class: 'botao botao-primario', type: 'submit' }, icon('paper-plane-tilt'), 'Enviar link de confirmação');
+        const form = el('form', { class: 'formulario-email', novalidate: true },
+            el('label', { class: 'campo-rotulo', for: 'email-novo', text: account.email ? 'Trocar por outro e-mail' : 'Seu e-mail' }),
+            el('div', { class: 'linha-campo' }, field, submit));
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const email = field.value.trim();
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fieldError(field, 'Digite um e-mail válido, como nome@exemplo.com.');
+            submit.disabled = true;
+            try {
+                const result = await api('/api/conta/email', { method: 'POST', body: JSON.stringify({ email }) });
+                state.pendingEmail = result?.email_pendente || email;
+                clearErrorNotifications();
+                notify(`Enviamos um link de confirmação para ${email}.`, 'sucesso');
+                controller.repaint();
+            } catch (error) {
+                notify(error.message, 'erro');
+                submit.disabled = false;
+            }
+            return undefined;
+        });
+        nodes.push(form);
+
+        if (account.email) {
+            nodes.push(el('button', {
+                class: 'link-botao link-perigo', type: 'button',
+                on: { click: () => confirmRemoveEmail(account, controller) }
+            }, icon('trash'), 'Remover e-mail'));
+        }
+        if (state.focusEmailField) {
+            state.focusEmailField = false;
+            window.setTimeout(() => field.focus(), 0);
+        }
+        return nodes;
+    }, { titleId: 'email-titulo' });
+    return node;
+}
+
+function confirmRemoveEmail(account, controller) {
+    const confirm = el('button', { class: 'botao botao-primario botao-perigo-cheio', type: 'button' }, 'Remover e-mail');
+    confirm.addEventListener('click', async () => {
+        confirm.disabled = true;
+        try {
+            await api('/api/conta/email', { method: 'DELETE' });
+            account.email = null;
+            $('#dialogo').close();
+            notify('E-mail removido.', 'sucesso');
+            controller.repaint();
+        } catch (error) {
+            notify(error.message, 'erro');
+            confirm.disabled = false;
+        }
+    });
+    openDialog('Remover e-mail?',
+        el('p', { class: 'dialogo-descricao', text: `Sem e-mail você não recebe notificações e não consegue recuperar a senha sozinho(a). Remover ${account.email}?` }),
+        el('div', { class: 'acoes' },
+            el('button', { class: 'botao botao-contorno', type: 'button', on: { click: () => $('#dialogo').close() } }, 'Cancelar'),
+            confirm));
+}
+
+function occurrencesCard() {
+    const { node } = asyncCard('cartao-ocorrencias', 'Ocorrências', async () => {
+        let source = await whenSource('ocorrencias');
+        if (source.status === 'error') source = await loadSource('ocorrencias');
+        if (source.status === 'error') throw new Error(source.error);
+        return occurrences();
+    }, (list) => {
+        if (!list.length) return emptyState('Nenhuma ocorrência registrada. Continue assim!', 'seal-check');
+        const sorted = [...list].sort((a, b) => String(b.criado_em || '').localeCompare(String(a.criado_em || '')));
+        return el('ul', { class: 'lista-ocorrencias' }, sorted.map((item) => {
+            const open = isOpenOccurrence(item);
+            // Para o aluno, o servidor manda só o perfil do autor ({ perfil }).
+            const author = item.autor?.nome
+                || { professor: 'Registrada por professor(a)', gestao: 'Registrada pela coordenação' }[item.autor?.perfil] || null;
+            return el('li', { class: 'ocorrencia' },
+                el('span', { class: `selo ${open ? 'selo-vermelho' : 'selo-neutro'}`, text: open ? 'Em aberto' : 'Resolvida' }),
+                el('p', { class: 'ocorrencia-texto', text: item.descricao || '' }),
+                el('p', { class: 'meta', text: [item.criado_em ? formatSchoolDate(item.criado_em, { utc: true }) : null,
+                    author, item.disciplina?.nome_disciplina || item.nome_disciplina].filter(Boolean).join(' · ') }));
+        }));
+    }, { titleId: 'ocorrencias' });
+    return node;
 }
 
 function logoutCard() {
@@ -1378,6 +2030,7 @@ function renderSecurity() {
             form.reset();
             clearErrorNotifications();
             notify(result?.mensagem || 'Senha atualizada com sucesso.', 'sucesso');
+            form.dispatchEvent(new CustomEvent('senha-alterada'));
         } catch (error) {
             notify(error.message, 'erro');
         } finally {
@@ -1385,7 +2038,155 @@ function renderSecurity() {
         }
         return undefined;
     });
-    return [form];
+    const sessions = sessionsCard();
+    // Depois de trocar a senha, as outras sessões são encerradas: atualiza a lista.
+    form.addEventListener('senha-alterada', () => sessions.controller.reload());
+    return el('div', { class: 'grade-seguranca' }, form, sessions.node);
+}
+
+function deviceIcon(name) {
+    const text = normalize(name);
+    if (/android|iphone|ios|celular|mobile/.test(text)) return 'device-mobile';
+    if (/ipad|tablet/.test(text)) return 'device-tablet';
+    return 'desktop';
+}
+
+function sessionsCard() {
+    return asyncCard('cartao-dispositivos', 'Dispositivos conectados', async () => {
+        const result = await api('/api/conta/sessoes');
+        return Array.isArray(result) ? result : result?.sessoes || [];
+    }, (list, controller) => {
+        if (!list.length) return emptyState('Nenhuma sessão ativa encontrada.', 'devices');
+        const others = list.filter((item) => !item.atual);
+        const sorted = [...list].sort((a, b) => Number(Boolean(b.atual)) - Number(Boolean(a.atual))
+            || String(b.ultimo_acesso || '').localeCompare(String(a.ultimo_acesso || '')));
+        const nodes = [el('p', { class: 'meta', text: 'Aparelhos em que sua conta está aberta agora. Desconecte os que você não reconhece.' }),
+            el('ul', { class: 'lista-dispositivos' }, sorted.map((item) => {
+                const name = item.dispositivo || 'Aparelho desconhecido';
+                const info = item.atual ? 'Este aparelho · ativo agora'
+                    : item.ultimo_acesso ? `Último acesso ${timeAgo(item.ultimo_acesso)}` : 'Sem acesso recente';
+                const button = item.atual ? el('span', { class: 'selo selo-azul', text: 'Este aparelho' })
+                    : el('button', {
+                        class: 'botao botao-contorno botao-pequeno', type: 'button', 'aria-label': `Desconectar ${name}`,
+                        on: {
+                            click: async () => {
+                                button.disabled = true;
+                                try {
+                                    await api(`/api/conta/sessoes/${encodeURIComponent(item.id)}`, { method: 'DELETE' });
+                                    controller.data = controller.data.filter((other) => other !== item);
+                                    notify(`${name} foi desconectado.`, 'sucesso');
+                                    controller.repaint();
+                                    controller.node?.querySelector('.cartao-titulo')?.focus();
+                                } catch (error) {
+                                    notify(error.message, 'erro');
+                                    button.disabled = false;
+                                }
+                            }
+                        }
+                    }, 'Desconectar');
+                return el('li', { class: 'dispositivo' },
+                    el('span', { class: 'icone-quadrado' }, icon(deviceIcon(name))),
+                    el('span', { class: 'dispositivo-texto' },
+                        el('span', { class: 'dispositivo-nome', text: name }),
+                        el('span', { class: 'meta', text: info })),
+                    button);
+            }))];
+        if (others.length > 1) {
+            const all = el('button', { class: 'link-botao link-perigo', type: 'button' }, icon('sign-out'), 'Desconectar todos os outros aparelhos');
+            all.addEventListener('click', async () => {
+                all.disabled = true;
+                try {
+                    await api('/api/conta/sessoes', { method: 'DELETE' });
+                    controller.data = controller.data.filter((item) => item.atual);
+                    notify('Os outros aparelhos foram desconectados.', 'sucesso');
+                    controller.repaint();
+                } catch (error) {
+                    notify(error.message, 'erro');
+                    all.disabled = false;
+                }
+            });
+            nodes.push(all);
+        }
+        return nodes;
+    });
+}
+
+// ---------------------------------------------------------------- Ajustes: notificações e aparência
+
+function renderNotifications() {
+    const { node } = asyncCard('cartao-notificacoes', 'Notificações por e-mail', (options) => loadAccount(options), (account) => {
+        const prefs = account.notificacoes || {};
+        const nodes = [el('p', { class: 'meta', text: 'Escolha o que você quer receber por e-mail. Aqui no C·Warning tudo continua aparecendo normalmente.' })];
+        if (!account.email) {
+            nodes.push(el('div', { class: 'caixa-info caixa-alerta' }, icon('envelope-simple'),
+                el('div', {},
+                    el('p', { text: 'Você ainda não tem e-mail cadastrado, então não recebe nada fora do C·Warning. Cadastre e confirme um e-mail para ligar as notificações (e poder recuperar a senha sozinho).' }),
+                    el('a', {
+                        class: 'botao botao-primario botao-pequeno', href: '#/ajustes/perfil',
+                        on: { click: () => { state.focusEmailField = true; } }
+                    }, icon('plus'), 'Adicionar e-mail'))));
+        }
+        const status = el('p', { class: 'visually-hidden', role: 'status' });
+        nodes.push(el('ul', { class: 'lista-preferencias' }, NOTIFICATION_TYPES.map(([key, label, description, iconName]) => {
+            const id = `notif-${key}`;
+            const toggle = el('input', {
+                class: 'interruptor', id, type: 'checkbox', role: 'switch',
+                'aria-describedby': `${id}-desc`, disabled: !account.email
+            });
+            toggle.checked = Boolean(prefs[key]) && Boolean(account.email);
+            toggle.addEventListener('change', async () => {
+                const value = toggle.checked;
+                toggle.disabled = true;
+                try {
+                    await api('/api/conta/notificacoes', { method: 'PUT', body: JSON.stringify({ [key]: value }) });
+                    prefs[key] = value;
+                    account.notificacoes = prefs;
+                    status.textContent = `${label}: e-mail ${value ? 'ligado' : 'desligado'}.`;
+                } catch (error) {
+                    toggle.checked = !value;
+                    notify(error.message, 'erro');
+                } finally {
+                    toggle.disabled = false;
+                }
+            });
+            return el('li', { class: 'preferencia' },
+                el('span', { class: 'icone-quadrado' }, icon(iconName)),
+                el('span', { class: 'preferencia-texto' },
+                    el('label', { class: 'preferencia-nome', for: id, text: label }),
+                    el('span', { class: 'meta', id: `${id}-desc`, text: description })),
+                toggle);
+        })), status);
+        return nodes;
+    });
+    return node;
+}
+
+function renderAppearance() {
+    const prefs = window.cwAparencia?.read() || { tema: 'claro', texto: 'medio' };
+    const save = (changes) => {
+        if (window.cwAparencia) window.cwAparencia.save(changes);
+    };
+    const themes = el('fieldset', { class: 'cartao grupo-opcoes' },
+        el('legend', { class: 'cartao-titulo', text: 'Tema' }),
+        el('div', { class: 'grade-temas' }, THEMES.map(([value, label]) => {
+            const input = el('input', { class: 'visually-hidden', type: 'radio', name: 'tema', id: `tema-${value}`, value });
+            input.checked = prefs.tema === value;
+            input.addEventListener('change', () => save({ tema: value }));
+            return el('label', { class: 'opcao-tema', for: `tema-${value}` }, input,
+                el('span', { class: `previa-tema previa-${value}`, 'aria-hidden': 'true' },
+                    el('span', { class: 'previa-barra' }), el('span', { class: 'previa-linha' })),
+                el('span', { class: 'opcao-rotulo' }, el('span', { class: 'radio-falso', 'aria-hidden': 'true' }), label));
+        })),
+        el('p', { class: 'meta', text: 'Automático segue o tema do seu aparelho. A escolha vale só para este navegador.' }));
+    const sizes = el('fieldset', { class: 'cartao grupo-opcoes grupo-tamanho' },
+        el('legend', { class: 'cartao-titulo', text: 'Tamanho do texto' }),
+        el('div', { class: 'segmentado' }, TEXT_SIZES.map(([value, label]) => {
+            const input = el('input', { class: 'visually-hidden', type: 'radio', name: 'texto', id: `texto-${value}`, value });
+            input.checked = prefs.texto === value;
+            input.addEventListener('change', () => save({ texto: value }));
+            return el('label', { class: `segmento texto-${value}`, for: `texto-${value}` }, input, el('span', { text: label }));
+        })));
+    return [themes, sizes];
 }
 
 function fieldError(input, message) {
@@ -1409,7 +2210,8 @@ function renderHelp() {
         card('cartao-contato',
             icon('headset'),
             el('h2', { class: 'cartao-titulo', text: 'Precisa falar com alguém?' }),
-            el('p', { class: 'meta', text: 'Procure a secretaria ou a coordenação do CEEP Lourdinha Guerra, de segunda a sexta, no horário de funcionamento da escola.' })));
+            el('p', { class: 'meta', text: 'Mande uma mensagem para a coordenação ou um professor, ou procure a secretaria do CEEP Lourdinha Guerra, de segunda a sexta, no horário de funcionamento da escola.' }),
+            el('a', { class: 'botao botao-primario', href: '#/mensagens/nova' }, icon('chat-circle-dots'), 'Enviar mensagem')));
 }
 
 // ---------------------------------------------------------------- início

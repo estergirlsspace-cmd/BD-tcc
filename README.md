@@ -129,7 +129,7 @@ Todos os corpos e respostas usam JSON. IDs são inteiros positivos. Erros usam `
 | Horários | `GET/POST /api/horarios`, `GET/PATCH/DELETE /api/horarios/:id` (cada horário traz `nome_disciplina` e `professor`) | Aluno consulta o curso/série da conta; professor consulta/publica nas turmas vinculadas; Gestão consulta e publica |
 | Atividades e avaliações | `GET/POST /api/atividades`, `GET/PATCH/DELETE /api/atividades/:id` | Aluno consulta atividades do curso/série, cada uma com `entrega` (`null` ou `{ enviado_em, nota, feedback }` da própria entrega); professor e Gestão publicam |
 | Entregas | `POST /api/atividades/:id/entregas`, `GET /api/atividades/:id/entregas` | Aluno envia sua resposta; professor/gestão consultam entregas das turmas permitidas |
-| Notas e feedback | `PATCH /api/entregas/:id` | Apenas Gestão altera nota/feedback; aluno consulta apenas as próprias notas |
+| Notas e feedback | `PATCH /api/entregas/:id` | Professor da disciplina e Gestão corrigem (nota/feedback); aluno consulta apenas as próprias notas |
 | Frequência | `GET/POST /api/frequencias` | Aluno consulta a própria frequência; professor registra nas turmas vinculadas; Gestão consulta e registra |
 | Desempenho | `GET /api/desempenho` | Aluno consulta o próprio desempenho; Gestão consulta usando `?id_aluno=ID` |
 | Carga horária | `GET /api/carga-horaria` | Retorna carga semanal agrupada por turma e disciplina, limitada às turmas do perfil |
@@ -206,6 +206,28 @@ Tipos aceitos: `atividade`, `avaliacao`, `evento` e `comunicado`. Para avisos, u
 
 O estado fica na tabela `avisos_usuarios` (`id_post`, `id_usuario`, `lido_em`, `salvo_em`; chave primária `(id_post, id_usuario)`, ambos com `ON DELETE CASCADE`). Só há linha quando o aluno interagiu: se leitura e salvo forem desfeitos, a linha é apagada (um `CHECK` impede guardar estado vazio). Os horários são UTC (`CURRENT_TIMESTAMP`).
 
+## Sprint 2 — escola
+
+| Rota | Acesso | Resumo |
+| --- | --- | --- |
+| `POST /api/arquivos` | Qualquer usuário logado | Corpo binário cru (não JSON) com `Content-Type` `application/pdf`, `image/jpeg` ou `image/png` e `X-Nome-Arquivo` (nome original, URI-encoded). Até 5 MB (413 acima). O tipo gravado é o detectado pela assinatura do conteúdo (`%PDF-`, `FF D8 FF`, `89 50 4E 47 0D 0A 1A 0A`); conteúdo de outro tipo é recusado com 415. O nome é saneado e recebe a extensão do tipo real. Até 10 arquivos não vinculados por pessoa em 24 h (429). Devolve `{ id_arquivo, nome, tipo_mime, tamanho }`. |
+| `GET /api/arquivos/:id` | Quem enviou; Gestão; quem pode ver o aviso do qual é anexo; atestado: o aluno dono e o professor da disciplina | Download com `Content-Disposition: attachment`, `nosniff`, `Content-Security-Policy: sandbox` e `Cache-Control: private, no-store`. Sem permissão responde 404. |
+| `POST/PATCH /api/avisos` | Professor/Gestão | Aceitam `id_arquivo` (arquivo enviado por quem publica; `null` remove o anexo). |
+| `GET /api/avisos`, `GET /api/mural` | Conforme o perfil | Cada aviso traz `anexo: { id_arquivo, nome, tipo_mime, tamanho } \| null`. Em `/api/avisos`, o autor (e a Gestão, em todos) recebe `leituras: { confirmadas, publico_total }`. |
+| `POST /api/justificativas` | Aluno | `{ id_disciplina, data_falta, motivo, id_arquivo? }`, só para falta registrada do próprio aluno, até 5 dias úteis (segunda a sexta) depois da falta (409 fora do prazo ou repetida). |
+| `GET /api/justificativas?situacao=` | Aluno: as próprias; professor: das suas disciplinas; Gestão: todas | Item `{ id_justificativa, aluno: { id_aluno, nome, turma }, id_disciplina, disciplina, data_falta, motivo, anexo, situacao, resposta, analisado_em, criado_em }`. |
+| `PATCH /api/justificativas/:id` | Gestão | `{ situacao: "aceita" \| "recusada", resposta? }`. `GET /api/frequencias` traz `justificativa: { situacao } \| null` em cada registro (sempre `null` em presença). |
+| `POST /api/ocorrencias` | Professor das turmas do aluno; Gestão | `{ id_aluno, descricao }`. |
+| `GET /api/ocorrencias?situacao=` | Aluno: as próprias (autor só com `perfil`); professor: as que registrou; Gestão: todas | Item `{ id_ocorrencia, aluno: { id_aluno, nome, turma }, descricao, situacao, criado_em, resolvida_em, autor: { nome, perfil } }`. |
+| `PATCH /api/ocorrencias/:id` | Gestão | `{ situacao: "resolvida" }`. |
+| `GET /api/chamadas?id_disciplina=&data=` | Professor da disciplina; Gestão | Lista `[{ id_aluno, nome, presente: true \| false \| null, frequencia: { aulas, presencas, faltas, percentual } }]` (frequência acumulada na disciplina; `percentual` é `null` sem aulas). |
+| `PUT /api/chamadas` | Professor da disciplina; Gestão | `{ id_disciplina, data_aula, presencas: [{ id_aluno, presente }] }` (1 a 200 alunos da turma, sem data futura), gravado em uma transação; devolve a mesma lista do `GET`. |
+| `GET /api/painel` | Professor; Gestão | Professor: `hoje`, `aulas_hoje` (com `em_andamento` e `chamada_feita`), `aula_em_andamento`, `turmas` (`alunos`, `frequencia`), `entregas` (`enviadas`/`total` das 10 atividades mais recentes), `justificativas_pendentes`, `mensagens_nao_lidas`. Gestão: `kpis` (`alunos`, `frequencia_media`, `alunos_abaixo_75`, `ocorrencias_abertas`, `justificativas_pendentes`), `frequencia_por_turma`, `alunos_atencao` (frequência abaixo de 75% ou ocorrência aberta), `mensagens_nao_lidas`. |
+| `GET /api/relatorios/frequencia.csv`, `GET /api/relatorios/alunos-em-risco.csv` | Gestão | CSV UTF-8 com BOM, separador `;`, decimal com vírgula; células que começam com `=`, `+`, `-` ou `@` recebem `'` na frente (proteção contra injeção de fórmula). |
+| `PATCH /api/entregas/:id`, `GET /api/atividades/:id/entregas` | Professor da disciplina; Gestão | O professor da disciplina também corrige (nota e feedback) e vê as notas; fora do escopo responde 404. |
+
+Os arquivos ficam em `DATA_DIR/arquivos/<id_arquivo>` (permissão 600); o caminho vem só do id. Ao iniciar o servidor (e uma vez por dia), arquivos enviados há mais de 24 h que não são anexo de aviso nem atestado são apagados, assim como conteúdos sem registro no banco. Percentuais de frequência têm uma casa decimal; a falta justificada é derivada da justificativa aceita e não altera o percentual.
+
 ## Interface e identidade visual
 
 O visual segue o design do projeto no Claude Design (telas do aluno e folha da marca). O contrato da implementação está em `docs/sprint-aluno-contrato.md`.
@@ -213,7 +235,8 @@ O visual segue o design do projeto no Claude Design (telas do aluno e folha da m
 - **Marca:** "C·Warning", com o ponto vermelho `#E40913` usado só no sinal e em urgências. As cores ficam em `public/tema.css` (variáveis `--cw-*`): índigo `#312782` para estrutura e botões, azul `#4A5BD6` para interação e neutros para superfícies.
 - **Tipografia e ícones:** Sora (títulos), Figtree (textos) e ícones Phosphor, **hospedados no próprio servidor** (`public/vendor/`). Nenhum recurso vem de CDN externo, o que mantém a CSP restrita a `'self'` e não expõe o IP dos alunos a terceiros (LGPD).
 - **Acessibilidade:** todas as combinações de cor passam no contraste WCAG 2.1 AA, há foco visível global, alvos de toque de pelo menos 44 px e navegação por teclado.
-- **Celular:** no portal do aluno, abas inferiores fixas. Os portais de professor e gestão usam a barra de `public/navegacao.css`.
+- **Celular:** os três portais têm abas inferiores fixas (com a opção "Mais" quando há muitas seções) e respeitam a área segura do iPhone.
+- **Aparência:** tema claro, escuro ou automático e tamanho do texto, escolhidos em Ajustes e guardados no aparelho (`public/preferencias.js`, tokens escuros em `tema.css`).
 
 ### Portal do aluno
 
@@ -224,6 +247,34 @@ Avaliações (`tipo = avaliacao`) são provas presenciais: aparecem na Agenda, m
 ## E-mails
 
 Os modelos de e-mail ficam na Resend (domínio `ceeplourdinhaguerra.com.br`), com cópia versionada em `emails/` (HTML e texto). São eles: aviso urgente, resumo de avisos, lembrete de prazo, redefinição de senha, senha alterada e conta criada. Veja `emails/README.md`. A chave da Resend nunca fica no repositório: em produção, entra como variável de ambiente. O conteúdo digitado pelos usuários precisa ter o HTML escapado antes do envio, porque a Resend não escapa.
+
+## Sprint 2 — comunicação
+
+**Conta** (logado): `GET /api/conta` → `{ email, notificacoes: { urgente, turma, prazos, eventos, mensagens } }`;
+`PUT /api/conta/notificacoes` `{ tipo: true|false, … }`; `POST /api/conta/email` `{ email }` envia um link de
+confirmação (24 h) para o endereço novo, que só é gravado depois de confirmado; `DELETE /api/conta/email` remove.
+Dispositivos: `GET /api/conta/sessoes` → `[{ id, dispositivo, ultimo_acesso, atual }]` (o `id` é um prefixo do hash,
+nunca o token), `DELETE /api/conta/sessoes/:id` e `DELETE /api/conta/sessoes` (todas menos a atual).
+
+**Sem login**: `POST /api/auth/recuperar` `{ login }` (usuário, matrícula ou e-mail) responde sempre 200 com a mesma
+mensagem e é limitado por IP (5 a cada 15 min) e por conta (3 e-mails por hora); o link `APP_URL/redefinir#token=…`
+vale 30 min. `POST /api/auth/redefinir` `{ token, nova_senha }` aplica as regras da troca de senha, zera
+`deve_trocar_senha` e encerra todas as sessões. `POST /api/conta/email/confirmar` `{ token }` (link
+`APP_URL/confirmar-email#token=…`). Tokens têm 256 bits, são de uso único e só o hash SHA-256 fica no banco.
+
+**Mensagens**: `GET /api/mensagens/contatos`, `GET /api/mensagens` (conversas), `POST /api/mensagens` `{ para, texto }`
+(até 2.000 caracteres, 30 por minuto), `GET /api/mensagens/:id_conversa[?depois=<id_mensagem>]` →
+`{ id_conversa, com, pode_responder, mensagens: [{ id_mensagem, texto, criado_em, lida_em, minha }], mais }` (até 100
+por página; marca as recebidas como lidas) e `GET /api/mensagens/nao-lidas` → `{ total }`. Aluno fala com os
+professores da sua turma e com a gestão; professor, com os alunos das suas turmas e com a gestão; gestão, com todos.
+
+**E-mails** (`src/services/email.js`, `notificacoes.js`, `agendador.js`): aviso urgente aos alunos do público (avisos
+comuns só entram no resumo), senha alterada, conta criada pela gestão, confirmação de e-mail, redefinição de senha,
+nova mensagem (no máximo 1 por conversa a cada 30 min), lembrete de prazo às 18h da véspera para quem não entregou e
+resumo semanal dos avisos não lidos na segunda às 7h (horário de Brasília). Só recebe quem tem conta ativa com e-mail;
+cada tipo respeita o silenciamento da pessoa; os envios automáticos usam `envios_email` para não repetir. Variáveis de
+ambiente: `RESEND_API_KEY` (sem ela os envios só aparecem no log como “simulado”), `APP_URL` (padrão
+`https://ceeplourdinhaguerra.com.br`) e `CW_AGENDADOR=0` para desligar o agendador (testes e scripts).
 
 ## Regras de segurança e dados
 

@@ -2,116 +2,228 @@
 <html lang="pt-BR">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#2f5f8a">
-    <title>Portal da Gestão | C-Warning</title>
-    <link rel="stylesheet" href="/professor.css">
-    <link rel="stylesheet" href="/gestao.css">
-    <link rel="stylesheet" href="/navegacao.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#312782">
+    <title>Portal da Gestão · C·Warning</title>
+    <script src="/preferencias.js"></script>
+    <link rel="stylesheet" href="/vendor/fontes.css">
+    <link rel="stylesheet" href="/vendor/phosphor/regular.css">
+    <link rel="stylesheet" href="/vendor/phosphor/fill.css">
+    <link rel="stylesheet" href="/tema.css">
     <link rel="stylesheet" href="/notificacoes.css">
+    <link rel="stylesheet" href="/componentes/mensagens.css">
+    <link rel="stylesheet" href="/gestao.css">
     <script src="/datas.js" defer></script>
     <script src="/notificacoes.js" defer></script>
+    <script src="/componentes/mensagens.js" defer></script>
+    <script src="/gestao-base.js" defer></script>
+    <script src="/gestao-avisos.js" defer></script>
+    <script src="/gestao-pessoas.js" defer></script>
+    <script src="/gestao-acompanhamento.js" defer></script>
+    <script src="/gestao-conta.js" defer></script>
     <script src="/gestao.js" defer></script>
 </head>
-<body class="theme-gestao">
-    <div class="portal-layout">
-        <aside class="sidebar">
-            <a class="brand" href="/gestao" aria-label="C-Warning, início">
-                <span class="brand-icon" aria-hidden="true">🏫</span>
-                <span><strong>C-Warning</strong><small>Portal da Gestão</small></span>
+<body>
+    <a class="pular-conteudo" href="#conteudo">Pular para o conteúdo</a>
+
+    <div class="app">
+        <!-- Sidebar índigo (web) -->
+        <aside class="sidebar" aria-label="Menu do portal">
+            <a class="sidebar-marca" href="#/visao-geral" aria-label="C·Warning, visão geral">
+                <span class="cw-marca cw-marca--clara" aria-hidden="true">C<span class="cw-marca__ponto"></span>Warning</span>
+                <span class="sidebar-portal">Portal da Gestão</span>
             </a>
 
-            <p class="sidebar-label">Menu principal</p>
-            <nav class="nav-list" aria-label="Navegação do portal">
-                <button class="nav-button active" type="button" data-page="comunicados" aria-current="page">
-                    <span class="nav-icon" aria-hidden="true">📢</span> <span class="nav-text">Comunicados</span><span class="nav-short" aria-hidden="true">Avisos</span>
-                </button>
-                <button class="nav-button" type="button" data-page="alunos">
-                    <span class="nav-icon" aria-hidden="true">🎓</span> <span class="nav-text">Alunos</span>
-                </button>
-                <button class="nav-button" type="button" data-page="equipe">
-                    <span class="nav-icon" aria-hidden="true">👥</span> <span class="nav-text">Equipe</span>
-                </button>
-                <button class="nav-button" type="button" data-page="turmas">
-                    <span class="nav-icon" aria-hidden="true">🏫</span> <span class="nav-text">Turmas e disciplinas</span><span class="nav-short" aria-hidden="true">Turmas</span>
-                </button>
-                <button class="nav-button" type="button" data-page="conta">
-                    <span class="nav-icon" aria-hidden="true">🔑</span> <span class="nav-text">Minha conta</span><span class="nav-short" aria-hidden="true">Conta</span>
-                </button>
-                <button class="nav-button nav-logout" type="button" data-logout>
-                    <span class="nav-icon" aria-hidden="true">🚪</span> <span class="nav-text">Sair</span>
-                </button>
+            <nav aria-label="Seções do portal">
+                <ul class="menu">
+                    <li><a class="menu-item" href="#/visao-geral" data-secao="visao-geral"><i class="ph ph-squares-four" aria-hidden="true"></i><span>Visão geral</span></a></li>
+                    <li><a class="menu-item" href="#/turmas" data-secao="turmas"><i class="ph ph-users-three" aria-hidden="true"></i><span>Turmas</span></a></li>
+                    <li><a class="menu-item" href="#/alunos" data-secao="alunos"><i class="ph ph-student" aria-hidden="true"></i><span>Alunos</span></a></li>
+                    <li><a class="menu-item" href="#/avisos" data-secao="avisos"><i class="ph ph-megaphone-simple" aria-hidden="true"></i><span>Avisos</span></a></li>
+                    <li><a class="menu-item" href="#/ocorrencias" data-secao="ocorrencias"><i class="ph ph-warning-octagon" aria-hidden="true"></i><span>Ocorrências</span><span class="menu-contador" data-contador="ocorrencias" hidden></span></a></li>
+                    <li><a class="menu-item" href="#/justificativas" data-secao="justificativas"><i class="ph ph-file-text" aria-hidden="true"></i><span>Justificativas</span><span class="menu-contador" data-contador="justificativas" hidden></span></a></li>
+                    <li><a class="menu-item" href="#/relatorios" data-secao="relatorios"><i class="ph ph-chart-bar" aria-hidden="true"></i><span>Relatórios</span></a></li>
+                    <li><a class="menu-item" href="#/equipe" data-secao="equipe"><i class="ph ph-identification-badge" aria-hidden="true"></i><span>Equipe</span></a></li>
+                    <li><a class="menu-item" href="#/mensagens" data-secao="mensagens"><i class="ph ph-chat-circle-dots" aria-hidden="true"></i><span>Mensagens</span><span class="menu-contador" data-contador="mensagens" hidden></span></a></li>
+                </ul>
             </nav>
 
-            <div class="sidebar-bottom">
-                <div class="teacher-card">
-                    <span class="teacher-avatar" id="manager-avatar" aria-hidden="true">G</span>
-                    <span><strong id="manager-name">Gestão</strong><small id="manager-login">Gestão escolar</small></span>
+            <div class="sidebar-rodape">
+                <a class="menu-item" href="#/configuracoes/perfil" data-secao="configuracoes"><i class="ph ph-gear-six" aria-hidden="true"></i><span>Configurações</span></a>
+                <div class="sidebar-usuario">
+                    <span class="avatar" data-avatar aria-hidden="true">G</span>
+                    <span class="sidebar-usuario-texto"><strong data-nome-usuario>Gestão</strong><small data-login-usuario>Gestão escolar</small></span>
+                    <button class="sidebar-sair" type="button" data-sair aria-label="Sair do portal" title="Sair do portal"><i class="ph ph-sign-out" aria-hidden="true"></i></button>
                 </div>
-                <button class="logout-button" id="logout-button" type="button">Sair do portal</button>
             </div>
         </aside>
 
-        <main class="main-area">
-            <header class="topbar">
-                <div>
-                    <p class="eyebrow">CEEP Lourdinha Guerra</p>
-                    <h1 id="topbar-title">Comunicados</h1>
-                    <p id="topbar-description">Publique avisos para a escola toda, um curso, uma série ou uma turma.</p>
+        <div class="coluna">
+            <header class="topo">
+                <span class="topo-marca cw-marca" aria-hidden="true">C<span class="cw-marca__ponto"></span>Warning</span>
+                <div class="topo-titulos">
+                    <p class="topo-escola">CEEP Lourdinha Guerra</p>
+                    <h1 class="topo-titulo" id="titulo-pagina" tabindex="-1">Carregando…</h1>
+                    <p class="topo-descricao" id="descricao-pagina"></p>
                 </div>
-                <span class="cohort-badge">Portal da Gestão</span>
             </header>
 
-            <div class="container">
+            <main class="conteudo" id="conteudo">
 
-                <!-- Comunicados -->
-                <section class="tab-content active" id="page-comunicados">
-                    <section class="content-card">
-                        <h2 id="notice-form-title">Novo comunicado</h2>
-                        <p class="muted">Escolha quem deve receber. O aviso aparece para os alunos assim que é publicado.</p>
-                        <form class="notice-form" id="notice-form">
-                            <div class="form-row">
-                                <label>
-                                    Para quem
-                                    <select id="notice-audience" required>
+                <!-- Visão geral -->
+                <section class="secao" data-pagina="visao-geral" aria-labelledby="titulo-pagina" hidden>
+                    <div class="barra-acoes">
+                        <a class="botao botao-primario" href="#/avisos/novo"><i class="ph ph-plus" aria-hidden="true"></i>Publicar aviso</a>
+                        <a class="botao botao-secundario" href="#/relatorios"><i class="ph ph-download-simple" aria-hidden="true"></i>Exportar relatório</a>
+                    </div>
+                    <div id="painel"></div>
+                </section>
+
+                <!-- Turmas e disciplinas -->
+                <section class="secao" data-pagina="turmas" aria-labelledby="titulo-pagina" hidden>
+                    <details class="cartao cartao-recolhivel">
+                        <summary><i class="ph ph-plus" aria-hidden="true"></i>Nova turma</summary>
+                        <form class="formulario" id="form-turma">
+                            <div class="linha-campos">
+                                <label class="campo">
+                                    <span>Curso</span>
+                                    <select id="turma-curso">
+                                        <option value="informatica">Informática</option>
+                                        <option value="redes">Redes de Computadores</option>
+                                    </select>
+                                </label>
+                                <label class="campo">
+                                    <span>Série</span>
+                                    <select id="turma-serie">
+                                        <option value="1">1ª Série</option>
+                                        <option value="2">2ª Série</option>
+                                        <option value="3">3ª Série</option>
+                                    </select>
+                                </label>
+                                <label class="campo campo-largo">
+                                    <span>Nome da turma</span>
+                                    <input id="turma-nome" type="text" maxlength="100" placeholder="Ex.: 1ª Série — Informática B" required>
+                                </label>
+                            </div>
+                            <div class="linha-botoes">
+                                <button class="botao botao-primario" type="submit">Criar turma</button>
+                            </div>
+                        </form>
+                    </details>
+                    <div id="lista-turmas"></div>
+                </section>
+
+                <!-- Alunos -->
+                <section class="secao" data-pagina="alunos" aria-labelledby="titulo-pagina" hidden>
+                    <details class="cartao cartao-recolhivel" id="cartao-matricula">
+                        <summary><i class="ph ph-plus" aria-hidden="true"></i>Matricular aluno</summary>
+                        <p class="texto-apoio">
+                            O aluno entra com a matrícula. A senha do primeiro acesso é <strong>ceep@</strong> + os
+                            4 primeiros números do CPF, e ele é obrigado a criar uma senha própria. O CPF não é guardado.
+                        </p>
+                        <form class="formulario" id="form-aluno">
+                            <div class="linha-campos">
+                                <label class="campo campo-largo">
+                                    <span>Nome completo</span>
+                                    <input id="aluno-nome" type="text" maxlength="150" autocomplete="off" required>
+                                </label>
+                                <label class="campo">
+                                    <span>Matrícula</span>
+                                    <input id="aluno-matricula" type="text" inputmode="numeric" pattern="[0-9]{3,20}" maxlength="20" autocomplete="off" required>
+                                </label>
+                                <label class="campo">
+                                    <span>Turma</span>
+                                    <select id="aluno-turma" required></select>
+                                </label>
+                                <label class="campo">
+                                    <span>4 primeiros números do CPF</span>
+                                    <input id="aluno-cpf" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" required>
+                                </label>
+                                <label class="campo campo-largo">
+                                    <span>E-mail <small class="opcional">(opcional)</small></span>
+                                    <input id="aluno-email" type="email" maxlength="254" autocomplete="off" spellcheck="false" placeholder="Para lembretes e recuperação de senha">
+                                </label>
+                            </div>
+                            <div class="linha-botoes">
+                                <button class="botao botao-primario" type="submit">Matricular</button>
+                            </div>
+                        </form>
+                    </details>
+
+                    <section class="cartao">
+                        <div class="cartao-cabecalho">
+                            <h2>Alunos matriculados</h2>
+                            <p class="texto-suave" id="contagem-alunos"></p>
+                        </div>
+                        <div class="filtros">
+                            <label class="campo-busca">
+                                <span class="visually-hidden">Buscar aluno</span>
+                                <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+                                <input id="busca-alunos" type="search" placeholder="Buscar por nome ou matrícula" autocomplete="off">
+                            </label>
+                            <label class="campo-filtro">
+                                <span class="visually-hidden">Filtrar por turma</span>
+                                <select id="filtro-turma-alunos"></select>
+                            </label>
+                        </div>
+                        <div id="lista-alunos"></div>
+                    </section>
+                </section>
+
+                <!-- Avisos -->
+                <section class="secao" data-pagina="avisos" aria-labelledby="titulo-pagina" hidden>
+                    <div class="barra-acoes">
+                        <button class="botao botao-primario" type="button" id="botao-novo-aviso"><i class="ph ph-plus" aria-hidden="true"></i>Novo aviso</button>
+                    </div>
+
+                    <section class="cartao" id="cartao-aviso" hidden aria-labelledby="titulo-form-aviso">
+                        <div class="cartao-cabecalho">
+                            <h2 id="titulo-form-aviso" tabindex="-1">Novo aviso</h2>
+                            <p class="texto-suave">Escolha quem deve receber. O aviso aparece para os alunos assim que é publicado.</p>
+                        </div>
+                        <form class="formulario" id="form-aviso">
+                            <div class="linha-campos">
+                                <label class="campo">
+                                    <span>Para quem</span>
+                                    <select id="aviso-publico" required>
                                         <option value="escola">Escola toda</option>
                                         <option value="curso">Um curso (todas as séries)</option>
                                         <option value="curso-serie">Um curso e uma série</option>
                                         <option value="turma">Uma turma</option>
                                     </select>
                                 </label>
-                                <label id="audience-course-field" hidden>
-                                    Curso
-                                    <select id="notice-course">
+                                <label class="campo" id="campo-aviso-curso" hidden>
+                                    <span>Curso</span>
+                                    <select id="aviso-curso">
                                         <option value="informatica">Informática</option>
                                         <option value="redes">Redes de Computadores</option>
                                     </select>
                                 </label>
-                                <label id="audience-series-field" hidden>
-                                    Série
-                                    <select id="notice-series">
+                                <label class="campo" id="campo-aviso-serie" hidden>
+                                    <span>Série</span>
+                                    <select id="aviso-serie">
                                         <option value="1">1ª Série</option>
                                         <option value="2">2ª Série</option>
                                         <option value="3">3ª Série</option>
                                     </select>
                                 </label>
-                                <label id="audience-class-field" hidden>
-                                    Turma
-                                    <select id="notice-class"></select>
+                                <label class="campo" id="campo-aviso-turma" hidden>
+                                    <span>Turma</span>
+                                    <select id="aviso-turma"></select>
                                 </label>
                             </div>
-                            <label>
-                                Título
-                                <input id="notice-title" type="text" maxlength="200" placeholder="Ex.: Reunião de pais" required>
+                            <label class="campo">
+                                <span>Título</span>
+                                <input id="aviso-titulo" type="text" maxlength="200" placeholder="Ex.: Reunião de pais" required>
                             </label>
-                            <label>
-                                Mensagem
-                                <textarea id="notice-content" maxlength="10000" rows="5" placeholder="Escreva as informações do comunicado..." required></textarea>
+                            <label class="campo">
+                                <span>Mensagem</span>
+                                <textarea id="aviso-conteudo" maxlength="10000" rows="5" placeholder="Escreva as informações do aviso..." required></textarea>
                             </label>
-                            <div class="form-row">
-                                <label>
-                                    Tipo
-                                    <select id="notice-type">
+                            <div class="linha-campos">
+                                <label class="campo">
+                                    <span>Tipo</span>
+                                    <select id="aviso-tipo">
                                         <option value="aviso">Aviso</option>
                                         <option value="comunicado">Comunicado</option>
                                         <option value="evento">Evento</option>
@@ -119,119 +231,144 @@
                                         <option value="avaliacao">Avaliação</option>
                                     </select>
                                 </label>
-                                <label>
-                                    Data do evento <span class="optional">(opcional)</span>
-                                    <input id="notice-date" type="datetime-local">
+                                <label class="campo">
+                                    <span>Data do evento <small class="opcional">(opcional)</small></span>
+                                    <input id="aviso-data" type="datetime-local">
                                 </label>
                             </div>
-                            <label class="check-field">
-                                <input id="notice-urgent" type="checkbox">
-                                Marcar como urgente
+                            <div class="campo">
+                                <span id="rotulo-anexo">Anexo em PDF <small class="opcional">(opcional, até 5 MB)</small></span>
+                                <div class="anexo-atual" id="aviso-anexo-atual" hidden></div>
+                                <input id="aviso-anexo" type="file" accept="application/pdf,.pdf" aria-labelledby="rotulo-anexo">
+                            </div>
+                            <label class="caixa-marcar">
+                                <input id="aviso-urgente" type="checkbox">
+                                <span>Marcar como urgente</span>
                             </label>
-                            <div class="button-row">
-                                <button class="primary-button" id="notice-submit" type="submit">Publicar comunicado</button>
-                                <button class="secondary-button" id="notice-cancel-edit" type="button" hidden>Cancelar edição</button>
+                            <div class="linha-botoes">
+                                <button class="botao botao-primario" id="aviso-enviar" type="submit">Publicar aviso</button>
+                                <button class="botao botao-secundario" id="aviso-cancelar" type="button">Cancelar</button>
                             </div>
                         </form>
                     </section>
 
-                    <section class="content-card">
-                        <h2>Comunicados publicados</h2>
-                        <p class="muted">Todos os avisos do sistema, do mais recente para o mais antigo.</p>
-                        <label class="search-field">
-                            <span class="visually-hidden">Buscar comunicado</span>
-                            <input id="notice-search" type="search" placeholder="Buscar por título, texto ou público">
-                        </label>
-                        <div id="notice-list" class="notice-list"></div>
+                    <section class="cartao">
+                        <div class="cartao-cabecalho">
+                            <h2>Avisos publicados</h2>
+                            <p class="texto-suave">Todos os avisos do sistema, do mais recente para o mais antigo.</p>
+                        </div>
+                        <div class="filtros">
+                            <label class="campo-busca">
+                                <span class="visually-hidden">Buscar aviso</span>
+                                <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+                                <input id="busca-avisos" type="search" placeholder="Buscar por título, texto ou público" autocomplete="off">
+                            </label>
+                        </div>
+                        <div id="lista-avisos"></div>
                     </section>
                 </section>
 
-                <!-- Alunos -->
-                <section class="tab-content" id="page-alunos" hidden>
-                    <section class="content-card">
-                        <h2>Matricular aluno</h2>
-                        <p class="muted">
-                            O aluno entra com a matrícula. A senha do primeiro acesso é <strong>ceep@</strong> + os
-                            4 primeiros números do CPF, e ele é obrigado a criar uma senha própria. O CPF não é guardado.
-                        </p>
-                        <form class="notice-form" id="student-form">
-                            <div class="form-row">
-                                <label>
-                                    Nome completo
-                                    <input id="student-name" type="text" maxlength="150" autocomplete="off" required>
+                <!-- Ocorrências -->
+                <section class="secao" data-pagina="ocorrencias" aria-labelledby="titulo-pagina" hidden>
+                    <details class="cartao cartao-recolhivel">
+                        <summary><i class="ph ph-plus" aria-hidden="true"></i>Registrar ocorrência</summary>
+                        <form class="formulario" id="form-ocorrencia">
+                            <div class="linha-campos">
+                                <label class="campo">
+                                    <span>Turma</span>
+                                    <select id="ocorrencia-turma"></select>
                                 </label>
-                                <label>
-                                    Matrícula
-                                    <input id="student-matricula" type="text" inputmode="numeric" pattern="[0-9]{3,20}"
-                                        maxlength="20" autocomplete="off" required>
-                                </label>
-                                <label>
-                                    Turma
-                                    <select id="student-class" required></select>
-                                </label>
-                                <label>
-                                    4 primeiros números do CPF
-                                    <input id="student-cpf" type="text" inputmode="numeric" pattern="[0-9]{4}"
-                                        maxlength="4" autocomplete="off" required>
+                                <label class="campo campo-largo">
+                                    <span>Aluno</span>
+                                    <select id="ocorrencia-aluno" required></select>
                                 </label>
                             </div>
-                            <button class="primary-button" type="submit">Matricular</button>
+                            <label class="campo">
+                                <span>Descrição</span>
+                                <textarea id="ocorrencia-descricao" rows="3" maxlength="2000" required></textarea>
+                            </label>
+                            <div class="linha-botoes">
+                                <button class="botao botao-primario" type="submit">Registrar</button>
+                            </div>
                         </form>
-                    </section>
-
-                    <section class="content-card">
-                        <h2>Alunos matriculados</h2>
-                        <div class="list-toolbar">
-                            <label class="search-field">
-                                <span class="visually-hidden">Buscar aluno</span>
-                                <input id="student-search" type="search" placeholder="Buscar por nome ou matrícula">
+                    </details>
+                    <section class="cartao">
+                        <div class="filtros">
+                            <div class="segmentos" role="group" aria-label="Situação">
+                                <button class="segmento" type="button" data-filtro-ocorrencia="aberta" aria-pressed="true">Abertas</button>
+                                <button class="segmento" type="button" data-filtro-ocorrencia="resolvida" aria-pressed="false">Resolvidas</button>
+                                <button class="segmento" type="button" data-filtro-ocorrencia="todas" aria-pressed="false">Todas</button>
+                            </div>
+                            <label class="campo-busca">
+                                <span class="visually-hidden">Buscar ocorrência</span>
+                                <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+                                <input id="busca-ocorrencias" type="search" placeholder="Buscar por aluno ou descrição" autocomplete="off">
                             </label>
-                            <label>
+                            <label class="campo-filtro">
                                 <span class="visually-hidden">Filtrar por turma</span>
-                                <select id="student-class-filter"></select>
+                                <select id="filtro-turma-ocorrencias"></select>
                             </label>
                         </div>
-                        <p class="muted" id="student-count"></p>
-                        <div class="table-wrap">
-                            <table class="data-table">
-                                <thead>
-                                    <tr><th scope="col">Nome</th><th scope="col">Matrícula</th><th scope="col">Turma</th><th scope="col">Situação</th><th scope="col"><span class="visually-hidden">Ações</span></th></tr>
-                                </thead>
-                                <tbody id="student-list"></tbody>
-                            </table>
-                        </div>
+                        <div id="lista-ocorrencias"></div>
                     </section>
+                </section>
+
+                <!-- Justificativas -->
+                <section class="secao" data-pagina="justificativas" aria-labelledby="titulo-pagina" hidden>
+                    <div class="segmentos segmentos-abas" role="group" aria-label="Lista">
+                        <a class="segmento" href="#/justificativas/pendentes" data-aba-justificativa="pendentes">Pendentes</a>
+                        <a class="segmento" href="#/justificativas/historico" data-aba-justificativa="historico">Histórico</a>
+                    </div>
+                    <div id="lista-justificativas"></div>
+                </section>
+
+                <!-- Relatórios -->
+                <section class="secao" data-pagina="relatorios" aria-labelledby="titulo-pagina" hidden>
+                    <div class="grade-relatorios">
+                        <article class="cartao relatorio">
+                            <span class="relatorio-icone"><i class="ph ph-list-checks" aria-hidden="true"></i></span>
+                            <h2>Frequência por aluno</h2>
+                            <p class="texto-suave">Presenças, faltas e percentual de cada aluno em cada disciplina.</p>
+                            <button class="botao botao-primario" type="button" data-relatorio="frequencia"><i class="ph ph-download-simple" aria-hidden="true"></i>Baixar CSV</button>
+                        </article>
+                        <article class="cartao relatorio">
+                            <span class="relatorio-icone relatorio-icone-alerta"><i class="ph ph-warning-circle" aria-hidden="true"></i></span>
+                            <h2>Alunos em risco</h2>
+                            <p class="texto-suave">Alunos com frequência abaixo de 75%, para acompanhamento da coordenação.</p>
+                            <button class="botao botao-primario" type="button" data-relatorio="alunos-em-risco"><i class="ph ph-download-simple" aria-hidden="true"></i>Baixar CSV</button>
+                        </article>
+                    </div>
+                    <p class="texto-suave nota">Os arquivos usam ponto e vírgula como separador e abrem direto no Excel, LibreOffice ou Google Planilhas.</p>
                 </section>
 
                 <!-- Equipe -->
-                <section class="tab-content" id="page-equipe" hidden>
-                    <section class="content-card">
-                        <h2>Cadastrar professor ou gestão</h2>
-                        <p class="muted">
+                <section class="secao" data-pagina="equipe" aria-labelledby="titulo-pagina" hidden>
+                    <details class="cartao cartao-recolhivel">
+                        <summary><i class="ph ph-plus" aria-hidden="true"></i>Cadastrar professor ou gestão</summary>
+                        <p class="texto-apoio">
                             Use como usuário a matrícula de servidor ou <strong>nome.sobrenome</strong> (não use CPF).
                             O sistema gera uma senha provisória, mostrada uma única vez, que deve ser trocada no primeiro acesso.
                         </p>
-                        <form class="notice-form" id="staff-form">
-                            <div class="form-row">
-                                <label>
-                                    Nome completo
-                                    <input id="staff-name" type="text" maxlength="150" autocomplete="off" required>
+                        <form class="formulario" id="form-equipe">
+                            <div class="linha-campos">
+                                <label class="campo campo-largo">
+                                    <span>Nome completo</span>
+                                    <input id="equipe-nome" type="text" maxlength="150" autocomplete="off" required>
                                 </label>
-                                <label>
-                                    Usuário
-                                    <input id="staff-login" type="text" maxlength="50" pattern="[A-Za-z0-9][A-Za-z0-9._\-]{2,49}"
-                                        autocomplete="off" autocapitalize="none" spellcheck="false" required>
+                                <label class="campo">
+                                    <span>Usuário</span>
+                                    <input id="equipe-login" type="text" maxlength="50" pattern="[A-Za-z0-9][A-Za-z0-9._\-]{2,49}" autocomplete="off" autocapitalize="none" spellcheck="false" required>
                                 </label>
-                                <label>
-                                    Perfil
-                                    <select id="staff-type">
+                                <label class="campo">
+                                    <span>Perfil</span>
+                                    <select id="equipe-perfil">
                                         <option value="professor">Professor</option>
                                         <option value="gestao">Gestão</option>
                                     </select>
                                 </label>
-                                <label id="staff-area-field">
-                                    Área
-                                    <select id="staff-area">
+                                <label class="campo" id="campo-equipe-area">
+                                    <span>Área</span>
+                                    <select id="equipe-area">
                                         <option value="natureza">Natureza</option>
                                         <option value="humanas">Humanas</option>
                                         <option value="linguagens">Linguagens</option>
@@ -240,89 +377,160 @@
                                         <option value="redes">Base Técnica - Redes</option>
                                     </select>
                                 </label>
+                                <label class="campo campo-largo">
+                                    <span>E-mail <small class="opcional">(opcional; recebe o aviso de conta criada)</small></span>
+                                    <input id="equipe-email" type="email" maxlength="254" autocomplete="off" spellcheck="false">
+                                </label>
                             </div>
-                            <button class="primary-button" type="submit">Cadastrar</button>
+                            <div class="linha-botoes">
+                                <button class="botao botao-primario" type="submit">Cadastrar</button>
+                            </div>
                         </form>
-                    </section>
+                    </details>
 
-                    <section class="password-reveal" id="password-reveal" hidden aria-live="polite">
-                        <h2>Senha provisória</h2>
-                        <p id="password-reveal-text"></p>
-                        <p class="password-reveal-value"><code id="password-reveal-value"></code></p>
-                        <p class="muted">Anote e entregue à pessoa. Esta senha não será exibida de novo.</p>
-                        <button class="secondary-button" id="password-reveal-close" type="button">Já anotei</button>
-                    </section>
-
-                    <section class="content-card">
-                        <h2>Equipe cadastrada</h2>
-                        <div class="table-wrap">
-                            <table class="data-table">
-                                <thead>
-                                    <tr><th scope="col">Nome</th><th scope="col">Usuário</th><th scope="col">Perfil</th><th scope="col">Situação</th><th scope="col"><span class="visually-hidden">Ações</span></th></tr>
-                                </thead>
-                                <tbody id="staff-list"></tbody>
-                            </table>
+                    <section class="cartao senha-revelada" id="senha-revelada" hidden aria-live="polite">
+                        <h2><i class="ph ph-key" aria-hidden="true"></i>Senha provisória</h2>
+                        <p id="senha-revelada-texto"></p>
+                        <p class="senha-revelada-valor"><code id="senha-revelada-valor"></code></p>
+                        <p class="texto-suave">Anote e entregue à pessoa. Esta senha não será exibida de novo.</p>
+                        <div class="linha-botoes">
+                            <button class="botao botao-secundario" id="senha-revelada-fechar" type="button">Já anotei</button>
                         </div>
                     </section>
+
+                    <section class="cartao">
+                        <div class="cartao-cabecalho">
+                            <h2>Equipe cadastrada</h2>
+                        </div>
+                        <div id="lista-equipe"></div>
+                    </section>
                 </section>
 
-                <!-- Turmas e disciplinas -->
-                <section class="tab-content" id="page-turmas" hidden>
-                    <section class="content-card">
-                        <h2>Nova turma</h2>
-                        <form class="notice-form" id="class-form">
-                            <div class="form-row">
-                                <label>
-                                    Curso
-                                    <select id="class-course">
-                                        <option value="informatica">Informática</option>
-                                        <option value="redes">Redes de Computadores</option>
-                                    </select>
-                                </label>
-                                <label>
-                                    Série
-                                    <select id="class-series">
-                                        <option value="1">1ª Série</option>
-                                        <option value="2">2ª Série</option>
-                                        <option value="3">3ª Série</option>
-                                    </select>
-                                </label>
-                                <label>
-                                    Nome da turma
-                                    <input id="class-name" type="text" maxlength="100" placeholder="Ex.: 1ª Série — Informática B" required>
-                                </label>
+                <!-- Mensagens (componente compartilhado) -->
+                <section class="secao secao-mensagens" data-pagina="mensagens" aria-labelledby="titulo-pagina" hidden>
+                    <div id="mensagens"></div>
+                </section>
+
+                <!-- Configurações -->
+                <section class="secao" data-pagina="configuracoes" aria-labelledby="titulo-pagina" hidden>
+                    <div class="segmentos segmentos-abas" role="group" aria-label="Configurações">
+                        <a class="segmento" href="#/configuracoes/perfil" data-aba-config="perfil">Perfil</a>
+                        <a class="segmento" href="#/configuracoes/senha" data-aba-config="senha">Senha</a>
+                        <a class="segmento" href="#/configuracoes/notificacoes" data-aba-config="notificacoes">Notificações</a>
+                        <a class="segmento" href="#/configuracoes/aparencia" data-aba-config="aparencia">Aparência</a>
+                        <a class="segmento" href="#/configuracoes/dispositivos" data-aba-config="dispositivos">Dispositivos</a>
+                    </div>
+
+                    <div data-config="perfil">
+                        <section class="cartao">
+                            <div class="perfil">
+                                <span class="avatar avatar-grande" data-avatar aria-hidden="true">G</span>
+                                <div>
+                                    <h2 data-nome-usuario>Gestão</h2>
+                                    <p class="texto-suave" id="perfil-detalhe"></p>
+                                </div>
                             </div>
-                            <button class="primary-button" type="submit">Criar turma</button>
-                        </form>
-                    </section>
+                        </section>
+                        <section class="cartao">
+                            <div class="cartao-cabecalho">
+                                <h2>E-mail</h2>
+                                <p class="texto-suave">Usado para recuperar a senha e receber notificações. Só é salvo depois de confirmado.</p>
+                            </div>
+                            <div id="perfil-email"></div>
+                        </section>
+                    </div>
 
-                    <div id="class-list"></div>
+                    <div data-config="senha">
+                        <section class="cartao">
+                            <div class="cartao-cabecalho">
+                                <h2>Alterar minha senha</h2>
+                                <p class="texto-suave">Sua senha é pessoal. Ao trocar, as outras sessões abertas são encerradas.</p>
+                            </div>
+                            <form class="formulario formulario-estreito" id="form-senha">
+                                <label class="campo">
+                                    <span>Senha atual</span>
+                                    <input id="senha-atual" type="password" autocomplete="current-password" required>
+                                </label>
+                                <label class="campo">
+                                    <span>Nova senha</span>
+                                    <input id="senha-nova" type="password" minlength="8" maxlength="128" autocomplete="new-password" required>
+                                </label>
+                                <label class="campo">
+                                    <span>Repita a nova senha</span>
+                                    <input id="senha-confirmacao" type="password" minlength="8" maxlength="128" autocomplete="new-password" required>
+                                </label>
+                                <div class="linha-botoes">
+                                    <button class="botao botao-primario" type="submit">Salvar nova senha</button>
+                                </div>
+                            </form>
+                        </section>
+                    </div>
+
+                    <div data-config="notificacoes">
+                        <section class="cartao">
+                            <div class="cartao-cabecalho">
+                                <h2>Notificações por e-mail</h2>
+                                <p class="texto-suave">Escolha o que você quer receber no seu e-mail.</p>
+                            </div>
+                            <div id="config-notificacoes"></div>
+                        </section>
+                    </div>
+
+                    <div data-config="aparencia">
+                        <section class="cartao">
+                            <div class="cartao-cabecalho">
+                                <h2>Aparência</h2>
+                                <p class="texto-suave">Vale só para este aparelho.</p>
+                            </div>
+                            <fieldset class="opcoes">
+                                <legend>Tema</legend>
+                                <label class="opcao"><input type="radio" name="tema" value="claro"><i class="ph ph-sun" aria-hidden="true"></i><span>Claro</span></label>
+                                <label class="opcao"><input type="radio" name="tema" value="escuro"><i class="ph ph-moon" aria-hidden="true"></i><span>Escuro</span></label>
+                                <label class="opcao"><input type="radio" name="tema" value="auto"><i class="ph ph-desktop" aria-hidden="true"></i><span>Automático</span></label>
+                            </fieldset>
+                            <fieldset class="opcoes">
+                                <legend>Tamanho do texto</legend>
+                                <label class="opcao"><input type="radio" name="texto" value="pequeno"><span class="amostra amostra-p">Aa</span><span>Pequeno</span></label>
+                                <label class="opcao"><input type="radio" name="texto" value="medio"><span class="amostra">Aa</span><span>Médio</span></label>
+                                <label class="opcao"><input type="radio" name="texto" value="grande"><span class="amostra amostra-g">Aa</span><span>Grande</span></label>
+                            </fieldset>
+                        </section>
+                    </div>
+
+                    <div data-config="dispositivos">
+                        <section class="cartao">
+                            <div class="cartao-cabecalho">
+                                <h2>Dispositivos conectados</h2>
+                                <p class="texto-suave">Aparelhos em que sua conta está aberta. Encerre os que você não reconhece.</p>
+                            </div>
+                            <div id="lista-sessoes"></div>
+                        </section>
+                    </div>
                 </section>
 
-                <!-- Minha conta -->
-                <section class="tab-content" id="page-conta" hidden>
-                    <section class="content-card">
-                        <h2>Alterar minha senha</h2>
-                        <p class="muted">Sua senha é pessoal. Ao trocar, as outras sessões abertas são encerradas.</p>
-                        <form class="notice-form narrow-form" id="password-form">
-                            <label>
-                                Senha atual
-                                <input id="current-password" type="password" autocomplete="current-password" required>
-                            </label>
-                            <label>
-                                Nova senha
-                                <input id="new-password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required>
-                            </label>
-                            <label>
-                                Repita a nova senha
-                                <input id="confirm-password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required>
-                            </label>
-                            <button class="primary-button" type="submit">Salvar nova senha</button>
-                        </form>
-                    </section>
+                <!-- Mais (celular) -->
+                <section class="secao" data-pagina="mais" aria-labelledby="titulo-pagina" hidden>
+                    <ul class="lista-mais">
+                        <li><a class="item-mais" href="#/turmas"><i class="ph ph-users-three" aria-hidden="true"></i><span>Turmas</span><i class="ph ph-caret-right" aria-hidden="true"></i></a></li>
+                        <li><a class="item-mais" href="#/ocorrencias"><i class="ph ph-warning-octagon" aria-hidden="true"></i><span>Ocorrências</span><span class="menu-contador" data-contador="ocorrencias" hidden></span><i class="ph ph-caret-right" aria-hidden="true"></i></a></li>
+                        <li><a class="item-mais" href="#/justificativas"><i class="ph ph-file-text" aria-hidden="true"></i><span>Justificativas</span><span class="menu-contador" data-contador="justificativas" hidden></span><i class="ph ph-caret-right" aria-hidden="true"></i></a></li>
+                        <li><a class="item-mais" href="#/relatorios"><i class="ph ph-chart-bar" aria-hidden="true"></i><span>Relatórios</span><i class="ph ph-caret-right" aria-hidden="true"></i></a></li>
+                        <li><a class="item-mais" href="#/equipe"><i class="ph ph-identification-badge" aria-hidden="true"></i><span>Equipe</span><i class="ph ph-caret-right" aria-hidden="true"></i></a></li>
+                        <li><a class="item-mais" href="#/configuracoes/perfil"><i class="ph ph-gear-six" aria-hidden="true"></i><span>Configurações</span><i class="ph ph-caret-right" aria-hidden="true"></i></a></li>
+                        <li><button class="item-mais item-mais-sair" type="button" data-sair><i class="ph ph-sign-out" aria-hidden="true"></i><span>Sair do portal</span></button></li>
+                    </ul>
                 </section>
-            </div>
-        </main>
+            </main>
+        </div>
+
+        <!-- Abas inferiores (celular) -->
+        <nav class="abas" aria-label="Seções principais">
+            <a class="aba" href="#/visao-geral" data-aba="visao-geral"><i class="ph ph-squares-four" aria-hidden="true"></i><span>Visão geral</span></a>
+            <a class="aba" href="#/avisos" data-aba="avisos"><i class="ph ph-megaphone-simple" aria-hidden="true"></i><span>Avisos</span></a>
+            <a class="aba" href="#/alunos" data-aba="alunos"><i class="ph ph-student" aria-hidden="true"></i><span>Alunos</span></a>
+            <a class="aba" href="#/mensagens" data-aba="mensagens"><span class="aba-icone"><i class="ph ph-chat-circle-dots" aria-hidden="true"></i><span class="ponto-alerta" data-ponto-mensagens hidden></span></span><span>Mensagens</span></a>
+            <a class="aba" href="#/mais" data-aba="mais"><i class="ph ph-dots-three-outline" aria-hidden="true"></i><span>Mais</span><span class="ponto-alerta ponto-mais" data-ponto-mais hidden></span></a>
+        </nav>
     </div>
 </body>
 </html>

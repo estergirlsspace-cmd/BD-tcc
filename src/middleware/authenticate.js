@@ -3,6 +3,8 @@ const { ApiError } = require('../errors');
 const { hashToken } = require('../controllers/authController');
 const { isSharedStudentLogin } = require('../utils/accounts');
 
+const LAST_SEEN_INTERVAL_SECONDS = 60;
+
 function authenticate(request) {
     const authorization = request.headers.authorization || '';
     const match = authorization.match(/^Bearer ([A-Za-z0-9_-]+)$/);
@@ -13,7 +15,7 @@ function authenticate(request) {
     const tokenHash = hashToken(match[1]);
     const now = Math.floor(Date.now() / 1000);
     const session = database.prepare(`
-        SELECT s.token_hash, s.curso AS curso_sessao, s.expira_em,
+        SELECT s.token_hash, s.curso AS curso_sessao, s.expira_em, s.ultimo_acesso,
                u.id_usuario, u.login, u.tipo_usuario, u.curso, u.serie,
                u.deve_trocar_senha, a.id_aluno, COALESCE(a.nome, p.nome, u.nome) AS nome, p.area, a.id_turma, t.serie AS turma_serie, t.nome_turma,
                p.id_professor
@@ -27,6 +29,12 @@ function authenticate(request) {
 
     if (!session) {
         throw new ApiError(401, 'Sessão inválida ou expirada. Faça login novamente.');
+    }
+
+    // "Último acesso" da lista de dispositivos: gravado no máximo 1 vez por minuto por sessão.
+    if (!session.ultimo_acesso || now - session.ultimo_acesso >= LAST_SEEN_INTERVAL_SECONDS) {
+        database.prepare('UPDATE sessoes SET ultimo_acesso = ? WHERE token_hash = ?')
+            .run(now, session.token_hash);
     }
 
     return {
