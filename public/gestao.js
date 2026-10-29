@@ -48,6 +48,11 @@ async function initialize() {
         G.leaveToLogin();
         return;
     }
+    // LGPD: sem o aceite dos termos, volta para a entrada (que retoma a etapa de aceite com esta sessão).
+    if (G.state.user.termos_pendentes) {
+        window.location.replace('/');
+        return;
+    }
 
     fillUser();
     Object.values(G.sections).forEach((section) => section.setup?.());
@@ -84,6 +89,11 @@ async function logout(trigger) {
     } catch {
         // A sessão local é encerrada mesmo se o servidor não responder.
     }
+    // Saída voluntária: sem aviso de "sessão expirou" nem rota para voltar.
+    try {
+        sessionStorage.removeItem('cw-motivo');
+        sessionStorage.removeItem('cw-voltar');
+    } catch { /* armazenamento indisponível */ }
     G.leaveToLogin();
 }
 
@@ -166,7 +176,7 @@ function setUnread(total) {
     $$('[data-contador="mensagens"]').forEach((node) => {
         node.hidden = !number;
         node.textContent = number > 99 ? '99+' : String(number);
-        node.setAttribute('aria-label', `${number} não lida(s)`);
+        node.setAttribute('aria-label', `${number} ${number === 1 ? 'não lida' : 'não lidas'}`);
     });
     $$('[data-ponto-mensagens]').forEach((node) => { node.hidden = !number; });
 }

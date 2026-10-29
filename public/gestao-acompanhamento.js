@@ -111,7 +111,7 @@ function renderPanel() {
                 el('span', { class: 'pessoa-texto' },
                     el('strong', { text: student.nome }),
                     el('small', { class: 'texto-suave', text: [student.turma, reason,
-                        openOccurrences ? `${openOccurrences} ocorrência(s) aberta(s)` : ''].filter(Boolean).join(' · ') })),
+                        openOccurrences ? `${openOccurrences} ${Number(openOccurrences) === 1 ? 'ocorrência aberta' : 'ocorrências abertas'}` : ''].filter(Boolean).join(' · ') })),
                 percent !== null
                     ? el('span', { class: `pessoa-valor${percent < G.FREQUENCIA_MINIMA ? ' texto-alerta' : ''}`, text: G.formatPercent(percent) })
                     : null);
@@ -142,16 +142,16 @@ function updateCounters() {
     const justifications = G.source('justificativas').status === 'ok'
         ? sourceData('justificativas').filter((item) => item.situacao === 'pendente').length
         : panel.justificativas;
-    setCounter('ocorrencias', occurrences, 'aberta(s)');
-    setCounter('justificativas', justifications, 'pendente(s)');
+    setCounter('ocorrencias', occurrences, ['aberta', 'abertas']);
+    setCounter('justificativas', justifications, ['pendente', 'pendentes']);
 }
 
-function setCounter(name, value, suffix) {
+function setCounter(name, value, [singular, plural]) {
     const number = Number(value) || 0;
     $$(`[data-contador="${name}"]`).forEach((node) => {
         node.hidden = !number;
         node.textContent = number > 99 ? '99+' : String(number);
-        node.setAttribute('aria-label', `${number} ${suffix}`);
+        node.setAttribute('aria-label', `${number} ${number === 1 ? singular : plural}`);
     });
     G.updateMoreDot?.();
 }
@@ -239,7 +239,7 @@ async function submitOccurrence(event) {
     event.preventDefault();
     const form = event.currentTarget;
     const submit = form.querySelector('button[type="submit"]');
-    await G.runAction(submit, async () => {
+    await G.runFormAction(form, submit, async () => {
         await G.sendJson('/api/ocorrencias', 'POST', {
             id_aluno: Number($('#ocorrencia-aluno').value),
             descricao: $('#ocorrencia-descricao').value.trim()
@@ -249,6 +249,11 @@ async function submitOccurrence(event) {
         G.showSuccess('Ocorrência registrada.');
         occurrenceFilter = 'aberta';
         await Promise.all([G.loadSource('ocorrencias', { silent: true }), G.loadSource('painel', { silent: true })]);
+    }, {
+        fieldFor: G.fieldByMessage([
+            [/aluno/i, $('#ocorrencia-aluno')],
+            [/./, $('#ocorrencia-descricao')]
+        ])
     });
 }
 
@@ -319,22 +324,22 @@ function justificationCard(item) {
 function reviewForm(item, student) {
     const answerId = `resposta-${item.id_justificativa}`;
     const answer = el('textarea', { id: answerId, rows: 2, maxlength: 1000, placeholder: 'Explique a decisão ao aluno (opcional ao aceitar)' });
-    const decide = (situacao, trigger) => G.runAction(trigger, async () => {
+    const decide = (situacao, trigger) => G.runFormAction(box, trigger, async () => {
         const text = answer.value.trim();
         if (situacao === 'recusada' && !text) {
-            answer.focus();
-            throw new Error('Escreva uma resposta explicando por que a justificativa foi recusada.');
+            throw G.fieldError(answer, 'Escreva uma resposta explicando por que a justificativa foi recusada.');
         }
         await G.sendJson(`/api/justificativas/${item.id_justificativa}`, 'PATCH',
             { situacao, ...(text ? { resposta: text } : {}) });
         G.showSuccess(`Justificativa de ${student.nome} ${situacao === 'aceita' ? 'aceita' : 'recusada'}.`);
         await Promise.all([G.loadSource('justificativas', { silent: true }), G.loadSource('painel', { silent: true })]);
-    });
+    }, { fieldFor: G.fieldByMessage([[/resposta/i, answer]]) });
     const accept = button([icon('check'), 'Aceitar'], 'botao botao-primario', () => decide('aceita', accept));
     const refuse = button([icon('x'), 'Recusar'], 'botao botao-perigo', () => decide('recusada', refuse));
-    return el('div', { class: 'justificativa-analise' },
+    const box = el('div', { class: 'justificativa-analise' },
         el('div', { class: 'campo' }, el('label', { for: answerId, text: 'Resposta ao aluno' }), answer),
         el('div', { class: 'linha-botoes' }, accept, refuse));
+    return box;
 }
 
 // ---------------------------------------------------------------- registro das seções
@@ -385,9 +390,119 @@ G.sections.justificativas = {
     }
 };
 
+// ---------------------------------------------------------------- auditoria (LGPD)
+
+// Registro de quem fez o quê (GET /api/auditoria), montado aqui dentro de Relatórios.
+// Mostra só ação e alvo (ex.: "aluno:21"), nunca conteúdo pessoal.
+const AUDIT_PROFILE = { aluno: 'Aluno', professor: 'Professor', gestao: 'Gestão' };
+const audit = { page: 1, userId: null, userName: '', loaded: false, actions: [], request: 0 };
+
+function auditField(label, control) {
+    return el('label', { class: 'campo campo-filtro' }, el('span', { text: label }), control);
+}
+
+function setupAudit() {
+    const section = $('[data-pagina="relatorios"]');
+    if (!section || $('#auditoria')) return;
+    const actionSelect = el('select', { id: 'auditoria-acao' }, option('', 'Todas as ações'));
+    const from = el('input', { id: 'auditoria-de', type: 'date' });
+    const to = el('input', { id: 'auditoria-ate', type: 'date' });
+    const apply = button([icon('funnel'), 'Filtrar'], 'botao botao-secundario', () => loadAudit(1));
+    const filters = el('form', { class: 'filtros', id: 'auditoria-filtros', 'aria-label': 'Filtros da auditoria' },
+        auditField('Ação', actionSelect), auditField('De', from), auditField('Até', to),
+        el('div', { id: 'auditoria-pessoa' }), apply);
+    filters.addEventListener('submit', (event) => {
+        event.preventDefault();
+        loadAudit(1);
+    });
+    [actionSelect, from, to].forEach((control) => control.addEventListener('change', () => loadAudit(1)));
+    section.append(el('section', { class: 'cartao', id: 'auditoria', 'aria-labelledby': 'auditoria-titulo' },
+        el('div', { class: 'cartao-cabecalho' },
+            el('h2', { id: 'auditoria-titulo', text: 'Registro de auditoria' }),
+            el('p', { class: 'texto-suave', text: 'Quem entrou no sistema e quem fez ações sensíveis (matrículas, senhas, justificativas, ocorrências, atestados, exportações). Guardado por 2 anos, sem conteúdo pessoal.' })),
+        filters,
+        el('div', { id: 'auditoria-lista', 'aria-live': 'polite' }),
+        el('div', { class: 'linha-botoes', id: 'auditoria-paginas' })));
+}
+
+function auditQuery(page) {
+    const params = new URLSearchParams({ pagina: String(page), por_pagina: '25' });
+    const action = $('#auditoria-acao').value;
+    if (action) params.set('acao', action);
+    if ($('#auditoria-de').value) params.set('de', $('#auditoria-de').value);
+    if ($('#auditoria-ate').value) params.set('ate', $('#auditoria-ate').value);
+    if (audit.userId) params.set('id_usuario', String(audit.userId));
+    return params;
+}
+
+function filterByPerson(user) {
+    audit.userId = user ? user.id_usuario : null;
+    audit.userName = user ? (user.nome || user.login || `#${user.id_usuario}`) : '';
+    const holder = $('#auditoria-pessoa');
+    holder.replaceChildren(user
+        ? button([icon('x'), `Pessoa: ${audit.userName}`], 'botao botao-texto botao-pequeno', () => filterByPerson(null),
+            { 'aria-label': `Remover filtro da pessoa ${audit.userName}` })
+        : '');
+    loadAudit(1);
+}
+
+function auditRow(item) {
+    const user = item.usuario;
+    const who = user
+        ? button(`${user.nome || user.login}${AUDIT_PROFILE[user.tipo_usuario] ? ` · ${AUDIT_PROFILE[user.tipo_usuario]}` : ''}`,
+            'botao botao-texto botao-pequeno', () => filterByPerson(user),
+            { title: 'Mostrar só as ações desta pessoa' })
+        : el('span', { class: 'texto-suave', text: 'Conta removida' });
+    return el('tr', {},
+        el('td', { 'data-rotulo': 'Quando', text: G.formatCreated(item.criado_em) }),
+        el('td', { 'data-rotulo': 'Ação', text: item.descricao }),
+        el('td', { 'data-rotulo': 'Quem' }, who),
+        el('td', { 'data-rotulo': 'Alvo', text: item.alvo || '—' }));
+}
+
+async function loadAudit(page = audit.page) {
+    if (!$('#auditoria')) return;
+    const list = $('#auditoria-lista');
+    const pages = $('#auditoria-paginas');
+    // Só a resposta do pedido mais recente é desenhada (filtros trocados durante o carregamento).
+    const request = ++audit.request;
+    list.replaceChildren(G.loadingState('Carregando auditoria…'));
+    try {
+        const result = await G.api(`/api/auditoria?${auditQuery(page).toString()}`);
+        if (request !== audit.request) return;
+        audit.page = result.pagina;
+        if (!audit.actions.length && result.acoes?.length) {
+            audit.actions = result.acoes;
+            const select = $('#auditoria-acao');
+            const current = select.value;
+            G.fillSelect(select, [option('', 'Todas as ações'), ...result.acoes.map((item) => option(item.acao, item.descricao))]);
+            select.value = current;
+        }
+        list.replaceChildren(result.itens.length
+            ? el('div', { class: 'tabela-rolagem', tabindex: '0', role: 'region', 'aria-label': 'Registro de auditoria' },
+                el('table', { class: 'tabela tabela-cartoes' },
+                    el('caption', { class: 'visually-hidden', text: `Registro de auditoria, página ${result.pagina} de ${result.paginas}` }),
+                    el('thead', {}, el('tr', {}, ['Quando', 'Ação', 'Quem', 'Alvo'].map((label) => el('th', { scope: 'col', text: label })))),
+                    el('tbody', {}, result.itens.map(auditRow))))
+            : emptyState('Nenhum registro encontrado com esses filtros.', 'list-magnifying-glass'));
+        pages.replaceChildren(...(result.paginas > 1 ? [
+            button([icon('caret-left'), 'Anteriores'], 'botao botao-secundario botao-pequeno', () => loadAudit(audit.page - 1),
+                { disabled: result.pagina <= 1 }),
+            el('span', { class: 'texto-suave', text: `Página ${result.pagina} de ${result.paginas} · ${result.total} registros` }),
+            button(['Próximos', icon('caret-right')], 'botao botao-secundario botao-pequeno', () => loadAudit(audit.page + 1),
+                { disabled: result.pagina >= result.paginas })
+        ] : [el('span', { class: 'texto-suave', text: `${result.total} registro${result.total === 1 ? '' : 's'}` })]));
+        audit.loaded = true;
+    } catch (error) {
+        if (request !== audit.request) return;
+        list.replaceChildren(G.errorState(error.message, () => loadAudit(page)));
+        pages.replaceChildren();
+    }
+}
+
 G.sections.relatorios = {
     title: 'Relatórios',
-    description: 'Baixe planilhas para acompanhar a frequência da escola.',
+    description: 'Baixe planilhas da frequência e consulte o registro de auditoria.',
     setup() {
         $$('[data-relatorio]').forEach((trigger) => trigger.addEventListener('click', () => {
             const name = trigger.dataset.relatorio;
@@ -396,6 +511,10 @@ G.sections.relatorios = {
                 G.showSuccess('Relatório baixado.');
             });
         }));
+        setupAudit();
+    },
+    show() {
+        loadAudit(audit.loaded ? audit.page : 1);
     }
 };
 

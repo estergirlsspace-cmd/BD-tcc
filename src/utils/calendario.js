@@ -1,4 +1,5 @@
-const { SCHOOL_UTC_OFFSET_HOURS } = require('./dates');
+const { ApiError } = require('../errors');
+const { SCHOOL_UTC_OFFSET_HOURS, parseSchoolDate } = require('./dates');
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -23,4 +24,32 @@ function addBusinessDays(date, days) {
     return cursor.toISOString().slice(0, 10);
 }
 
-module.exports = { schoolNow, addBusinessDays };
+// Início do ano letivo: 1º de fevereiro do ano corrente (no horário de Brasília).
+const SCHOOL_YEAR_START = '02-01';
+
+function isWeekend(date) {
+    const [year, month, day] = date.split('-').map(Number);
+    const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+    return weekday === 0 || weekday === 6;
+}
+
+// Data de aula para lançar presença: dia útil, do início do ano letivo até hoje. Sem isso uma
+// falta retroativa (ou de um dia sem aula) nasceria já fora do prazo de justificativa.
+function parseClassDate(value, field, now = Date.now()) {
+    const date = parseSchoolDate(value, field, { allowTime: false });
+    const today = schoolNow(now).data;
+    const yearStart = `${today.slice(0, 4)}-${SCHOOL_YEAR_START}`;
+    if (date > today) throw new ApiError(400, 'Não é possível lançar chamada em data futura.');
+    if (date < yearStart) {
+        throw new ApiError(400, `A data da aula deve ser a partir do início do ano letivo (${yearStart}).`);
+    }
+    if (isWeekend(date)) throw new ApiError(400, 'Não há aula no fim de semana: escolha um dia útil.');
+    return date;
+}
+
+// "AAAA-MM-DD HH:MM:SS" em UTC (CURRENT_TIMESTAMP do SQLite) → data de Brasília "AAAA-MM-DD".
+function schoolDateOfTimestamp(sqliteTimestamp) {
+    return schoolNow(Date.parse(`${sqliteTimestamp.replace(' ', 'T')}Z`)).data;
+}
+
+module.exports = { schoolNow, addBusinessDays, isWeekend, parseClassDate, schoolDateOfTimestamp };

@@ -32,8 +32,11 @@ function parseSchoolDate(value, field, { allowTime = true } = {}) {
 }
 
 // Momento (em ms) em que um prazo termina. Data sem horário vale até 23:59:59 daquele dia,
-// e horário sem fuso é interpretado como horário de Brasília.
+// e horário sem fuso é interpretado como horário de Brasília. Sem prazo (null/vazio) → null;
+// texto que não é uma data válida → NaN (quem chama deve recusar, nunca tratar como "sem prazo").
 function deadlineTimestamp(value) {
+    if (value === null || value === undefined || value === '') return null;
+    if (typeof value !== 'string') return Number.NaN;
     const dateOnly = DATE_ONLY.exec(value);
     const offsetMs = -SCHOOL_UTC_OFFSET_HOURS * 60 * 60 * 1000;
     if (dateOnly) {

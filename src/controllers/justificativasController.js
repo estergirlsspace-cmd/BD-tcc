@@ -1,8 +1,9 @@
 const database = require('../database');
 const { ApiError } = require('../errors');
 const { readBody, sendJson } = require('../utils/http');
+const { registrar } = require('../services/auditoria');
 const { parseSchoolDate } = require('../utils/dates');
-const { schoolNow, addBusinessDays } = require('../utils/calendario');
+const { schoolNow, addBusinessDays, schoolDateOfTimestamp } = require('../utils/calendario');
 const { assertOwnFile, attachmentColumns, attachmentFrom } = require('../utils/arquivos');
 const {
     requireRole, requireFields, getRecordId, positiveId, rejectUnknownFields, requiredText, optionalText
@@ -23,6 +24,19 @@ const SELECT_JUSTIFICATIONS = `
     LEFT JOIN turmas t ON t.id_turma = al.id_turma
     JOIN disciplinas d ON d.id_disciplina = j.id_disciplina
     LEFT JOIN arquivos arq ON arq.id_arquivo = j.id_arquivo`;
+
+// Professor vê só que a falta foi justificada e a situação: motivo, atestado e resposta da
+// gestão são dados sensíveis do aluno (LGPD, minimização) e ficam com o aluno e a gestão.
+function toTeacherItem(row) {
+    return {
+        id_justificativa: row.id_justificativa,
+        aluno: { id_aluno: row.id_aluno, nome: row.aluno_nome, turma: row.nome_turma },
+        id_disciplina: row.id_disciplina,
+        disciplina: row.nome_disciplina,
+        data_falta: row.data_falta,
+        situacao: row.situacao
+    };
+}
 
 function toItem(row) {
     return {
@@ -75,7 +89,7 @@ function listJustifications(user, searchParams) {
         ${SELECT_JUSTIFICATIONS}
         ${filters.length ? `WHERE ${filters.join(' AND ')}` : ''}
         ORDER BY j.criado_em DESC, j.id_justificativa DESC
-    `).all(...params).map(toItem);
+    `).all(...params).map(user.tipo_usuario === 'professor' ? toTeacherItem : toItem);
 }
 
 async function createJustification(request, response, user) {
@@ -93,13 +107,17 @@ async function createJustification(request, response, user) {
     assertOwnFile(user, fileId);
 
     const absence = database.prepare(`
-        SELECT 1 FROM frequencias
+        SELECT criado_em FROM frequencias
         WHERE id_aluno = ? AND id_disciplina = ? AND data_aula = ? AND presente = 0
     `).get(user.id_aluno, disciplineId, absenceDate);
     if (!absence) {
         throw new ApiError(404, 'Não há falta registrada para você nessa disciplina e data.');
     }
-    const deadline = addBusinessDays(absenceDate, DEADLINE_BUSINESS_DAYS);
+    // O prazo conta da data da falta ou do dia em que ela foi lançada, o que for mais tarde:
+    // falta lançada com atraso não nasce com o prazo vencido.
+    const launchedOn = schoolDateOfTimestamp(absence.criado_em);
+    const deadline = addBusinessDays(launchedOn > absenceDate ? launchedOn : absenceDate,
+        DEADLINE_BUSINESS_DAYS);
     if (schoolNow().data > deadline) {
         throw new ApiError(409,
             `O prazo para justificar esta falta terminou em ${deadline} (${DEADLINE_BUSINESS_DAYS} dias úteis).`);
@@ -125,12 +143,19 @@ async function reviewJustification(request, response, user, justificationId) {
         throw new ApiError(400, 'Informe em "situacao" "aceita" ou "recusada".');
     }
     const answer = optionalText(body.resposta, 'resposta', 2000);
+    // Só se analisa uma vez: o UPDATE condicional também evita duas análises simultâneas.
     const result = database.prepare(`
         UPDATE justificativas
         SET situacao = ?, resposta = ?, id_usuario_analise = ?, analisado_em = CURRENT_TIMESTAMP
-        WHERE id_justificativa = ?
+        WHERE id_justificativa = ? AND situacao = 'pendente'
     `).run(body.situacao, answer, user.id_usuario, justificationId);
-    if (!result.changes) throw new ApiError(404, 'Justificativa não encontrada.');
+    if (!result.changes) {
+        if (!database.prepare('SELECT 1 FROM justificativas WHERE id_justificativa = ?').get(justificationId)) {
+            throw new ApiError(404, 'Justificativa não encontrada.');
+        }
+        throw new ApiError(409, 'Esta justificativa já foi analisada.');
+    }
+    registrar(user, 'justificativa.analisar', `justificativa:${justificationId}`);
     sendJson(response, 200, fetchJustification(justificationId));
 }
 

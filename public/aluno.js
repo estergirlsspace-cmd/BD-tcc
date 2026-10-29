@@ -47,7 +47,7 @@ const SECTIONS = {
     atividades: { title: 'Atividades', defaultSub: 'pendentes' },
     frequencia: { title: 'Frequência', defaultSub: 'resumo' },
     mensagens: { title: 'Mensagens', defaultSub: null },
-    ajustes: { title: 'Ajustes', defaultSub: 'perfil' }
+    ajustes: { title: 'Configurações', defaultSub: 'perfil' }
 };
 
 // Situação da falta: derivada de frequencias[].justificativa (ou da lista de justificativas).
@@ -73,7 +73,7 @@ const FAQ = [
     ['Como confirmo que li um aviso?',
         'Abra o aviso e toque em "Confirmar leitura". Ele sai da lista de não lidos. Se confirmou por engano, toque de novo para desfazer.'],
     ['Onde encontro os avisos que salvei?',
-        'Em Avisos › Salvos. Use o botão "Salvar" dentro do aviso para guardar os mais importantes.'],
+        'Em Avisos › Salvos. Use o botão "Salvar aviso" dentro do aviso para guardar os mais importantes.'],
     ['Como envio uma atividade?',
         'Em Atividades › Pendentes, toque em "Enviar", escreva sua resposta e confirme antes do prazo. Até o prazo terminar você pode reenviar.'],
     ['Como justifico uma falta?',
@@ -81,7 +81,7 @@ const FAQ = [
     ['Minha frequência está abaixo de 75%. E agora?',
         'O mínimo para aprovação é 75% de presença. Procure a coordenação para entender a situação e combinar a reposição.'],
     ['Esqueci minha senha. O que faço?',
-        'Na tela de entrada, toque em "Esqueci minha senha". Se você tiver um e-mail cadastrado em Ajustes › Perfil, enviamos um link para criar uma senha nova. Sem e-mail, procure a secretaria.']
+        'Na tela de entrada, toque em "Esqueci minha senha". Se você tiver um e-mail cadastrado em Configurações › Perfil, enviamos um link para criar uma senha nova. Sem e-mail, procure a secretaria.']
 ];
 
 // ---------------------------------------------------------------- estado
@@ -121,33 +121,54 @@ const $ = (selector) => document.querySelector(selector);
 
 // ---------------------------------------------------------------- API e sessão
 
-function leaveToLogin() {
+// expirou: a sessão caiu sem a pessoa pedir (401). O login mostra o aviso e, depois de entrar,
+// volta para a rota guardada. O "Sair" voluntário não grava nada.
+function leaveToLogin({ expirou = false } = {}) {
     sessionStorage.removeItem(TOKEN_KEY);
+    if (expirou) {
+        try {
+            sessionStorage.setItem('cw-motivo', 'sessao');
+            sessionStorage.setItem('cw-voltar', window.location.pathname + window.location.hash);
+        } catch {
+            // Sem sessionStorage: volta ao login sem o aviso.
+        }
+    }
     window.location.replace('/');
 }
 
+function apiError(message, status) {
+    return Object.assign(new Error(message), { status });
+}
+
 async function api(path, options = {}) {
-    const response = await fetch(path, {
-        ...options,
-        headers: {
-            ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-            Authorization: `Bearer ${token}`,
-            ...options.headers
-        }
-    });
-    const text = await response.text();
-    let result = null;
+    let response;
     try {
-        result = text ? JSON.parse(text) : null;
+        response = await fetch(path, {
+            ...options,
+            headers: {
+                ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+                Authorization: `Bearer ${token}`,
+                ...options.headers
+            }
+        });
     } catch {
-        throw new Error('O servidor retornou uma resposta inválida.');
+        throw apiError('Sem conexão. Confira a internet e tente de novo.', 0);
     }
     if (response.status === 401) {
-        leaveToLogin();
-        throw new Error('Sua sessão expirou. Entre novamente.');
+        leaveToLogin({ expirou: true });
+        throw apiError('Sua sessão expirou. Entre de novo.', 401);
     }
-    if (response.status === 501) throw new Error('Este recurso ainda está em construção. Tente de novo mais tarde.');
-    if (!response.ok) throw new Error(result?.erro || 'Não foi possível concluir a solicitação.');
+    let text = '';
+    let result = null;
+    try {
+        text = await response.text();
+        result = text ? JSON.parse(text) : null;
+    } catch {
+        throw apiError('O servidor respondeu de um jeito inesperado. Tente de novo em instantes.', response.status);
+    }
+    if (response.status === 403 && /termos de uso/.test(result?.erro || '')) window.location.replace('/');
+    if (response.status === 501) throw apiError('Este recurso ainda está em construção. Tente de novo mais tarde.', 501);
+    if (!response.ok) throw apiError(result?.erro || 'Não foi possível concluir a solicitação.', response.status);
     return result;
 }
 
@@ -162,7 +183,7 @@ async function downloadFile(file, trigger) {
             headers: { Authorization: `Bearer ${token}` }
         });
         if (response.status === 401) {
-            leaveToLogin();
+            leaveToLogin({ expirou: true });
             return;
         }
         if (!response.ok) {
@@ -182,7 +203,8 @@ async function downloadFile(file, trigger) {
         link.remove();
         window.setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch (error) {
-        notify(error.message || 'Não foi possível baixar o anexo.', 'erro');
+        notify(error instanceof TypeError ? 'Sem conexão. Confira a internet e tente de novo.'
+            : error.message || 'Não foi possível baixar o anexo.', 'erro');
     } finally {
         if (trigger) {
             trigger.disabled = false;
@@ -288,6 +310,11 @@ async function initialize() {
     }
     if (state.user.tipo_usuario !== 'aluno' || state.user.deve_trocar_senha) {
         leaveToLogin();
+        return;
+    }
+    // LGPD: sem o aceite dos termos, volta para a entrada (que retoma a etapa de aceite com esta sessão).
+    if (state.user.termos_pendentes) {
+        window.location.replace('/');
         return;
     }
 
@@ -758,7 +785,8 @@ function subnavGroups(section) {
         ajustes: [
             ['Conta', [
                 ['perfil', 'Perfil', 'user-circle', null],
-                ['seguranca', 'Senha e segurança', 'lock-key', null]
+                ['seguranca', 'Senha e segurança', 'lock-key', null],
+                ['privacidade', 'Privacidade', 'shield-check', null]
             ]],
             ['Preferências', [
                 ['notificacoes', 'Notificações', 'bell-simple', null],
@@ -975,7 +1003,7 @@ function render({ force = false } = {}) {
             frequencia: { faltas: renderAbsences, justificar: renderJustify }[sub] || renderAttendanceSummary,
             ajustes: {
                 perfil: renderProfile, seguranca: renderSecurity, notificacoes: renderNotifications,
-                aparencia: renderAppearance, ajuda: renderHelp
+                aparencia: renderAppearance, ajuda: renderHelp, privacidade: renderPrivacy
             }[sub] || renderProfile
         };
         build = () => [chipsNav(), renderers[section]()];
@@ -992,10 +1020,14 @@ function render({ force = false } = {}) {
     main.dataset.estavel = isStableRoute() ? '1' : '0';
     const keepFocus = main.contains(document.activeElement) ? document.activeElement : null;
     const keepId = keepFocus?.id;
+    // Botões sem id (salvar, confirmar leitura) são recriados no render: devolve o foco ao
+    // botão equivalente pelo data-acao, para o foco não cair no <body>.
+    const keepAction = keepFocus?.dataset?.acao;
     main.replaceChildren(...[content].flat(Infinity).filter(Boolean));
     main.classList.toggle('conteudo-detalhe', section === 'avisos' && Boolean(id));
     main.classList.toggle('conteudo-mensagens', section === 'mensagens');
     if (keepId) document.getElementById(keepId)?.focus({ preventScroll: true });
+    else if (keepAction) main.querySelector(`[data-acao="${CSS.escape(keepAction)}"]:not(:disabled)`)?.focus({ preventScroll: true });
 }
 
 // ---------------------------------------------------------------- Início
@@ -1183,7 +1215,7 @@ function renderNoticeList() {
             ? `${plural(list.length, 'resultado', 'resultados')} para "${truncate(state.search, 40)}"`
             : `${plural(list.length, 'aviso', 'avisos')} · ${plural(unread, 'não lido', 'não lidos')}` }),
         state.search ? el('button', { class: 'link-botao', type: 'button', on: { click: clearSearch } }, icon('x'), 'Limpar busca') : null,
-        el('button', { class: 'link-botao', type: 'button', disabled: unread === 0, on: { click: markAllRead } },
+        el('button', { class: 'link-botao', type: 'button', 'data-acao': 'ler-todos', disabled: unread === 0, on: { click: markAllRead } },
             icon('checks'), 'Marcar todos como lidos')));
 
     if (!list.length) {
@@ -1243,10 +1275,13 @@ function renderNoticeDetail(id) {
     return el('article', { class: 'cartao aviso-aberto', 'aria-labelledby': 'aviso-titulo' },
         el('div', { class: 'linha-entre aviso-topo' },
             el('a', { class: 'link-seta voltar-desktop', href: backHref }, icon('arrow-left'), 'Voltar para avisos'),
+            // Rótulo fixo + aria-pressed (o leitor anuncia "Salvar aviso, pressionado"); o estado
+            // visível fica num texto à parte, escondido do leitor para não repetir.
             el('button', {
-                class: `botao botao-contorno${notice.salvo ? ' ativo' : ''}`, type: 'button',
+                class: `botao botao-contorno${notice.salvo ? ' ativo' : ''}`, type: 'button', 'data-acao': 'salvar',
                 'aria-pressed': String(Boolean(notice.salvo)), on: { click: () => toggleSaved(notice) }
-            }, icon('bookmark-simple', notice.salvo), notice.salvo ? 'Salvo' : 'Salvar')),
+            }, icon('bookmark-simple', notice.salvo), 'Salvar aviso',
+            notice.salvo ? el('span', { class: 'estado-botao', 'aria-hidden': 'true', text: 'Salvo' }) : null)),
         el('div', {}, el('span', { class: `etiqueta cat-${notice.categoria}`, text: category.label })),
         el('h2', { class: 'aviso-aberto-titulo', id: 'aviso-titulo', text: notice.titulo }),
         el('div', { class: 'autor' },
@@ -1260,9 +1295,10 @@ function renderNoticeDetail(id) {
         notice.anexo ? attachmentButton(notice.anexo) : null,
         el('div', { class: 'aviso-rodape' },
             el('button', {
-                class: `botao botao-primario botao-leitura${read ? ' confirmado' : ''}`, type: 'button',
+                class: `botao botao-primario botao-leitura${read ? ' confirmado' : ''}`, type: 'button', 'data-acao': 'leitura',
                 'aria-pressed': String(read), on: { click: () => toggleRead(notice) }
-            }, icon('check-circle', read), read ? 'Leitura confirmada' : 'Confirmar leitura'),
+            }, icon('check-circle', read), 'Confirmar leitura',
+            read ? el('span', { class: 'estado-botao', 'aria-hidden': 'true', text: 'Confirmada' }) : null),
             read && notice.lido_em ? el('span', { class: 'meta', text: `Confirmada em ${fullDateTime(notice.lido_em)}` }) : null));
 }
 
@@ -1468,8 +1504,7 @@ function openSubmitDialog(activity, previousAnswer = '') {
         event.preventDefault();
         const answer = textarea.value.trim();
         if (!answer) {
-            notify('Escreva sua resposta antes de enviar.', 'erro');
-            textarea.focus();
+            fieldError(textarea, 'Escreva sua resposta antes de enviar.');
             return;
         }
         submit.disabled = true;
@@ -1483,7 +1518,13 @@ function openSubmitDialog(activity, previousAnswer = '') {
             notify('Atividade enviada!', 'sucesso');
             loadSource('atividades');
         } catch (error) {
-            notify(error.message, 'erro');
+            if (error.status === 409) {
+                // A atividade já foi corrigida: não dá mais para reenviar.
+                CwFormulario.erro(textarea, error.message || 'Esta atividade já foi corrigida. Não é possível reenviar.', { focar: true });
+                loadSource('atividades');
+                return;
+            }
+            CwFormulario.mostrar(form, error, textarea);
             submit.disabled = false;
         }
     });
@@ -1516,7 +1557,9 @@ async function openSubmissionDialog(activity, status) {
         el('p', { class: 'texto-livre caixa-resposta', text: answer?.resposta || 'Resposta não encontrada.' }));
     const actions = el('div', { class: 'acoes' },
         el('button', { class: 'botao botao-contorno', type: 'button', on: { click: () => $('#dialogo').close() } }, 'Fechar'));
-    if (status === 'entregues' && !isOverdue(activity)) {
+    // Entrega com nota não pode ser reenviada (o servidor responde 409).
+    const graded = [answer?.nota, submission?.nota].some((nota) => nota !== null && nota !== undefined);
+    if (status === 'entregues' && !graded && !isOverdue(activity)) {
         actions.append(el('button', {
             class: 'botao botao-primario', type: 'button',
             on: { click: () => openSubmitDialog(activity, answer?.resposta || '') }
@@ -1654,7 +1697,6 @@ function renderJustify() {
         placeholder: 'Descreva brevemente o motivo da falta', 'aria-describedby': 'just-motivo-ajuda'
     });
     const picker = filePicker();
-    const errorLine = el('p', { class: 'erro-formulario', id: 'just-erro', role: 'alert' });
     const submit = el('button', { class: 'botao botao-primario', type: 'submit' }, icon('paper-plane-tilt'), 'Enviar justificativa');
     const form = el('form', { class: 'cartao formulario cartao-justificar', novalidate: true, 'aria-labelledby': 'titulo-pagina' },
         el('p', { class: 'meta', text: `Envie em até ${JUSTIFY_BUSINESS_DAYS} dias úteis depois da falta. A coordenação analisa e você acompanha a situação em Histórico de faltas.` }),
@@ -1664,20 +1706,22 @@ function renderJustify() {
             motive,
             el('p', { class: 'meta', id: 'just-motivo-ajuda', text: 'Até 1.000 caracteres.' })),
         picker.node,
-        errorLine,
         el('div', { class: 'acoes' },
             el('a', { class: 'botao botao-contorno', href: '#/frequencia/faltas' }, 'Cancelar'),
             submit));
 
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
-        errorLine.textContent = '';
+        CwFormulario.limparTudo(form);
         const key = chosen ? chosen.key : form.querySelector('#just-falta').value;
         const group = absenceGroups().find((item) => item.key === key);
         if (!group) return fieldError(form.querySelector('#just-falta'), 'Escolha a falta que você quer justificar.');
         const reason = motive.value.trim();
         if (reason.length < 5) return fieldError(motive, 'Escreva o motivo da falta (pelo menos 5 caracteres).');
-        if (picker.error()) return fieldError(picker.input, picker.error());
+        if (picker.error()) {
+            picker.input.focus();
+            return undefined;
+        }
 
         submit.disabled = true;
         submit.setAttribute('aria-busy', 'true');
@@ -1702,8 +1746,13 @@ function renderJustify() {
             loadSource('frequencias');
             navigate('#/frequencia/faltas');
         } catch (error) {
-            errorLine.textContent = error.message;
-            notify(error.message, 'erro');
+            const anexo = /anexo|arquivo/i.test(error.message);
+            if (anexo) {
+                notify(error.message, 'erro');
+                picker.input.focus();
+            } else {
+                CwFormulario.mostrar(form, error, /motivo/i.test(error.message) ? motive : null);
+            }
         } finally {
             submit.disabled = false;
             submit.removeAttribute('aria-busy');
@@ -1742,12 +1791,15 @@ function filePicker() {
 
     function paint() {
         zone.classList.toggle('com-erro', Boolean(problem));
+        // O erro do anexo fica junto da zona (o input é escondido) e é ligado por aria-describedby.
         if (problem) {
             input.setAttribute('aria-invalid', 'true');
-            info.replaceChildren(el('p', { class: 'erro-formulario', text: problem }));
+            input.setAttribute('aria-describedby', 'just-anexo-ajuda just-anexo-erro');
+            info.replaceChildren(el('p', { class: 'cw-campo-erro', id: 'just-anexo-erro' }, icon('warning-circle'), el('span', { text: problem })));
             return;
         }
         input.removeAttribute('aria-invalid');
+        input.setAttribute('aria-describedby', 'just-anexo-ajuda');
         if (!chosen) {
             info.replaceChildren();
             return;
@@ -1896,22 +1948,32 @@ function emailCard() {
             maxlength: '254', required: true, placeholder: 'seuemail@exemplo.com', spellcheck: 'false'
         });
         const submit = el('button', { class: 'botao botao-primario', type: 'submit' }, icon('paper-plane-tilt'), 'Enviar link de confirmação');
+        // Trocar o e-mail de recuperação exige a senha atual (uma sessão roubada não basta).
+        const passwordBlock = passwordField('email-senha', 'Senha atual', 'current-password');
+        const password = passwordBlock.querySelector('input');
         const form = el('form', { class: 'formulario-email', novalidate: true },
-            el('label', { class: 'campo-rotulo', for: 'email-novo', text: account.email ? 'Trocar por outro e-mail' : 'Seu e-mail' }),
-            el('div', { class: 'linha-campo' }, field, submit));
+            el('div', { class: 'campo' },
+                el('label', { class: 'campo-rotulo', for: 'email-novo', text: account.email ? 'Trocar por outro e-mail' : 'Seu e-mail' }),
+                el('div', { class: 'linha-campo', 'data-campo-erro-apos': true }, field)),
+            passwordBlock,
+            el('div', { class: 'acoes' }, submit));
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
+            CwFormulario.limparTudo(form);
             const email = field.value.trim();
             if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fieldError(field, 'Digite um e-mail válido, como nome@exemplo.com.');
+            if (!password.value) return fieldError(password, 'Digite a sua senha atual para confirmar a troca.');
             submit.disabled = true;
             try {
-                const result = await api('/api/conta/email', { method: 'POST', body: JSON.stringify({ email }) });
+                const result = await api('/api/conta/email', {
+                    method: 'POST', body: JSON.stringify({ email, senha_atual: password.value })
+                });
                 state.pendingEmail = result?.email_pendente || email;
                 clearErrorNotifications();
-                notify(`Enviamos um link de confirmação para ${email}.`, 'sucesso');
+                notify(`Enviamos um link de confirmação para ${state.pendingEmail}.`, 'sucesso');
                 controller.repaint();
             } catch (error) {
-                notify(error.message, 'erro');
+                CwFormulario.mostrar(form, error, /senha/i.test(error.message) ? password : field);
                 submit.disabled = false;
             }
             return undefined;
@@ -1934,25 +1996,34 @@ function emailCard() {
 }
 
 function confirmRemoveEmail(account, controller) {
-    const confirm = el('button', { class: 'botao botao-primario botao-perigo-cheio', type: 'button' }, 'Remover e-mail');
-    confirm.addEventListener('click', async () => {
+    const confirm = el('button', { class: 'botao botao-primario botao-perigo-cheio', type: 'submit' }, 'Remover e-mail');
+    const cancel = el('button', { class: 'botao botao-contorno', type: 'button', on: { click: () => $('#dialogo').close() } }, 'Cancelar');
+    const passwordBlock = passwordField('email-remover-senha', 'Senha atual', 'current-password');
+    const password = passwordBlock.querySelector('input');
+    const form = el('form', { class: 'formulario', novalidate: true },
+        el('p', { class: 'dialogo-descricao', text: `Sem e-mail você não recebe notificações e não consegue recuperar a senha sozinho(a). Remover ${account.email}?` }),
+        passwordBlock,
+        el('div', { class: 'acoes' }, cancel, confirm));
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        CwFormulario.limparTudo(form);
+        if (!password.value) return fieldError(password, 'Digite a sua senha atual para remover o e-mail.');
         confirm.disabled = true;
         try {
-            await api('/api/conta/email', { method: 'DELETE' });
+            await api('/api/conta/email', { method: 'DELETE', body: JSON.stringify({ senha_atual: password.value }) });
             account.email = null;
             $('#dialogo').close();
             notify('E-mail removido.', 'sucesso');
             controller.repaint();
         } catch (error) {
-            notify(error.message, 'erro');
+            CwFormulario.mostrar(form, error, password);
             confirm.disabled = false;
         }
+        return undefined;
     });
-    openDialog('Remover e-mail?',
-        el('p', { class: 'dialogo-descricao', text: `Sem e-mail você não recebe notificações e não consegue recuperar a senha sozinho(a). Remover ${account.email}?` }),
-        el('div', { class: 'acoes' },
-            el('button', { class: 'botao botao-contorno', type: 'button', on: { click: () => $('#dialogo').close() } }, 'Cancelar'),
-            confirm));
+    openDialog('Remover e-mail?', form);
+    // Ação destrutiva: o foco começa no campo de senha, nunca no botão de remover.
+    window.setTimeout(() => password.focus(), 0);
 }
 
 function occurrencesCard() {
@@ -2018,6 +2089,7 @@ function renderSecurity() {
         const current = form.querySelector('#senha-atual');
         const next = form.querySelector('#senha-nova');
         const confirm = form.querySelector('#senha-confirmar');
+        CwFormulario.limparTudo(form);
         if (!current.value) return fieldError(current, 'Informe a senha atual.');
         if (next.value.length < 8) return fieldError(next, 'A nova senha deve ter pelo menos 8 caracteres.');
         if (next.value !== confirm.value) return fieldError(confirm, 'A confirmação não confere com a nova senha.');
@@ -2032,7 +2104,7 @@ function renderSecurity() {
             notify(result?.mensagem || 'Senha atualizada com sucesso.', 'sucesso');
             form.dispatchEvent(new CustomEvent('senha-alterada'));
         } catch (error) {
-            notify(error.message, 'erro');
+            CwFormulario.mostrar(form, error, /atual|incorreta/i.test(error.message) ? current : next);
         } finally {
             submit.disabled = false;
         }
@@ -2109,6 +2181,58 @@ function sessionsCard() {
         }
         return nodes;
     });
+}
+
+// ---------------------------------------------------------------- Ajustes: privacidade (LGPD)
+
+// Data de hoje em Brasília (AAAA-MM-DD) para o nome do arquivo exportado.
+function schoolTodayIso() {
+    return new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+}
+
+// "Baixar meus dados": fetch autenticado (token no cabeçalho, nunca na URL) → arquivo .json.
+async function downloadMyData(trigger) {
+    trigger.disabled = true;
+    trigger.setAttribute('aria-busy', 'true');
+    try {
+        const response = await fetch('/api/privacidade/meus-dados', { headers: { Authorization: `Bearer ${token}` } });
+        if (response.status === 401) {
+            leaveToLogin({ expirou: true });
+            return;
+        }
+        if (!response.ok) {
+            const result = await response.json().catch(() => null);
+            throw new Error(result?.erro || 'Não foi possível gerar o arquivo com os seus dados.');
+        }
+        const url = URL.createObjectURL(await response.blob());
+        const link = el('a', { href: url, download: `cw-meus-dados-${schoolTodayIso()}.json`, hidden: true });
+        document.body.append(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+        notify('Arquivo com os seus dados baixado.', 'sucesso');
+    } catch (error) {
+        notify(error instanceof TypeError ? 'Sem conexão. Confira a internet e tente de novo.' : error.message, 'erro');
+    } finally {
+        trigger.disabled = false;
+        trigger.removeAttribute('aria-busy');
+    }
+}
+
+function renderPrivacy() {
+    const download = el('button', { class: 'botao botao-primario', type: 'button' }, icon('download-simple'), 'Baixar meus dados');
+    download.addEventListener('click', () => downloadMyData(download));
+    return [
+        card('cartao-privacidade',
+            el('h2', { class: 'cartao-titulo', text: 'Privacidade' }),
+            el('p', { class: 'meta', text: 'Seus dados são usados só para a comunicação da escola. Quem vê: você, seus professores e a gestão do CEEP.' }),
+            el('a', { class: 'botao botao-contorno', href: '/privacidade', target: '_blank', rel: 'noopener' },
+                icon('shield-check'), 'Ler a política de privacidade', srText(' (abre em nova aba)'))),
+        card('cartao-privacidade',
+            el('h2', { class: 'cartao-titulo', text: 'Seus dados' }),
+            el('p', { class: 'meta', text: 'Baixe uma cópia de tudo o que o C·Warning guarda sobre você: perfil, frequência, entregas, justificativas, ocorrências, mensagens e acessos. Para corrigir algum dado, procure a secretaria.' }),
+            download)
+    ];
 }
 
 // ---------------------------------------------------------------- Ajustes: notificações e aparência
@@ -2189,11 +2313,9 @@ function renderAppearance() {
     return [themes, sizes];
 }
 
+// Erro de validação junto do campo (aria-invalid + aria-describedby), sem toast.
 function fieldError(input, message) {
-    notify(message, 'erro');
-    input.setAttribute('aria-invalid', 'true');
-    input.addEventListener('input', () => input.removeAttribute('aria-invalid'), { once: true });
-    input.focus();
+    CwFormulario.erro(input, message, { focar: true });
 }
 
 function renderHelp() {

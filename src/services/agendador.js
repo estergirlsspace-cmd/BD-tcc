@@ -13,11 +13,21 @@ const REMINDER_HOUR = 18;
 const DIGEST_WEEKDAY = 1; // segunda-feira
 const DIGEST_HOUR = 7;
 const DIGEST_MAX_ITEMS = 10;
+// O resumo só lembra avisos recentes: não lidos de meses atrás não entram.
+const DIGEST_LOOKBACK_DAYS = 14;
 const SENT_KEYS_RETENTION_DAYS = 60;
+// LGPD (política em README.md, "Privacidade e LGPD"): o registro de auditoria fica 2 anos;
+// sessões expiradas e tokens vencidos são apagados assim que vencem.
+const AUDIT_RETENTION_YEARS = 2;
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 
 const pad = (value) => String(value).padStart(2, '0');
+
+// Mesmo formato de CURRENT_TIMESTAMP do SQLite ("AAAA-MM-DD HH:MM:SS", UTC).
+function sqliteTimestamp(ms) {
+    return new Date(ms).toISOString().slice(0, 19).replace('T', ' ');
+}
 
 function schoolDateString(ms) {
     const p = email.schoolParts(ms);
@@ -89,7 +99,8 @@ function noticeNotificationType(notice) {
     return 'turma';
 }
 
-function unreadNoticesFor(student) {
+// Não lidos publicados nos últimos DIGEST_LOOKBACK_DAYS dias (criado_em é UTC, como CURRENT_TIMESTAMP).
+function unreadNoticesFor(student, now) {
     const scope = studentNoticeScope(student, 'p');
     if (!scope) return [];
     const silenced = new Set(database.prepare(
@@ -99,9 +110,10 @@ function unreadNoticesFor(student) {
         SELECT p.id_post, p.titulo, p.tipo, p.urgente
         FROM posts_avisos p
         LEFT JOIN avisos_usuarios au ON au.id_post = p.id_post AND au.id_usuario = ?
-        WHERE au.lido_em IS NULL AND ${scope.clause}
+        WHERE au.lido_em IS NULL AND p.criado_em >= ?
+          AND ${scope.clause}
         ORDER BY p.urgente DESC, p.criado_em DESC, p.id_post DESC
-    `).all(student.id_usuario, ...scope.params)
+    `).all(student.id_usuario, sqliteTimestamp(now - DIGEST_LOOKBACK_DAYS * DAY_MS), ...scope.params)
         .filter((notice) => !silenced.has(noticeNotificationType(notice)));
 }
 
@@ -120,7 +132,7 @@ async function sendWeeklyDigest(now) {
     for (const student of students) {
         const key = `resumo:${week}:${student.id_usuario}`;
         if (database.prepare('SELECT 1 FROM envios_email WHERE chave = ?').get(key)) continue;
-        const notices = unreadNoticesFor({ ...student, conta_compartilhada: false });
+        const notices = unreadNoticesFor({ ...student, conta_compartilhada: false }, now);
         if (!notices.length) continue;
         const shown = notices.slice(0, DIGEST_MAX_ITEMS).map((notice) => email.truncate(notice.titulo, 150));
         const rest = notices.length - shown.length;
@@ -140,6 +152,9 @@ async function sendWeeklyDigest(now) {
 
 function purgeExpired(now) {
     database.prepare('DELETE FROM tokens WHERE expira_em <= ?').run(Math.floor(now / 1000));
+    database.prepare('DELETE FROM sessoes WHERE expira_em <= ?').run(Math.floor(now / 1000));
+    database.prepare("DELETE FROM auditoria WHERE criado_em < datetime('now', ?)")
+        .run(`-${AUDIT_RETENTION_YEARS} years`);
     database.prepare("DELETE FROM envios_email WHERE enviado_em < datetime('now', ?)")
         .run(`-${SENT_KEYS_RETENTION_DAYS} days`);
 }

@@ -1,9 +1,11 @@
 .git
 node_modules
 .senha-lucas.txt
-data/*.antes-exemplo.sqlite
-data/alunos-exemplo.csv
-data/*.sqlite-wal
-data/*.sqlite-shm
 .DS_Store
 .vscode
+# Dados nunca entram na imagem: o banco, backups, anexos e CSVs de exemplo ficam no volume /data.
+data/
+# Só referência para quem desenvolve (contratos, design, modelos de e-mail) e a suíte de testes.
+docs/
+emails/
+tests/

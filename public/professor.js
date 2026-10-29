@@ -40,7 +40,8 @@ const SETTINGS_TABS = [
     ['perfil', 'Perfil', 'user-circle'],
     ['notificacoes', 'Notificações', 'bell-simple'],
     ['aparencia', 'Aparência', 'palette'],
-    ['seguranca', 'Senha e segurança', 'lock-key']
+    ['seguranca', 'Senha e segurança', 'lock-key'],
+    ['privacidade', 'Privacidade', 'shield-check']
 ];
 
 const NOTICE_TYPES = {
@@ -92,7 +93,8 @@ const state = {
     chamada: null,
     activityFilter: '',
     unreadMessages: 0,
-    messagesUnavailable: false
+    messagesUnavailable: false,
+    pendingEmail: null       // e-mail aguardando confirmação (resposta de POST /api/conta/email)
 };
 
 // Nós persistentes (formulários e o componente de mensagens) para não perder o que foi digitado
@@ -103,23 +105,37 @@ const $ = (selector) => document.querySelector(selector);
 
 // ---------------------------------------------------------------- API e sessão
 
-function leaveToLogin() {
+// expirou: a sessão caiu (401). A entrada mostra o motivo e, depois de entrar, volta para esta rota.
+function leaveToLogin({ expirou = false } = {}) {
     sessionStorage.removeItem(TOKEN_KEY);
+    if (expirou) {
+        try {
+            sessionStorage.setItem('cw-motivo', 'sessao');
+            sessionStorage.setItem('cw-voltar', window.location.pathname + window.location.hash);
+        } catch {
+            // Sem sessionStorage a entrada só não mostra o motivo.
+        }
+    }
     window.location.replace('/');
 }
 
 async function api(path, options = {}) {
     const isJson = options.body !== undefined && typeof options.body === 'string';
-    const response = await fetch(path, {
-        ...options,
-        headers: {
-            ...(isJson ? { 'Content-Type': 'application/json' } : {}),
-            Authorization: `Bearer ${token}`,
-            ...options.headers
-        }
-    });
+    let response;
+    try {
+        response = await fetch(path, {
+            ...options,
+            headers: {
+                ...(isJson ? { 'Content-Type': 'application/json' } : {}),
+                Authorization: `Bearer ${token}`,
+                ...options.headers
+            }
+        });
+    } catch {
+        throw Object.assign(new Error('Sem conexão. Confira a internet e tente de novo.'), { status: 0 });
+    }
     if (response.status === 401) {
-        leaveToLogin();
+        leaveToLogin({ expirou: true });
         throw Object.assign(new Error('Sua sessão expirou. Entre novamente.'), { status: 401 });
     }
     const text = await response.text();
@@ -127,8 +143,9 @@ async function api(path, options = {}) {
     try {
         result = text ? JSON.parse(text) : null;
     } catch {
-        throw Object.assign(new Error('O servidor retornou uma resposta inválida.'), { status: response.status });
+        throw Object.assign(new Error('O servidor respondeu de um jeito inesperado. Tente de novo em instantes.'), { status: response.status });
     }
+    if (response.status === 403 && /termos de uso/.test(result?.erro || '')) window.location.replace('/');
     if (!response.ok) {
         const fallback = response.status === 501
             ? 'Esta função ainda está em construção no servidor.'
@@ -198,6 +215,11 @@ async function initialize() {
     }
     if (state.user.tipo_usuario !== 'professor' || state.user.deve_trocar_senha) {
         leaveToLogin();
+        return;
+    }
+    // LGPD: sem o aceite dos termos, volta para a entrada (que retoma a etapa de aceite com esta sessão).
+    if (state.user.termos_pendentes) {
+        window.location.replace('/');
         return;
     }
 
@@ -359,6 +381,13 @@ function field(labelText, control, { hint, id } = {}) {
         hint ? el('p', { class: 'campo-dica', id: hintId, text: hint }) : null);
 }
 
+// Erro vindo da API num formulário: vai para o campo cujo padrão casar com a mensagem
+// (ex.: [[/prazo/i, campoPrazo]]); sem campo, vira erro geral do formulário (role="alert").
+function showFormError(form, error, fields = []) {
+    const target = fields.find(([pattern]) => pattern.test(error?.message || ''))?.[1];
+    CwFormulario.mostrar(form, error, target);
+}
+
 function selectOptions(select, options, placeholder) {
     const current = select.value;
     select.replaceChildren(
@@ -406,6 +435,37 @@ function todayYmd() {
     return schoolParts().ymd;
 }
 
+// Calendário da chamada (igual ao servidor, src/utils/calendario.js): só dias úteis, do início do
+// ano letivo (1º de fevereiro) até hoje.
+const SCHOOL_YEAR_START = '02-01';
+
+function schoolYearStart() {
+    return `${todayYmd().slice(0, 4)}-${SCHOOL_YEAR_START}`;
+}
+
+function isWeekendYmd(ymd) {
+    const [year, month, day] = ymd.split('-').map(Number);
+    const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+    return weekday === 0 || weekday === 6;
+}
+
+// Último dia útil até hoje (no fim de semana, a sexta-feira anterior).
+function lastClassDay() {
+    const [year, month, day] = todayYmd().split('-').map(Number);
+    const cursor = new Date(Date.UTC(year, month - 1, day));
+    while (cursor.getUTCDay() === 0 || cursor.getUTCDay() === 6) cursor.setUTCDate(cursor.getUTCDate() - 1);
+    return cursor.toISOString().slice(0, 10);
+}
+
+// Mensagem de erro para a data da chamada, ou '' quando a data serve.
+function classDateProblem(ymd) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd || '')) return 'Escolha a data da aula.';
+    if (ymd > todayYmd()) return 'Não é possível lançar chamada em data futura.';
+    if (ymd < schoolYearStart()) return `A data da aula deve ser a partir do início do ano letivo (${dayMonth(schoolYearStart())}).`;
+    if (isWeekendYmd(ymd)) return 'Não há aula no fim de semana: escolha um dia útil.';
+    return '';
+}
+
 function todayLongLabel() {
     return new Intl.DateTimeFormat('pt-BR', {
         timeZone: FUSO_ESCOLA, weekday: 'long', day: 'numeric', month: 'long'
@@ -418,6 +478,12 @@ function greeting() {
     if (hour < 12) return 'Bom dia';
     if (hour < 18) return 'Boa tarde';
     return 'Boa noite';
+}
+
+function dayMonth(ymd) {
+    const date = parseSchoolDate(ymd);
+    if (!date) return ymd || '';
+    return new Intl.DateTimeFormat('pt-BR', { timeZone: FUSO_ESCOLA, day: 'numeric', month: 'long' }).format(date);
 }
 
 function longDate(ymd) {
@@ -1102,10 +1168,10 @@ function renderAttendance() {
     }
     const [disciplineText, dateText] = state.route.parts;
     const assignment = findAssignment(disciplineText);
-    const validDate = /^\d{4}-\d{2}-\d{2}$/.test(dateText || '') && dateText <= todayYmd();
+    const validDate = !classDateProblem(dateText);
     if (!assignment || !validDate) {
         const fallback = assignment?.id_disciplina || defaultAttendanceDiscipline();
-        window.location.replace(`#/chamada/${fallback}/${validDate ? dateText : todayYmd()}`);
+        window.location.replace(`#/chamada/${fallback}/${validDate ? dateText : lastClassDay()}`);
         return { title: 'Chamada', content: skeleton(3) };
     }
 
@@ -1113,7 +1179,11 @@ function renderAttendance() {
     const picker = attendancePicker(assignment, dateText);
     let body;
     if (chamada.status === 'loading') body = skeleton(5);
-    else if (chamada.status === 'error') {
+    else if (chamada.status === 'error' && chamada.code === 400) {
+        // Data recusada pelo servidor: a mensagem fica junto do campo de data.
+        CwFormulario.erro(picker.querySelector('#chamada-data'), chamada.error);
+        body = emptyState('Escolha outra data para abrir a chamada.', 'calendar-x');
+    } else if (chamada.status === 'error') {
         body = isUnavailable(chamada)
             ? soonState('O lançamento de chamada ainda está em construção no servidor.')
             : errorState(chamada.error, () => { state.chamada = null; render(); });
@@ -1131,9 +1201,15 @@ function attendancePicker(assignment, date) {
     const select = el('select', { id: 'chamada-disciplina' },
         teachingAssignments().map((item) => el('option', { value: String(item.id_disciplina), text: assignmentLabel(item) })));
     select.value = String(assignment.id_disciplina);
-    const dateInput = el('input', { type: 'date', id: 'chamada-data', value: date, max: todayYmd(), required: true });
+    const dateInput = el('input', { type: 'date', id: 'chamada-data', value: date, min: schoolYearStart(), max: todayYmd(), required: true });
     const go = () => {
-        if (!dateInput.value) return;
+        // O seletor nativo não bloqueia sábado e domingo: a data é conferida antes de abrir a chamada.
+        const problem = dateInput.value ? classDateProblem(dateInput.value) : 'Escolha a data da aula.';
+        if (problem) {
+            // Depois do evento: o erro anterior se limpa no próprio "change" e apagaria este.
+            window.setTimeout(() => CwFormulario.erro(dateInput, problem), 0);
+            return;
+        }
         if (state.chamada?.dirty) {
             confirmDialog({
                 title: 'Descartar alterações?',
@@ -1147,6 +1223,7 @@ function attendancePicker(assignment, date) {
                 onCancel: () => {
                     select.value = String(assignment.id_disciplina);
                     dateInput.value = date;
+                    CwFormulario.limpar(dateInput);
                 }
             });
             return;
@@ -1157,7 +1234,7 @@ function attendancePicker(assignment, date) {
     dateInput.addEventListener('change', go);
     return el('div', { class: 'cartao filtros-chamada' },
         field('Disciplina e turma', select),
-        field('Data da aula', dateInput, { hint: longDate(date) }));
+        field('Data da aula', dateInput, { hint: `${longDate(date)} · dias úteis desde ${dayMonth(schoolYearStart())}` }));
 }
 
 function attendanceSheet(assignment, chamada) {
@@ -1263,11 +1340,20 @@ async function saveAttendance(assignment, chamada, button, refresh) {
         state.chamada = null;
         render();
     } catch (error) {
-        notify(error.message, 'erro');
+        const dateInput = $('#chamada-data');
+        if (error.status === 400 && /data|fim de semana|ano letivo/i.test(error.message) && dateInput) {
+            chamada.saving = false;
+            refresh();
+            CwFormulario.erro(dateInput, error.message, { focar: true });
+            return;
+        }
+        const footer = button.closest('.rodape-acoes');
+        if (footer) CwFormulario.erroGeral(footer, error.message);
+        else notify(error.message, 'erro');
     } finally {
         chamada.saving = false;
         refresh();
-        button.focus();
+        if (document.activeElement?.id !== 'chamada-data') button.focus();
     }
 }
 
@@ -1294,13 +1380,13 @@ function confirmDialog({ title, message, confirmLabel = 'Confirmar', danger = fa
         closeDialog();
         await onConfirm?.();
     } } }, confirmLabel);
+    const cancelButton = el('button', { class: 'botao botao-contorno', type: 'button', on: { click: closeDialog } }, 'Cancelar');
     openDialog(title,
         el('p', { class: 'dialogo-texto', text: message }),
-        el('div', { class: 'dialogo-acoes' },
-            el('button', { class: 'botao botao-contorno', type: 'button', on: { click: closeDialog } }, 'Cancelar'),
-            confirmButton));
+        el('div', { class: 'dialogo-acoes' }, cancelButton, confirmButton));
     dialog.addEventListener('close', () => { if (!confirmed) onCancel?.(); }, { once: true });
-    confirmButton.focus();
+    // Ação destrutiva: o foco começa em "Cancelar" para um Enter distraído não apagar nada.
+    (danger ? cancelButton : confirmButton).focus();
 }
 
 // ---------------------------------------------------------------- Atividades
@@ -1402,9 +1488,16 @@ function openActivityForm() {
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
         const button = form.querySelector('[type="submit"]');
-        if (!title.value.trim() || !description.value.trim() || !dueDate.value) {
-            notify('Preencha título, descrição e prazo.', 'erro');
-            (!title.value.trim() ? title : !description.value.trim() ? description : dueDate).focus();
+        CwFormulario.limparTudo(form);
+        const missing = [
+            [title, 'Escreva o título.'],
+            [description, 'Escreva a descrição.'],
+            [dueDate, 'Escolha a data do prazo.']
+        ].filter(([input]) => !input.value.trim());
+        missing.forEach(([input, message]) => CwFormulario.erro(input, message));
+        if (missing.length) { missing[0][0].focus(); return; }
+        if (dueDate.value < todayYmd()) {
+            CwFormulario.erro(dueDate, 'O prazo não pode ser uma data que já passou.', { focar: true });
             return;
         }
         const assignment = findAssignment(selectAssignment.value);
@@ -1423,7 +1516,7 @@ function openActivityForm() {
                 reload('atividades');
                 if (source('painel').status !== 'idle') reload('painel');
             } catch (error) {
-                notify(error.message, 'erro');
+                showFormError(form, error, [[/t[íi]tulo/i, title], [/descri/i, description], [/prazo|data/i, dueDate], [/disciplina|turma/i, selectAssignment]]);
             }
         });
     });
@@ -1542,9 +1635,9 @@ function gradeForm(submission, done) {
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
         const value = Number(String(grade.value).replace(',', '.'));
+        CwFormulario.limparTudo(form);
         if (grade.value === '' || Number.isNaN(value) || value < 0 || value > 10) {
-            notify('Informe uma nota entre 0 e 10.', 'erro');
-            grade.focus();
+            CwFormulario.erro(grade, 'Informe uma nota entre 0 e 10.', { focar: true });
             return;
         }
         await withBusy(form.querySelector('[type="submit"]'), async () => {
@@ -1559,7 +1652,7 @@ function gradeForm(submission, done) {
                 if (source('painel').status !== 'idle') reload('painel');
                 done();
             } catch (error) {
-                notify(error.message, 'erro');
+                showFormError(form, error, [[/nota/i, grade], [/coment|feedback/i, comment]]);
             }
         });
     });
@@ -1588,7 +1681,8 @@ function renderNotices() {
     return {
         title: 'Avisos',
         content: el('div', { class: 'grade-avisos' },
-            card('cartao-formulario', cardHeader('Novo aviso', 'megaphone-simple'), form),
+            card('cartao-formulario', cardHeader(form.editing ? 'Editar aviso' : 'Novo aviso',
+                form.editing ? 'pencil-simple' : 'megaphone-simple'), form),
             el('section', { class: 'coluna-avisos', 'aria-labelledby': 'meus-avisos-titulo' },
                 el('h2', { class: 'grupo-titulo', id: 'meus-avisos-titulo', text: 'Meus avisos' }),
                 list))
@@ -1611,18 +1705,24 @@ function noticeForm() {
     const file = el('input', { type: 'file', name: 'anexo', accept: 'application/pdf,.pdf' });
     const fileInfo = el('p', { class: 'campo-dica', 'aria-live': 'polite' });
     const submit = el('button', { class: 'botao botao-primario', type: 'submit' }, icon('paper-plane-tilt'), 'Publicar aviso');
+    const cancelEdit = el('button', { class: 'botao botao-contorno', type: 'button', hidden: true }, 'Cancelar edição');
+    const fileHint = () => (form.editing?.id_arquivo || form.editing?.anexo
+        ? 'Opcional · escolha um PDF (até 5 MB) só se quiser trocar o anexo atual.'
+        : 'Opcional · PDF de até 5 MB.');
 
     file.addEventListener('change', () => {
         const chosen = file.files[0];
-        if (!chosen) { fileInfo.textContent = 'Opcional · PDF de até 5 MB.'; return; }
+        if (!chosen) { fileInfo.textContent = fileHint(); return; }
         if (chosen.size > ANEXO_MAX_BYTES) {
-            fileInfo.textContent = 'O arquivo passa de 5 MB. Escolha um PDF menor.';
+            fileInfo.textContent = fileHint();
             file.value = '';
+            CwFormulario.erro(file, 'O arquivo passa de 5 MB. Escolha um PDF menor.');
             return;
         }
         if (chosen.type && chosen.type !== 'application/pdf') {
-            fileInfo.textContent = 'Envie apenas arquivos PDF.';
+            fileInfo.textContent = fileHint();
             file.value = '';
+            CwFormulario.erro(file, 'Envie apenas arquivos PDF.');
             return;
         }
         fileInfo.textContent = `${chosen.name} · ${formatSize(chosen.size)}`;
@@ -1642,16 +1742,44 @@ function noticeForm() {
             el('label', { for: 'aviso-anexo', text: 'Anexo PDF' }),
             Object.assign(file, { id: 'aviso-anexo' }),
             fileInfo),
-        el('div', { class: 'rodape-acoes' }, submit));
+        el('div', { class: 'rodape-acoes' }, cancelEdit, submit));
     file.setAttribute('aria-describedby', 'aviso-anexo-dica');
     fileInfo.id = 'aviso-anexo-dica';
 
-    form.addEventListener('submit', async (event) => {
-        event.preventDefault();
+    // Modo edição: o mesmo formulário carrega um aviso próprio e salva com PATCH.
+    form.editing = null;
+    const setMode = (notice) => {
+        form.editing = notice || null;
+        submit.replaceChildren(icon(notice ? 'floppy-disk' : 'paper-plane-tilt'), notice ? 'Salvar alterações' : 'Publicar aviso');
+        cancelEdit.hidden = !notice;
+        fileInfo.textContent = fileHint();
+    };
+    const resetForm = () => {
+        form.reset();
+        CwFormulario.limparTudo(form);
+        setMode(null);
+    };
+    form.stopEdit = resetForm;
+    form.startEdit = (notice) => {
+        resetForm();
+        setMode(notice);
+        syncNoticeForm(form);
+        classSelect.value = String(notice.id_turma ?? '');
+        type.value = NOTICE_TYPES[notice.tipo] && notice.tipo !== 'atividade' && notice.tipo !== 'avaliacao' ? notice.tipo : 'aviso';
+        title.value = notice.titulo || '';
+        content.value = notice.conteudo || '';
+        eventDate.value = notice.data_evento ? String(notice.data_evento).replace(' ', 'T').slice(0, 16) : '';
+        urgent.checked = Boolean(notice.urgente);
+    };
+    cancelEdit.addEventListener('click', () => {
+        resetForm();
+        render();
+        window.setTimeout(() => title.focus(), 0);
+    });
+
+    const send = async () => {
         const classId = Number(classSelect.value);
-        if (!classId) { notify('Selecione a turma.', 'erro'); classSelect.focus(); return; }
-        if (!title.value.trim()) { notify('Escreva o título do aviso.', 'erro'); title.focus(); return; }
-        if (!content.value.trim()) { notify('Escreva a mensagem do aviso.', 'erro'); content.focus(); return; }
+        const editing = form.editing;
         await withBusy(submit, async () => {
             try {
                 const payload = {
@@ -1662,19 +1790,42 @@ function noticeForm() {
                     urgente: urgent.checked
                 };
                 if (eventDate.value) payload.data_evento = eventDate.value;
+                else if (editing) payload.data_evento = null;
                 if (file.files[0]) {
                     const uploaded = await uploadFile(file.files[0]);
                     payload.id_arquivo = uploaded.id_arquivo;
                 }
-                await api('/api/avisos', json('POST', payload));
-                form.reset();
-                fileInfo.textContent = 'Opcional · PDF de até 5 MB.';
-                notify(`Aviso publicado para ${className(classId)}.`);
+                if (editing) await api(`/api/avisos/${editing.id_post}`, json('PATCH', payload));
+                else await api('/api/avisos', json('POST', payload));
+                resetForm();
+                notify(editing ? 'Aviso atualizado.' : `Aviso publicado para ${className(classId)}.`);
                 reload('avisos');
             } catch (error) {
+                if (/anexo/i.test(error.message)) CwFormulario.erro(file, error.message, { focar: true });
+                else CwFormulario.mostrar(form, error);
                 notify(error.message, 'erro');
             }
         });
+    };
+
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        CwFormulario.limparTudo(form);
+        const classId = Number(classSelect.value);
+        if (!classId) { CwFormulario.erro(classSelect, 'Selecione a turma.', { focar: true }); return; }
+        if (!title.value.trim()) { CwFormulario.erro(title, 'Escreva o título do aviso.', { focar: true }); return; }
+        if (!content.value.trim()) { CwFormulario.erro(content, 'Escreva a mensagem do aviso.', { focar: true }); return; }
+        if (urgent.checked) {
+            confirmDialog({
+                title: form.editing ? 'Salvar como urgente?' : 'Publicar como urgente?',
+                message: `Isto envia e-mail para a turma toda (${className(classId)}), além do destaque no topo do mural.`,
+                confirmLabel: form.editing ? 'Salvar como urgente' : 'Publicar como urgente',
+                onConfirm: send,
+                onCancel: () => urgent.focus()
+            });
+            return;
+        }
+        await send();
     });
     return form;
 }
@@ -1705,7 +1856,7 @@ async function downloadFile(fileId, fallbackName, button) {
     await withBusy(button, async () => {
         try {
             const response = await fetch(`/api/arquivos/${fileId}`, { headers: { Authorization: `Bearer ${token}` } });
-            if (response.status === 401) { leaveToLogin(); return; }
+            if (response.status === 401) { leaveToLogin({ expirou: true }); return; }
             if (!response.ok) throw new Error('Não foi possível baixar o anexo.');
             const disposition = response.headers.get('Content-Disposition') || '';
             const encoded = /filename\*=UTF-8''([^;]+)/i.exec(disposition)?.[1];
@@ -1718,7 +1869,7 @@ async function downloadFile(fileId, fallbackName, button) {
             link.remove();
             window.setTimeout(() => URL.revokeObjectURL(url), 30000);
         } catch (error) {
-            notify(error.message, 'erro');
+            notify(error instanceof TypeError ? 'Sem conexão. Confira a internet e tente de novo.' : error.message, 'erro');
         }
     });
 }
@@ -1732,6 +1883,18 @@ function noticeCard(notice) {
         ? el('button', { class: 'link-botao', type: 'button' }, icon('file-pdf'), attachment.nome || 'Anexo PDF')
         : null;
     downloadButton?.addEventListener('click', () => downloadFile(attachment.id_arquivo, attachment.nome, downloadButton));
+    const editButton = el('button', { class: 'botao-icone', type: 'button', 'aria-label': `Editar o aviso "${notice.titulo}"`, title: 'Editar' }, icon('pencil-simple'));
+    editButton.addEventListener('click', () => {
+        const form = persistentNode('form-aviso', noticeForm);
+        form.startEdit(notice);
+        render();
+        window.setTimeout(() => {
+            const titleInput = form.querySelector('input[name="titulo"]');
+            titleInput?.scrollIntoView({ block: 'center' });
+            titleInput?.focus();
+        }, 0);
+        announce('Editando o aviso. Altere os campos e salve.');
+    });
     const removeButton = el('button', { class: 'botao-icone botao-icone-perigo', type: 'button', 'aria-label': `Excluir o aviso "${notice.titulo}"`, title: 'Excluir' }, icon('trash'));
     removeButton.addEventListener('click', () => confirmDialog({
         title: 'Excluir aviso?',
@@ -1741,6 +1904,8 @@ function noticeCard(notice) {
         onConfirm: async () => {
             try {
                 await api(`/api/avisos/${notice.id_post}`, { method: 'DELETE' });
+                const form = persistent.get('form-aviso');
+                if (form?.editing?.id_post === notice.id_post) form.stopEdit();
                 notify('Aviso excluído.');
                 reload('avisos');
             } catch (error) {
@@ -1757,7 +1922,7 @@ function noticeCard(notice) {
                     el('span', { class: 'chip', text: NOTICE_TYPES[notice.tipo] || 'Aviso' }),
                     el('span', { class: 'chip', text: className(notice.id_turma) })),
                 el('span', { class: 'empurra' }),
-                removeButton),
+                el('span', { class: 'aviso-acoes' }, editButton, removeButton)),
             el('h3', { class: 'aviso-titulo', text: notice.titulo }),
             el('p', { class: 'aviso-resumo', text: truncate(notice.conteudo, 220) }),
             el('p', { class: 'meta' },
@@ -1859,8 +2024,14 @@ function incidentForm() {
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
         const studentId = Number(studentSelect.value);
-        if (!studentId) { notify('Selecione o aluno.', 'erro'); (studentSelect.disabled ? classSelect : studentSelect).focus(); return; }
-        if (!description.value.trim()) { notify('Descreva a ocorrência.', 'erro'); description.focus(); return; }
+        CwFormulario.limparTudo(form);
+        if (!Number(classSelect.value)) { CwFormulario.erro(classSelect, 'Selecione a turma.', { focar: true }); return; }
+        if (!studentId) {
+            CwFormulario.erro(studentSelect, 'Selecione o aluno.', { focar: !studentSelect.disabled });
+            if (studentSelect.disabled) classSelect.focus();
+            return;
+        }
+        if (!description.value.trim()) { CwFormulario.erro(description, 'Descreva a ocorrência.', { focar: true }); return; }
         await withBusy(submit, async () => {
             try {
                 await api('/api/ocorrencias', json('POST', { id_aluno: studentId, descricao: description.value.trim() }));
@@ -1868,7 +2039,7 @@ function incidentForm() {
                 notify('Ocorrência registrada.');
                 reload('ocorrencias');
             } catch (error) {
-                notify(error.message, 'erro');
+                showFormError(form, error, [[/descri/i, description], [/aluno/i, studentSelect]]);
             }
         });
     });
@@ -1958,13 +2129,47 @@ function renderSettings() {
         perfil: settingsProfile,
         notificacoes: settingsNotifications,
         aparencia: settingsAppearance,
-        seguranca: settingsSecurity
+        seguranca: settingsSecurity,
+        privacidade: settingsPrivacy
     };
     return {
         title: current[1],
         trail: 'Configurações',
         content: [tabs, ...[].concat(builders[current[0]]())]
     };
+}
+
+function settingsPrivacy() {
+    const download = el('button', { class: 'botao botao-primario', type: 'button' }, icon('download-simple'), 'Baixar meus dados');
+    download.addEventListener('click', () => withBusy(download, async () => {
+        try {
+            const response = await fetch('/api/privacidade/meus-dados', { headers: { Authorization: `Bearer ${token}` } });
+            if (response.status === 401) { leaveToLogin({ expirou: true }); return; }
+            if (!response.ok) {
+                const result = await response.json().catch(() => null);
+                throw new Error(result?.erro || 'Não foi possível gerar o arquivo com os seus dados.');
+            }
+            const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+            const url = URL.createObjectURL(await response.blob());
+            const link = el('a', { href: url, download: `cw-meus-dados-${today}.json`, hidden: true });
+            document.body.append(link);
+            link.click();
+            link.remove();
+            window.setTimeout(() => URL.revokeObjectURL(url), 30000);
+            notify('Arquivo com os seus dados baixado.', 'sucesso');
+        } catch (error) {
+            notify(error instanceof TypeError ? 'Sem conexão. Confira a internet e tente de novo.' : error.message, 'erro');
+        }
+    }));
+    return [
+        card('', cardHeader('Privacidade', 'shield-check'),
+            el('p', { class: 'meta', text: 'Como o C·Warning usa os dados de estudantes, professores e gestão, com base na LGPD.' }),
+            el('a', { class: 'botao botao-contorno', href: '/privacidade', target: '_blank', rel: 'noopener' },
+                icon('arrow-square-out'), 'Ler a política de privacidade', srText(' (abre em nova aba)'))),
+        card('', cardHeader('Seus dados', 'download-simple'),
+            el('p', { class: 'meta', text: 'Baixe uma cópia de tudo o que o sistema guarda sobre você (arquivo .json). O pedido fica no registro de auditoria da escola.' }),
+            download)
+    ];
 }
 
 function settingsProfile() {
@@ -1994,54 +2199,104 @@ function emailCard() {
             ? soonState('O cadastro de e-mail estará disponível em breve.')
             : errorState(account.error, () => reload('conta'));
     } else if (account.status !== 'ok') body = skeleton(1);
-    else if (account.data?.email) {
-        const remove = el('button', { class: 'botao botao-contorno', type: 'button' }, icon('trash'), 'Remover e-mail');
-        remove.addEventListener('click', () => confirmDialog({
-            title: 'Remover e-mail?',
-            message: 'Você deixará de receber notificações e não poderá recuperar a senha por e-mail.',
-            confirmLabel: 'Remover',
-            danger: true,
-            onConfirm: async () => {
-                try {
-                    await api('/api/conta/email', { method: 'DELETE' });
-                    notify('E-mail removido.');
-                    reload('conta');
-                } catch (error) {
-                    notify(error.message, 'erro');
-                }
-            }
-        }));
-        body = [
-            el('p', { class: 'email-atual' }, icon('envelope-simple'), el('strong', { text: account.data.email }), el('span', { class: 'selo selo-azul', text: 'Confirmado' })),
-            el('div', { class: 'rodape-acoes' }, remove)
-        ];
-    } else {
-        body = persistentNode('form-email', emailForm);
+    else {
+        const form = persistentNode('form-email', emailForm);
+        const current = account.data?.email || null;
+        form.setMode(current);
+        const pending = state.pendingEmail
+            ? el('p', { class: 'nota-discreta', role: 'note' }, icon('hourglass-medium'),
+                `Aguardando confirmação de ${state.pendingEmail}. Abra o link que enviamos para esse endereço.`)
+            : null;
+        if (current) {
+            const change = el('button', { class: 'botao botao-contorno', type: 'button', 'aria-expanded': String(!form.hidden) }, icon('pencil-simple'), 'Trocar e-mail');
+            change.addEventListener('click', () => {
+                form.hidden = !form.hidden;
+                change.setAttribute('aria-expanded', String(!form.hidden));
+                if (!form.hidden) form.querySelector('input[type="email"]').focus();
+            });
+            const remove = el('button', { class: 'botao botao-contorno', type: 'button' }, icon('trash'), 'Remover e-mail');
+            remove.addEventListener('click', () => openRemoveEmailDialog(remove));
+            body = [
+                el('p', { class: 'email-atual' }, icon('envelope-simple'), el('strong', { text: current }), el('span', { class: 'selo selo-azul', text: 'Confirmado' })),
+                pending,
+                el('div', { class: 'rodape-acoes' }, change, remove),
+                form
+            ];
+        } else {
+            form.hidden = false;
+            body = [pending, form];
+        }
     }
     return card('', cardHeader('E-mail', 'envelope-simple'),
         el('p', { class: 'meta', text: 'Usado para notificações e para recuperar a senha.' }), body);
 }
 
-function emailForm() {
-    const input = el('input', { type: 'email', name: 'email', autocomplete: 'email', maxlength: 254, required: true });
-    const submit = el('button', { class: 'botao botao-primario', type: 'submit' }, icon('paper-plane-tilt'), 'Enviar confirmação');
+// Remover o e-mail exige a senha atual (o servidor confere em DELETE /api/conta/email).
+function openRemoveEmailDialog(trigger) {
+    const password = el('input', { type: 'password', name: 'senha_atual', autocomplete: 'current-password', required: true, maxlength: 128 });
+    const submit = el('button', { class: 'botao botao-perigo', type: 'submit' }, icon('trash'), 'Remover e-mail');
     const form = el('form', { class: 'formulario', novalidate: true },
-        field('Seu e-mail', input, { hint: 'Enviaremos um link de confirmação. O e-mail só passa a valer depois de confirmado.' }),
-        el('div', { class: 'rodape-acoes' }, submit));
+        el('p', { class: 'dialogo-texto', text: 'Você deixará de receber notificações e não poderá recuperar a senha por e-mail.' }),
+        field('Senha atual', password, { hint: 'Para sua segurança, confirme com a senha da sua conta.' }),
+        el('div', { class: 'dialogo-acoes' },
+            el('button', { class: 'botao botao-contorno', type: 'button', on: { click: closeDialog } }, 'Cancelar'),
+            submit));
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
-        if (!input.checkValidity() || !input.value.trim()) {
-            notify('Informe um e-mail válido.', 'erro');
-            input.focus();
-            return;
-        }
+        CwFormulario.limparTudo(form);
+        if (!password.value) { CwFormulario.erro(password, 'Informe a senha atual.', { focar: true }); return; }
         await withBusy(submit, async () => {
             try {
-                const result = await api('/api/conta/email', json('POST', { email: input.value.trim() }));
-                notify(result?.mensagem || `Enviamos um link de confirmação para ${input.value.trim()}.`);
-                input.value = '';
+                await api('/api/conta/email', json('DELETE', { senha_atual: password.value }));
+                closeDialog();
+                state.pendingEmail = null;
+                notify('E-mail removido.');
+                reload('conta');
             } catch (error) {
-                notify(error.message, 'erro');
+                showFormError(form, error, [[/senha/i, password]]);
+            }
+        });
+    });
+    $('#dialogo').addEventListener('close', () => {
+        window.setTimeout(() => { if (trigger.isConnected) trigger.focus(); }, 0);
+    }, { once: true });
+    openDialog('Remover e-mail?', form);
+    password.focus();
+}
+
+function emailForm() {
+    const input = el('input', { type: 'email', name: 'email', autocomplete: 'email', maxlength: 254, required: true });
+    const password = el('input', { type: 'password', name: 'senha_atual', autocomplete: 'current-password', required: true, maxlength: 128 });
+    const submit = el('button', { class: 'botao botao-primario', type: 'submit' }, icon('paper-plane-tilt'), 'Enviar confirmação');
+    const emailField = field('Seu e-mail', input, { hint: 'Enviaremos um link de confirmação. O e-mail só passa a valer depois de confirmado.' });
+    const form = el('form', { class: 'formulario', novalidate: true },
+        emailField,
+        field('Senha atual', password, { hint: 'Para sua segurança, confirme com a senha da sua conta.' }),
+        el('div', { class: 'rodape-acoes' }, submit));
+    form.setMode = (current) => {
+        emailField.querySelector('label').textContent = current ? 'Novo e-mail' : 'Seu e-mail';
+        if (current && form.dataset.modo !== 'trocar') form.hidden = true;
+        form.dataset.modo = current ? 'trocar' : 'cadastrar';
+    };
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        CwFormulario.limparTudo(form);
+        if (!input.value.trim() || !input.checkValidity()) {
+            CwFormulario.erro(input, 'Informe um e-mail válido, como nome@exemplo.com.', { focar: true });
+            return;
+        }
+        if (!password.value) { CwFormulario.erro(password, 'Informe a senha atual.', { focar: true }); return; }
+        await withBusy(submit, async () => {
+            try {
+                const address = input.value.trim();
+                const result = await api('/api/conta/email', json('POST', { email: address, senha_atual: password.value }));
+                state.pendingEmail = result?.email_pendente || address;
+                notify(result?.mensagem || `Enviamos um link de confirmação para ${address}.`);
+                form.reset();
+                if (form.dataset.modo === 'trocar') form.hidden = true;
+                render();
+            } catch (error) {
+                showFormError(form, error, [[/senha/i, password], [/e-?mail/i, input]]);
             }
         });
     });
@@ -2127,9 +2382,10 @@ function passwordForm() {
         el('div', { class: 'rodape-acoes' }, submit));
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
-        if (!current.value) { notify('Informe a senha atual.', 'erro'); current.focus(); return; }
-        if (next.value.length < 8) { notify('A nova senha precisa ter pelo menos 8 caracteres.', 'erro'); next.focus(); return; }
-        if (next.value !== confirm.value) { notify('A confirmação não é igual à nova senha.', 'erro'); confirm.focus(); return; }
+        CwFormulario.limparTudo(form);
+        if (!current.value) { CwFormulario.erro(current, 'Informe a senha atual.', { focar: true }); return; }
+        if (next.value.length < 8) { CwFormulario.erro(next, 'A nova senha precisa ter pelo menos 8 caracteres.', { focar: true }); return; }
+        if (next.value !== confirm.value) { CwFormulario.erro(confirm, 'A confirmação não é igual à nova senha.', { focar: true }); return; }
         await withBusy(submit, async () => {
             try {
                 await api('/api/auth/password', json('POST', { senha_atual: current.value, nova_senha: next.value }));
@@ -2137,7 +2393,7 @@ function passwordForm() {
                 notify('Senha alterada. Os outros aparelhos foram desconectados.');
                 if (source('sessoes').status !== 'idle') reload('sessoes');
             } catch (error) {
-                notify(error.message, 'erro');
+                showFormError(form, error, [[/senha atual/i, current], [/nova senha|senha/i, next]]);
             }
         });
     });

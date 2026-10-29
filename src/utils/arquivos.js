@@ -89,16 +89,36 @@ async function readUpload(request) {
     return Buffer.concat(chunks, size);
 }
 
-function assertUploadQuota(user) {
+// Uploads em andamento por pessoa (em memória). A cota é reservada de forma síncrona antes de ler
+// o corpo, então envios simultâneos não passam do limite de pendentes.
+const MAX_CONCURRENT_UPLOADS = 2;
+const uploadsInProgress = new Map();
+
+// Reserva a vaga do upload e devolve a função que a libera (chamar sempre, no finally, depois de
+// gravar o registro em `arquivos`).
+function reserveUpload(user) {
+    const inProgress = uploadsInProgress.get(user.id_usuario) || 0;
+    if (inProgress >= MAX_CONCURRENT_UPLOADS) {
+        throw new ApiError(429, 'Aguarde terminar o envio em andamento antes de mandar outro arquivo.');
+    }
     const pending = database.prepare(`
         SELECT COUNT(*) AS n FROM arquivos arq
         WHERE arq.id_usuario = ? AND arq.criado_em >= datetime('now', '-${ORPHAN_HOURS} hours')
           AND ${UNLINKED}
     `).get(user.id_usuario).n;
-    if (pending >= MAX_PENDING_PER_USER) {
+    if (pending + inProgress >= MAX_PENDING_PER_USER) {
         throw new ApiError(429,
             'Você tem muitos arquivos enviados e ainda não usados. Use-os ou aguarde 24 horas.');
     }
+    uploadsInProgress.set(user.id_usuario, inProgress + 1);
+    let released = false;
+    return function releaseUpload() {
+        if (released) return;
+        released = true;
+        const remaining = (uploadsInProgress.get(user.id_usuario) || 1) - 1;
+        if (remaining > 0) uploadsInProgress.set(user.id_usuario, remaining);
+        else uploadsInProgress.delete(user.id_usuario);
+    };
 }
 
 // Metadados públicos de um arquivo; `row` traz as colunas com o prefixo indicado.
@@ -136,7 +156,7 @@ function assertOwnFile(user, fileId, currentId = null) {
 }
 
 // Quem pode baixar: quem enviou; a gestão; quem pode ver o aviso do qual é anexo; e, se for
-// atestado de justificativa, o aluno dono e o professor da disciplina.
+// atestado de justificativa, só o aluno dono (além da gestão) — o professor não vê atestados.
 function canReadFile(user, file) {
     if (file.id_usuario === user.id_usuario || user.tipo_usuario === 'gestao') return true;
 
@@ -153,13 +173,6 @@ function canReadFile(user, file) {
         return Boolean(user.id_aluno && database.prepare(
             'SELECT 1 FROM justificativas WHERE id_arquivo = ? AND id_aluno = ?'
         ).get(file.id_arquivo, user.id_aluno));
-    }
-    if (user.tipo_usuario === 'professor') {
-        return Boolean(user.id_professor && database.prepare(`
-            SELECT 1 FROM justificativas j
-            JOIN disciplinas d ON d.id_disciplina = j.id_disciplina
-            WHERE j.id_arquivo = ? AND d.id_professor = ?
-        `).get(file.id_arquivo, user.id_professor));
     }
     return false;
 }
@@ -205,7 +218,7 @@ module.exports = {
     detectFileType,
     sanitizeFileName,
     readUpload,
-    assertUploadQuota,
+    reserveUpload,
     publicFile,
     attachmentColumns,
     attachmentFrom,

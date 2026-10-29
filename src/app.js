@@ -2,10 +2,11 @@ const http = require('node:http');
 const { ApiError } = require('./errors');
 const { handleApiRequest } = require('./routes/api');
 const { handleWebRequest } = require('./routes/web');
-const { sendJson } = require('./utils/http');
+const { sendJson, GLOBAL_HEADERS } = require('./utils/http');
 
 function createApp() {
     return http.createServer((request, response) => {
+        for (const [name, value] of Object.entries(GLOBAL_HEADERS)) response.setHeader(name, value);
         const handler = request.url.startsWith('/api')
             ? handleApiRequest(request, response)
             : handleWebRequest(request, response).then((handled) => {

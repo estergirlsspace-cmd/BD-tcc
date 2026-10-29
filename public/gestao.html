@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#312782">
     <title>Portal da Gestão · C·Warning</title>
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/assets/icones/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/assets/icones/favicon-32.png" sizes="32x32" type="image/png">
+    <link rel="apple-touch-icon" href="/assets/icones/apple-touch-icon.png">
+    <script src="/pwa.js" defer></script>
     <script src="/preferencias.js"></script>
     <link rel="stylesheet" href="/vendor/fontes.css">
     <link rel="stylesheet" href="/vendor/phosphor/regular.css">
@@ -12,10 +17,12 @@
     <link rel="stylesheet" href="/tema.css">
     <link rel="stylesheet" href="/notificacoes.css">
     <link rel="stylesheet" href="/componentes/mensagens.css">
+    <link rel="stylesheet" href="/componentes/formulario.css">
     <link rel="stylesheet" href="/gestao.css">
     <script src="/datas.js" defer></script>
     <script src="/notificacoes.js" defer></script>
     <script src="/componentes/mensagens.js" defer></script>
+    <script src="/componentes/formulario.js" defer></script>
     <script src="/gestao-base.js" defer></script>
     <script src="/gestao-avisos.js" defer></script>
     <script src="/gestao-pessoas.js" defer></script>
@@ -85,25 +92,25 @@
                         <summary><i class="ph ph-plus" aria-hidden="true"></i>Nova turma</summary>
                         <form class="formulario" id="form-turma">
                             <div class="linha-campos">
-                                <label class="campo">
-                                    <span>Curso</span>
+                                <div class="campo">
+                                    <label for="turma-curso">Curso</label>
                                     <select id="turma-curso">
                                         <option value="informatica">Informática</option>
                                         <option value="redes">Redes de Computadores</option>
                                     </select>
-                                </label>
-                                <label class="campo">
-                                    <span>Série</span>
+                                </div>
+                                <div class="campo">
+                                    <label for="turma-serie">Série</label>
                                     <select id="turma-serie">
                                         <option value="1">1ª Série</option>
                                         <option value="2">2ª Série</option>
                                         <option value="3">3ª Série</option>
                                     </select>
-                                </label>
-                                <label class="campo campo-largo">
-                                    <span>Nome da turma</span>
+                                </div>
+                                <div class="campo campo-largo">
+                                    <label for="turma-nome">Nome da turma</label>
                                     <input id="turma-nome" type="text" maxlength="100" placeholder="Ex.: 1ª Série — Informática B" required>
-                                </label>
+                                </div>
                             </div>
                             <div class="linha-botoes">
                                 <button class="botao botao-primario" type="submit">Criar turma</button>
@@ -123,26 +130,26 @@
                         </p>
                         <form class="formulario" id="form-aluno">
                             <div class="linha-campos">
-                                <label class="campo campo-largo">
-                                    <span>Nome completo</span>
+                                <div class="campo campo-largo">
+                                    <label for="aluno-nome">Nome completo</label>
                                     <input id="aluno-nome" type="text" maxlength="150" autocomplete="off" required>
-                                </label>
-                                <label class="campo">
-                                    <span>Matrícula</span>
+                                </div>
+                                <div class="campo">
+                                    <label for="aluno-matricula">Matrícula</label>
                                     <input id="aluno-matricula" type="text" inputmode="numeric" pattern="[0-9]{3,20}" maxlength="20" autocomplete="off" required>
-                                </label>
-                                <label class="campo">
-                                    <span>Turma</span>
+                                </div>
+                                <div class="campo">
+                                    <label for="aluno-turma">Turma</label>
                                     <select id="aluno-turma" required></select>
-                                </label>
-                                <label class="campo">
-                                    <span>4 primeiros números do CPF</span>
+                                </div>
+                                <div class="campo">
+                                    <label for="aluno-cpf">4 primeiros números do CPF</label>
                                     <input id="aluno-cpf" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" required>
-                                </label>
-                                <label class="campo campo-largo">
-                                    <span>E-mail <small class="opcional">(opcional)</small></span>
+                                </div>
+                                <div class="campo campo-largo">
+                                    <label for="aluno-email">E-mail <small class="opcional">(opcional)</small></label>
                                     <input id="aluno-email" type="email" maxlength="254" autocomplete="off" spellcheck="false" placeholder="Para lembretes e recuperação de senha">
-                                </label>
+                                </div>
                             </div>
                             <div class="linha-botoes">
                                 <button class="botao botao-primario" type="submit">Matricular</button>
@@ -183,46 +190,46 @@
                         </div>
                         <form class="formulario" id="form-aviso">
                             <div class="linha-campos">
-                                <label class="campo">
-                                    <span>Para quem</span>
+                                <div class="campo">
+                                    <label for="aviso-publico">Para quem</label>
                                     <select id="aviso-publico" required>
                                         <option value="escola">Escola toda</option>
                                         <option value="curso">Um curso (todas as séries)</option>
                                         <option value="curso-serie">Um curso e uma série</option>
                                         <option value="turma">Uma turma</option>
                                     </select>
-                                </label>
-                                <label class="campo" id="campo-aviso-curso" hidden>
-                                    <span>Curso</span>
+                                </div>
+                                <div class="campo" id="campo-aviso-curso" hidden>
+                                    <label for="aviso-curso">Curso</label>
                                     <select id="aviso-curso">
                                         <option value="informatica">Informática</option>
                                         <option value="redes">Redes de Computadores</option>
                                     </select>
-                                </label>
-                                <label class="campo" id="campo-aviso-serie" hidden>
-                                    <span>Série</span>
+                                </div>
+                                <div class="campo" id="campo-aviso-serie" hidden>
+                                    <label for="aviso-serie">Série</label>
                                     <select id="aviso-serie">
                                         <option value="1">1ª Série</option>
                                         <option value="2">2ª Série</option>
                                         <option value="3">3ª Série</option>
                                     </select>
-                                </label>
-                                <label class="campo" id="campo-aviso-turma" hidden>
-                                    <span>Turma</span>
+                                </div>
+                                <div class="campo" id="campo-aviso-turma" hidden>
+                                    <label for="aviso-turma">Turma</label>
                                     <select id="aviso-turma"></select>
-                                </label>
+                                </div>
                             </div>
-                            <label class="campo">
-                                <span>Título</span>
+                            <div class="campo">
+                                <label for="aviso-titulo">Título</label>
                                 <input id="aviso-titulo" type="text" maxlength="200" placeholder="Ex.: Reunião de pais" required>
-                            </label>
-                            <label class="campo">
-                                <span>Mensagem</span>
+                            </div>
+                            <div class="campo">
+                                <label for="aviso-conteudo">Mensagem</label>
                                 <textarea id="aviso-conteudo" maxlength="10000" rows="5" placeholder="Escreva as informações do aviso..." required></textarea>
-                            </label>
+                            </div>
                             <div class="linha-campos">
-                                <label class="campo">
-                                    <span>Tipo</span>
+                                <div class="campo">
+                                    <label for="aviso-tipo">Tipo</label>
                                     <select id="aviso-tipo">
                                         <option value="aviso">Aviso</option>
                                         <option value="comunicado">Comunicado</option>
@@ -230,11 +237,11 @@
                                         <option value="atividade">Atividade</option>
                                         <option value="avaliacao">Avaliação</option>
                                     </select>
-                                </label>
-                                <label class="campo">
-                                    <span>Data do evento <small class="opcional">(opcional)</small></span>
+                                </div>
+                                <div class="campo">
+                                    <label for="aviso-data">Data do evento <small class="opcional">(opcional)</small></label>
                                     <input id="aviso-data" type="datetime-local">
-                                </label>
+                                </div>
                             </div>
                             <div class="campo">
                                 <span id="rotulo-anexo">Anexo em PDF <small class="opcional">(opcional, até 5 MB)</small></span>
@@ -274,19 +281,19 @@
                         <summary><i class="ph ph-plus" aria-hidden="true"></i>Registrar ocorrência</summary>
                         <form class="formulario" id="form-ocorrencia">
                             <div class="linha-campos">
-                                <label class="campo">
-                                    <span>Turma</span>
+                                <div class="campo">
+                                    <label for="ocorrencia-turma">Turma</label>
                                     <select id="ocorrencia-turma"></select>
-                                </label>
-                                <label class="campo campo-largo">
-                                    <span>Aluno</span>
+                                </div>
+                                <div class="campo campo-largo">
+                                    <label for="ocorrencia-aluno">Aluno</label>
                                     <select id="ocorrencia-aluno" required></select>
-                                </label>
+                                </div>
                             </div>
-                            <label class="campo">
-                                <span>Descrição</span>
+                            <div class="campo">
+                                <label for="ocorrencia-descricao">Descrição</label>
                                 <textarea id="ocorrencia-descricao" rows="3" maxlength="2000" required></textarea>
-                            </label>
+                            </div>
                             <div class="linha-botoes">
                                 <button class="botao botao-primario" type="submit">Registrar</button>
                             </div>
@@ -351,23 +358,23 @@
                         </p>
                         <form class="formulario" id="form-equipe">
                             <div class="linha-campos">
-                                <label class="campo campo-largo">
-                                    <span>Nome completo</span>
+                                <div class="campo campo-largo">
+                                    <label for="equipe-nome">Nome completo</label>
                                     <input id="equipe-nome" type="text" maxlength="150" autocomplete="off" required>
-                                </label>
-                                <label class="campo">
-                                    <span>Usuário</span>
+                                </div>
+                                <div class="campo">
+                                    <label for="equipe-login">Usuário</label>
                                     <input id="equipe-login" type="text" maxlength="50" pattern="[A-Za-z0-9][A-Za-z0-9._\-]{2,49}" autocomplete="off" autocapitalize="none" spellcheck="false" required>
-                                </label>
-                                <label class="campo">
-                                    <span>Perfil</span>
+                                </div>
+                                <div class="campo">
+                                    <label for="equipe-perfil">Perfil</label>
                                     <select id="equipe-perfil">
                                         <option value="professor">Professor</option>
                                         <option value="gestao">Gestão</option>
                                     </select>
-                                </label>
-                                <label class="campo" id="campo-equipe-area">
-                                    <span>Área</span>
+                                </div>
+                                <div class="campo" id="campo-equipe-area">
+                                    <label for="equipe-area">Área</label>
                                     <select id="equipe-area">
                                         <option value="natureza">Natureza</option>
                                         <option value="humanas">Humanas</option>
@@ -376,11 +383,11 @@
                                         <option value="informatica">Base Técnica - Informática</option>
                                         <option value="redes">Base Técnica - Redes</option>
                                     </select>
-                                </label>
-                                <label class="campo campo-largo">
-                                    <span>E-mail <small class="opcional">(opcional; recebe o aviso de conta criada)</small></span>
+                                </div>
+                                <div class="campo campo-largo">
+                                    <label for="equipe-email">E-mail <small class="opcional">(opcional; recebe o aviso de conta criada)</small></label>
                                     <input id="equipe-email" type="email" maxlength="254" autocomplete="off" spellcheck="false">
-                                </label>
+                                </div>
                             </div>
                             <div class="linha-botoes">
                                 <button class="botao botao-primario" type="submit">Cadastrar</button>
@@ -415,10 +422,9 @@
                 <section class="secao" data-pagina="configuracoes" aria-labelledby="titulo-pagina" hidden>
                     <div class="segmentos segmentos-abas" role="group" aria-label="Configurações">
                         <a class="segmento" href="#/configuracoes/perfil" data-aba-config="perfil">Perfil</a>
-                        <a class="segmento" href="#/configuracoes/senha" data-aba-config="senha">Senha</a>
+                        <a class="segmento" href="#/configuracoes/senha" data-aba-config="senha">Senha e segurança</a>
                         <a class="segmento" href="#/configuracoes/notificacoes" data-aba-config="notificacoes">Notificações</a>
                         <a class="segmento" href="#/configuracoes/aparencia" data-aba-config="aparencia">Aparência</a>
-                        <a class="segmento" href="#/configuracoes/dispositivos" data-aba-config="dispositivos">Dispositivos</a>
                     </div>
 
                     <div data-config="perfil">
@@ -447,22 +453,29 @@
                                 <p class="texto-suave">Sua senha é pessoal. Ao trocar, as outras sessões abertas são encerradas.</p>
                             </div>
                             <form class="formulario formulario-estreito" id="form-senha">
-                                <label class="campo">
-                                    <span>Senha atual</span>
+                                <div class="campo">
+                                    <label for="senha-atual">Senha atual</label>
                                     <input id="senha-atual" type="password" autocomplete="current-password" required>
-                                </label>
-                                <label class="campo">
-                                    <span>Nova senha</span>
+                                </div>
+                                <div class="campo">
+                                    <label for="senha-nova">Nova senha</label>
                                     <input id="senha-nova" type="password" minlength="8" maxlength="128" autocomplete="new-password" required>
-                                </label>
-                                <label class="campo">
-                                    <span>Repita a nova senha</span>
+                                </div>
+                                <div class="campo">
+                                    <label for="senha-confirmacao">Repita a nova senha</label>
                                     <input id="senha-confirmacao" type="password" minlength="8" maxlength="128" autocomplete="new-password" required>
-                                </label>
+                                </div>
                                 <div class="linha-botoes">
                                     <button class="botao botao-primario" type="submit">Salvar nova senha</button>
                                 </div>
                             </form>
+                        </section>
+                        <section class="cartao">
+                            <div class="cartao-cabecalho">
+                                <h2>Dispositivos conectados</h2>
+                                <p class="texto-suave">Aparelhos em que sua conta está aberta. Encerre os que você não reconhece.</p>
+                            </div>
+                            <div id="lista-sessoes"></div>
                         </section>
                     </div>
 
@@ -494,16 +507,6 @@
                                 <label class="opcao"><input type="radio" name="texto" value="medio"><span class="amostra">Aa</span><span>Médio</span></label>
                                 <label class="opcao"><input type="radio" name="texto" value="grande"><span class="amostra amostra-g">Aa</span><span>Grande</span></label>
                             </fieldset>
-                        </section>
-                    </div>
-
-                    <div data-config="dispositivos">
-                        <section class="cartao">
-                            <div class="cartao-cabecalho">
-                                <h2>Dispositivos conectados</h2>
-                                <p class="texto-suave">Aparelhos em que sua conta está aberta. Encerre os que você não reconhece.</p>
-                            </div>
-                            <div id="lista-sessoes"></div>
                         </section>
                     </div>
                 </section>

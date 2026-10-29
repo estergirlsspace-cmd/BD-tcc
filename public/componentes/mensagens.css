@@ -65,7 +65,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    height: 42px;
+    height: 44px;
     padding: 0 10px;
     border: 1px solid var(--cw-borda-campo);
     border-radius: var(--cw-raio-sm);
@@ -229,7 +229,7 @@
 }
 
 .cwm-botao {
-    min-height: 42px;
+    min-height: 44px;
     padding: 0 16px;
     border-radius: var(--cw-raio-sm);
     font-size: 14px;
@@ -258,8 +258,8 @@
 
 .cwm-botao-icone {
     flex-shrink: 0;
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     border-radius: var(--cw-raio-sm);
     background: transparent;
     color: var(--cw-texto-2);

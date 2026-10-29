@@ -1,0 +1,12 @@
+{
+  "name": "c-warning",
+  "private": true,
+  "description": "C-Warning — API escolar e portais (Node.js puro, sem dependências).",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test --test-concurrency=1 \"tests/**/*.test.js\""
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

@@ -305,6 +305,19 @@
     line-height: 1.5;
 }
 
+.login-aviso--sessao {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+}
+
+.login-aviso--sessao .ph {
+    flex: none;
+    font-size: 20px;
+    color: var(--cw-link);
+}
+
 .login-mensagem {
     margin: 0;
     padding: 10px 14px;
@@ -567,10 +580,10 @@ a.login-botao {
         background: var(--cw-azul-suave);
     }
 
-    /* Âmbar sozinho tem 2,07:1 sobre branco; a borda índigo garante o contraste do foco. */
+    /* Âmbar sozinho tem 2,07:1 sobre branco: o anel de contraste (tema.css) envolve o âmbar. */
     .login-painel :focus-visible,
     .login-painel .perfil__radio:focus-visible + .perfil__texto {
-        box-shadow: 0 0 0 6px var(--cw-indigo);
+        box-shadow: 0 0 0 7px var(--cw-anel-foco);
     }
 
     .login-ajuda {
@@ -587,5 +600,63 @@ a.login-botao {
 
     .login-confirmacao__icone {
         color: var(--cw-link);
+    }
+}
+
+/* Etapa "Termos e privacidade" (LGPD), depois do login e do primeiro acesso. */
+.login-termos {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding-left: 20px;
+    color: var(--cw-login-claro);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.login-termos__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.login-aceite {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    min-height: 44px;
+    color: #FFFFFF;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.45;
+    cursor: pointer;
+}
+
+.login-aceite__caixa {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    margin: 0;
+    accent-color: var(--cw-azul);
+    cursor: pointer;
+}
+
+.login-aceite__caixa:focus-visible {
+    outline: 3px solid var(--cw-foco);
+    outline-offset: 2px;
+}
+
+@media (min-width: 900px) {
+    .login-termos {
+        color: var(--cw-texto-2);
+    }
+
+    .login-aceite {
+        color: var(--cw-texto);
+    }
+
+    .login-aceite__caixa {
+        accent-color: var(--cw-indigo);
     }
 }

@@ -11,18 +11,45 @@ const newPassword = document.querySelector('#new-password');
 const confirmPassword = document.querySelector('#confirm-password');
 const resultPanel = document.querySelector('#result-panel');
 
+const OFFLINE_MESSAGE = 'Sem conexão com o C·Warning. Tente de novo em instantes.';
+// O token sai da barra de endereço, mas fica guardado nesta aba até dar certo: recarregar a página
+// não quebra o link. Apagado depois do sucesso (ou quando o servidor recusa o link).
+const LINK_KEY = 'cw-link-token';
+
+function saveLink(link) {
+    try { sessionStorage.setItem(LINK_KEY, JSON.stringify(link)); } catch { /* armazenamento bloqueado */ }
+}
+
+function forgetLink() {
+    try { sessionStorage.removeItem(LINK_KEY); } catch { /* armazenamento bloqueado */ }
+}
+
+function savedLink(mode) {
+    try {
+        const saved = JSON.parse(sessionStorage.getItem(LINK_KEY) || 'null');
+        return saved && saved.mode === mode && typeof saved.token === 'string' ? saved : null;
+    } catch {
+        return null;
+    }
+}
+
 // Lê o token e tira o fragmento da barra de endereço (não fica no histórico nem em capturas de tela).
 function readLink() {
     const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
     const emailToken = params.get('confirmar-email');
     const token = params.get('token');
     if (window.location.hash) window.history.replaceState(null, '', window.location.pathname);
-    if (emailToken) return { mode: 'email', token: emailToken };
-    const mode = /confirmar-email/.test(window.location.pathname) ? 'email' : 'senha';
-    return { mode, token };
+    const mode = emailToken || /confirmar-email/.test(window.location.pathname) ? 'email' : 'senha';
+    const fromHash = emailToken || token;
+    if (fromHash) {
+        const link = { mode, token: fromHash };
+        saveLink(link);
+        return link;
+    }
+    return savedLink(mode) || { mode, token: null };
 }
 
-function showResult({ ok, title, text, linkText = 'Entrar no C-Warning', linkHref = '/' }) {
+function showResult({ ok, title, text, linkText = 'Entrar no C·Warning', linkHref = '/' }) {
     resetForm.hidden = true;
     resultPanel.hidden = false;
     const icon = document.querySelector('#result-icon');
@@ -44,7 +71,10 @@ async function post(path, body) {
     const result = await response.json().catch(() => ({}));
     if (response.status === 501) throw new Error('Este recurso ainda está em construção. Tente mais tarde.');
     if (response.status === 429) throw new Error('Muitas tentativas. Aguarde alguns minutos e tente de novo.');
-    if (!response.ok) throw new Error(result.erro || 'Não foi possível concluir. Tente novamente.');
+    if (!response.ok) {
+        throw Object.assign(new Error(result.erro || 'Não foi possível concluir. Tente novamente.'),
+            { recusado: response.status >= 400 && response.status < 500 && response.status !== 429 });
+    }
     return result;
 }
 
@@ -53,16 +83,20 @@ async function confirmEmail(token) {
     showResult({ ok: true, title: 'Confirmando seu e-mail…', text: 'Aguarde um instante.' });
     try {
         await post('/api/conta/email/confirmar', { token });
+        forgetLink();
         showResult({
             ok: true,
             title: 'E-mail confirmado!',
             text: 'A partir de agora você recebe as notificações por e-mail e pode recuperar a senha sozinho(a).'
         });
     } catch (error) {
+        if (error.recusado) forgetLink();
         showResult({
             ok: false,
             title: 'Não foi possível confirmar',
-            text: `${error instanceof TypeError ? 'Não foi possível conectar ao servidor.' : error.message} O link pode ter expirado ou já ter sido usado: entre no C-Warning e cadastre o e-mail de novo em Ajustes › Perfil.`
+            text: error instanceof TypeError
+                ? `${OFFLINE_MESSAGE} Recarregue esta página quando a conexão voltar.`
+                : `${error.message} O link pode ter expirado ou já ter sido usado: entre no C·Warning e cadastre o e-mail de novo em Configurações.`
         });
     }
 }
@@ -87,6 +121,7 @@ function setupReset(token) {
         resetButton.textContent = 'Salvando...';
         try {
             await post('/api/auth/redefinir', { token, nova_senha: newPassword.value });
+            forgetLink();
             newPassword.value = '';
             confirmPassword.value = '';
             showResult({
@@ -96,7 +131,7 @@ function setupReset(token) {
             });
         } catch (error) {
             resetMessage.textContent = error instanceof TypeError
-                ? 'Não foi possível conectar ao servidor.'
+                ? OFFLINE_MESSAGE
                 : `${error.message} Se o link expirou (vale 30 minutos), peça outro em "Esqueci minha senha".`;
         } finally {
             resetButton.disabled = false;

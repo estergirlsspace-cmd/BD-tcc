@@ -1,6 +1,7 @@
 const database = require('../database');
 const { ApiError } = require('../errors');
 const { readBody, sendJson } = require('../utils/http');
+const { registrar } = require('../services/auditoria');
 const {
     requireRole, requireFields, getRecordId, positiveId, rejectUnknownFields, requiredText,
     isTeacherAssignedToClass
@@ -86,6 +87,7 @@ async function createOccurrence(request, response, user) {
     const occurrenceId = Number(database.prepare(`
         INSERT INTO ocorrencias (id_aluno, id_usuario_autor, descricao) VALUES (?, ?, ?)
     `).run(studentId, user.id_usuario, description).lastInsertRowid);
+    registrar(user, 'ocorrencia.registrar', `ocorrencia:${occurrenceId}`);
     sendJson(response, 201, fetchOccurrence(occurrenceId, user));
 }
 
@@ -103,6 +105,7 @@ async function resolveOccurrence(request, response, user, occurrenceId) {
         WHERE id_ocorrencia = ?
     `).run(occurrenceId);
     if (!result.changes) throw new ApiError(404, 'Ocorrência não encontrada.');
+    registrar(user, 'ocorrencia.resolver', `ocorrencia:${occurrenceId}`);
     sendJson(response, 200, fetchOccurrence(occurrenceId, user));
 }
 

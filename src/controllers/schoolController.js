@@ -4,8 +4,12 @@ const { readBody, sendJson } = require('../utils/http');
 const { randomInt } = require('node:crypto');
 const { hashPassword, verifyPassword, newPasswordProblem } = require('../utils/password');
 const { parseSchoolDate, deadlineTimestamp } = require('../utils/dates');
+const { parseClassDate } = require('../utils/calendario');
 const notificacoes = require('../services/notificacoes');
 const { optionalAccountEmail } = require('../services/email');
+const { registrar } = require('../services/auditoria');
+const { assertCurrentPassword } = require('./authController');
+const { issueEmailConfirmation } = require('./contaController');
 
 function requireRole(user, roles) {
     if (!roles.includes(user.tipo_usuario)) {
@@ -92,6 +96,7 @@ function getProfile(request, response, user) {
         area: user.area,
         conta_compartilhada: user.conta_compartilhada,
         deve_trocar_senha: user.deve_trocar_senha,
+        termos_pendentes: user.termos_pendentes,
         curso: user.curso,
         serie: user.serie,
         id_turma: user.id_turma,
@@ -138,15 +143,18 @@ async function enrollStudent(request, response, user) {
     database.exec('BEGIN IMMEDIATE');
     try {
         const result = database.prepare(`
-            INSERT INTO usuarios (login, senha, tipo_usuario, curso, serie, ativo, deve_trocar_senha, email)
-            VALUES (?, ?, 'aluno', ?, ?, 1, 1, ?)
-        `).run(matricula, passwordHash, schoolClass.curso, schoolClass.serie, email);
+            INSERT INTO usuarios (login, senha, tipo_usuario, curso, serie, ativo, deve_trocar_senha)
+            VALUES (?, ?, 'aluno', ?, ?, 1, 1)
+        `).run(matricula, passwordHash, schoolClass.curso, schoolClass.serie);
         const userId = Number(result.lastInsertRowid);
         const studentResult = database.prepare(`
             INSERT INTO alunos (id_usuario, nome, id_turma)
             VALUES (?, ?, ?)
         `).run(userId, body.nome.trim(), classId);
+        const confirmationToken = email && issueEmailConfirmation(userId, email);
         database.exec('COMMIT');
+        if (email) notificacoes.sendEmailConfirmation(userId, email, confirmationToken);
+        registrar(user, 'aluno.matricular', `aluno:${Number(studentResult.lastInsertRowid)}`);
         sendJson(response, 201, {
             id_aluno: Number(studentResult.lastInsertRowid),
             id_usuario: userId,
@@ -156,7 +164,8 @@ async function enrollStudent(request, response, user) {
             nome_turma: schoolClass.nome_turma,
             curso: schoolClass.curso,
             serie: schoolClass.serie,
-            email,
+            email: null,
+            email_pendente: email,
             senha_inicial: 'ceep@ + 4 primeiros dígitos do CPF',
             deve_trocar_senha: true
         });
@@ -189,6 +198,7 @@ async function resetStudentPassword(request, response, user, studentId) {
         database.exec('ROLLBACK');
         throw error;
     }
+    registrar(user, 'senha.redefinir_aluno', `aluno:${studentId}`);
     sendJson(response, 200, {
         mensagem: 'Senha redefinida. No próximo acesso o aluno deverá criar uma nova senha.'
     });
@@ -238,17 +248,20 @@ async function createStaffMember(request, response, user) {
     database.exec('BEGIN IMMEDIATE');
     try {
         const userId = Number(database.prepare(`
-            INSERT INTO usuarios (login, nome, senha, tipo_usuario, ativo, deve_trocar_senha, email)
-            VALUES (?, ?, ?, ?, 1, 1, ?)
-        `).run(login, body.nome.trim(), passwordHash, body.tipo_usuario, email).lastInsertRowid);
+            INSERT INTO usuarios (login, nome, senha, tipo_usuario, ativo, deve_trocar_senha)
+            VALUES (?, ?, ?, ?, 1, 1)
+        `).run(login, body.nome.trim(), passwordHash, body.tipo_usuario).lastInsertRowid);
         let teacherId = null;
         if (body.tipo_usuario === 'professor') {
             teacherId = Number(database.prepare(
                 'INSERT INTO professores (id_usuario, nome, area) VALUES (?, ?, ?)'
             ).run(userId, body.nome.trim(), body.area).lastInsertRowid);
         }
+        const confirmationToken = email && issueEmailConfirmation(userId, email);
         database.exec('COMMIT');
-        notificacoes.onStaffCreated(userId);
+        registrar(user, 'conta.criar', `usuario:${userId}`);
+        notificacoes.onStaffCreated(userId, email);
+        if (email) notificacoes.sendEmailConfirmation(userId, email, confirmationToken);
         sendJson(response, 201, {
             id_usuario: userId,
             id_professor: teacherId,
@@ -256,7 +269,8 @@ async function createStaffMember(request, response, user) {
             nome: body.nome.trim(),
             tipo_usuario: body.tipo_usuario,
             area: body.area ?? null,
-            email,
+            email: null,
+            email_pendente: email,
             senha_provisoria: password,
             aviso: 'Entregue esta senha à pessoa. Ela não será exibida de novo e deve ser trocada no primeiro acesso.'
         });
@@ -289,6 +303,7 @@ async function resetStaffPassword(request, response, user, userId) {
         database.exec('ROLLBACK');
         throw error;
     }
+    registrar(user, 'senha.redefinir_equipe', `usuario:${staff.id_usuario}`);
     sendJson(response, 200, {
         senha_provisoria: password,
         aviso: 'Entregue esta senha à pessoa. Ela deve ser trocada no primeiro acesso.'
@@ -339,6 +354,7 @@ async function setAccountActive(request, response, user, userId) {
         database.exec('ROLLBACK');
         throw error;
     }
+    registrar(user, body.ativo ? 'conta.reativar' : 'conta.desativar', `usuario:${account.id_usuario}`);
     sendJson(response, 200, {
         id_usuario: account.id_usuario,
         ativo: body.ativo,
@@ -360,13 +376,7 @@ async function changePassword(request, response, user) {
     if (body.nova_senha === body.senha_atual) {
         throw new ApiError(400, 'A nova senha precisa ser diferente da senha atual.');
     }
-    const account = database.prepare(
-        'SELECT senha FROM usuarios WHERE id_usuario = ? AND ativo = 1'
-    ).get(user.id_usuario);
-    if (!account || !(await verifyPassword(body.senha_atual, account.senha))) {
-        // 400, não 401: 401 significa sessão inválida e faria as telas encerrarem o login.
-        throw new ApiError(400, 'A senha atual está incorreta.');
-    }
+    await assertCurrentPassword(user, body.senha_atual);
     const passwordHash = await hashPassword(body.nova_senha);
     database.exec('BEGIN IMMEDIATE');
     try {
@@ -382,6 +392,7 @@ async function changePassword(request, response, user) {
         database.exec('ROLLBACK');
         throw error;
     }
+    registrar(user, 'senha.trocar', `usuario:${user.id_usuario}`);
     notificacoes.onPasswordChanged(user.id_usuario);
     sendJson(response, 200, { mensagem: 'Senha atualizada com sucesso.' });
 }
@@ -502,9 +513,6 @@ async function handleScheduleRecord(request, response, user, scheduleId) {
     const allowed = ['id_turma', 'id_disciplina', 'dia_semana', 'hora_inicio', 'hora_fim', 'sala'];
     rejectUnknownFields(body, allowed);
     if (!Object.keys(body).length) throw new ApiError(400, 'Informe campos para atualizar.');
-    if (body.prazo !== undefined && body.prazo !== null && body.prazo !== '') {
-        body.prazo = parseSchoolDate(body.prazo, 'prazo');
-    }
     const updated = { ...current, ...body };
     const classId = positiveId(updated.id_turma, 'id_turma');
     const disciplineId = positiveId(updated.id_disciplina, 'id_disciplina');
@@ -638,6 +646,10 @@ async function handleActivityRecord(request, response, user, activityId) {
     const allowed = ['titulo', 'descricao', 'id_turma', 'id_disciplina', 'prazo', 'tipo'];
     rejectUnknownFields(body, allowed);
     if (!Object.keys(body).length) throw new ApiError(400, 'Informe campos para atualizar.');
+    if (body.prazo === '') body.prazo = null;
+    if (body.prazo !== undefined && body.prazo !== null) {
+        body.prazo = parseSchoolDate(body.prazo, 'prazo');
+    }
     const updated = { ...current, ...body };
     updated.titulo = requiredText(updated.titulo, 'titulo', 200, 'O título');
     updated.descricao = requiredText(updated.descricao, 'descricao', 10000, 'A descrição');
@@ -683,7 +695,11 @@ async function submitActivity(request, response, user, activityId) {
     if (activity.tipo !== 'atividade') {
         throw new ApiError(400, 'Esta publicação não recebe envio pelo portal (avaliações são presenciais).');
     }
-    if (activity.prazo && deadlineTimestamp(activity.prazo) < Date.now()) {
+    const deadline = deadlineTimestamp(activity.prazo);
+    if (Number.isNaN(deadline)) {
+        throw new ApiError(409, 'O prazo desta atividade está registrado de forma inválida. Avise o professor.');
+    }
+    if (deadline !== null && deadline < Date.now()) {
         throw new ApiError(409, 'O prazo para envio desta atividade terminou.');
     }
 
@@ -691,12 +707,17 @@ async function submitActivity(request, response, user, activityId) {
     rejectUnknownFields(body, ['resposta']);
     requireFields(body, ['resposta']);
     body.resposta = requiredText(body.resposta, 'resposta', 10000, 'A resposta');
-    database.prepare(`
+    // Reenvio só enquanto não houver nota: a resposta corrigida não pode mudar depois.
+    const result = database.prepare(`
         INSERT INTO entregas_atividades (id_atividade, id_aluno, resposta)
         VALUES (?, ?, ?)
         ON CONFLICT (id_atividade, id_aluno)
         DO UPDATE SET resposta = excluded.resposta, enviado_em = CURRENT_TIMESTAMP
+        WHERE entregas_atividades.nota IS NULL
     `).run(activityId, user.id_aluno, body.resposta.trim());
+    if (result.changes === 0) {
+        throw new ApiError(409, 'Esta entrega já foi corrigida e não pode mais ser reenviada.');
+    }
     const submission = database.prepare(`
         SELECT id_entrega, id_atividade, id_aluno, resposta, enviado_em
         FROM entregas_atividades WHERE id_atividade = ? AND id_aluno = ?
@@ -810,13 +831,14 @@ async function recordAttendance(request, response, user) {
     requireFields(body, allowed.slice(0, 4));
     const studentId = positiveId(body.id_aluno, 'id_aluno');
     const disciplineId = positiveId(body.id_disciplina, 'id_disciplina');
-    body.data_aula = parseSchoolDate(body.data_aula, 'data_aula', { allowTime: false });
     if (typeof body.presente !== 'boolean') {
         throw new ApiError(400, 'O campo "presente" deve ser verdadeiro ou falso.');
     }
-    const student = database.prepare(
-        'SELECT id_turma FROM alunos WHERE id_aluno = ?'
-    ).get(studentId);
+    const student = database.prepare(`
+        SELECT a.id_turma FROM alunos a
+        JOIN usuarios u ON u.id_usuario = a.id_usuario AND u.ativo = 1
+        WHERE a.id_aluno = ?
+    `).get(studentId);
     const discipline = database.prepare(
         'SELECT id_turma FROM disciplinas WHERE id_disciplina = ?'
     ).get(disciplineId);
@@ -826,11 +848,13 @@ async function recordAttendance(request, response, user) {
     if (!canAccessClass(user, discipline.id_turma, disciplineId)) {
         throw new ApiError(403, 'Você não está vinculado a essa turma e disciplina.');
     }
+    // Mesmas regras da chamada (PUT /api/chamadas): dia útil do ano letivo, até hoje, aluno ativo.
+    const classDate = parseClassDate(body.data_aula, 'data_aula');
     const result = database.prepare(`
         INSERT INTO frequencias
             (id_aluno, id_disciplina, id_usuario_registro, data_aula, presente, observacao)
         VALUES (?, ?, ?, ?, ?, ?)
-    `).run(studentId, disciplineId, user.id_usuario, body.data_aula,
+    `).run(studentId, disciplineId, user.id_usuario, classDate,
         body.presente ? 1 : 0, optionalText(body.observacao, 'observacao', 500));
     sendJson(response, 201, database.prepare(
         'SELECT * FROM frequencias WHERE id_frequencia = ?'

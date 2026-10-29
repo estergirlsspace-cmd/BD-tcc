@@ -10,7 +10,8 @@ const pageRoutes = new Map([
     ['/gestao', 'gestao.html'],
     // Links dos e-mails (token no hash, nunca na query): a mesma página trata os dois casos.
     ['/redefinir', 'redefinir.html'],
-    ['/confirmar-email', 'redefinir.html']
+    ['/confirmar-email', 'redefinir.html'],
+    ['/privacidade', 'privacidade.html']
 ]);
 
 const contentTypes = new Map([
@@ -18,6 +19,7 @@ const contentTypes = new Map([
     ['.css', 'text/css; charset=utf-8'],
     ['.js', 'text/javascript; charset=utf-8'],
     ['.json', 'application/json; charset=utf-8'],
+    ['.webmanifest', 'application/manifest+json; charset=utf-8'],
     ['.svg', 'image/svg+xml'],
     ['.woff2', 'font/woff2'],
     ['.png', 'image/png'],
@@ -29,6 +31,9 @@ const immutablePrefixes = ['vendor/', 'assets/'];
 const securityHeaders = {
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'same-origin',
+    // Só tem efeito em HTTPS (produção); recursos do aparelho que o site não usa ficam bloqueados.
+    'Strict-Transport-Security': 'max-age=31536000',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
     'Content-Security-Policy': [
         "default-src 'self'",
         "connect-src 'self'",
@@ -95,6 +100,8 @@ async function resolveFile(relativeFile) {
 }
 
 function cacheControlFor(relativeFile) {
+    // Service worker e manifesto precisam ser revalidados sempre para o app atualizar.
+    if (relativeFile === 'sw.js' || relativeFile === 'manifest.webmanifest') return 'no-cache';
     return immutablePrefixes.some((prefix) => relativeFile.startsWith(prefix))
         ? 'public, max-age=31536000, immutable'
         : 'no-cache';

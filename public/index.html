@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#312782">
     <title>Entrar | C-Warning</title>
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/assets/icones/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/assets/icones/favicon-32.png" sizes="32x32" type="image/png">
+    <link rel="apple-touch-icon" href="/assets/icones/apple-touch-icon.png">
+    <script src="/pwa.js" defer></script>
     <script src="/preferencias.js"></script>
     <link rel="stylesheet" href="/vendor/fontes.css">
     <link rel="stylesheet" href="/vendor/phosphor/regular.css">
@@ -38,8 +43,13 @@
                 <form class="login-form" id="login-form">
                     <h1 class="login-titulo login-titulo--acesso" id="login-title">Acesse sua conta</h1>
 
+                    <p class="login-aviso login-aviso--sessao" id="session-notice" role="status" hidden>
+                        <i class="ph ph-clock-countdown" aria-hidden="true"></i>
+                        Sua sessão expirou. Entre de novo.
+                    </p>
+
                     <fieldset class="perfil">
-                        <legend class="visually-hidden">Tipo de acesso</legend>
+                        <legend class="visually-hidden">Entrar com matrícula (aluno) ou usuário (professor e gestor)</legend>
                         <label class="perfil__opcao">
                             <input class="perfil__radio" type="radio" name="perfil" value="aluno" checked>
                             <span class="perfil__texto">Aluno</span>
@@ -75,8 +85,11 @@
 
                     <p class="login-mensagem" id="form-message" role="alert"></p>
 
-                    <button class="login-botao" id="submit-button" type="submit">Entrar como aluno</button>
+                    <button class="login-botao" id="submit-button" type="submit">Entrar</button>
 
+                    <p class="login-ajuda">
+                        A opção acima só troca o campo entre matrícula e usuário: você entra no portal da sua conta.
+                    </p>
                     <p class="login-ajuda" id="first-access-hint">
                         Primeiro acesso? Use <strong>ceep@</strong> seguido dos 4 primeiros números do seu CPF.
                     </p>
@@ -132,6 +145,33 @@
                     </div>
                     <p class="login-mensagem" id="first-access-message" role="alert"></p>
                     <button class="login-botao" id="first-access-button" type="submit">Salvar e entrar</button>
+                </form>
+
+                <form class="login-form" id="terms-form" aria-labelledby="terms-title" hidden>
+                    <h1 class="login-titulo" id="terms-title" tabindex="-1">Termos e privacidade</h1>
+                    <p class="login-ajuda login-ajuda--intro">
+                        Antes de continuar, leia como o C·Warning cuida dos seus dados:
+                    </p>
+                    <ul class="login-termos">
+                        <li>Usamos seus dados só para a comunicação da escola: avisos, atividades, frequência e mensagens.</li>
+                        <li>Quem vê seus dados: você, seus professores (das suas turmas) e a gestão do CEEP.</li>
+                        <li>Nada é vendido nem usado para propaganda.</li>
+                        <li>Você pode baixar uma cópia dos seus dados e pedir correções a qualquer momento.</li>
+                        <li>Ações importantes, como entrar no sistema, ficam registradas por segurança.</li>
+                    </ul>
+                    <a class="login-link login-termos__link" href="/privacidade" target="_blank" rel="noopener">
+                        Ler a política de privacidade completa<span class="visually-hidden"> (abre em nova aba)</span>
+                        <i class="ph ph-arrow-square-out" aria-hidden="true"></i>
+                    </a>
+                    <label class="login-aceite">
+                        <input class="login-aceite__caixa" id="terms-check" type="checkbox">
+                        <span>Li e aceito os termos de uso e a política de privacidade.</span>
+                    </label>
+                    <p class="login-mensagem" id="terms-message" role="alert"></p>
+                    <button class="login-botao" id="terms-button" type="submit" disabled>Aceitar e continuar</button>
+                    <button class="login-link login-link--voltar" id="terms-cancel" type="button">
+                        <i class="ph ph-sign-out" aria-hidden="true"></i>Agora não (sair)
+                    </button>
                 </form>
 
                 <section class="login-form" id="welcome-panel" aria-labelledby="welcome-title" hidden>

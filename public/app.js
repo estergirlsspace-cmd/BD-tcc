@@ -30,17 +30,29 @@ const recoverButton = document.querySelector('#recover-button');
 const recoverFields = document.querySelector('#recover-fields');
 const recoverDone = document.querySelector('#recover-done');
 const recoverDoneText = document.querySelector('#recover-done-text');
+const termsForm = document.querySelector('#terms-form');
+const termsCheck = document.querySelector('#terms-check');
+const termsButton = document.querySelector('#terms-button');
+const termsMessage = document.querySelector('#terms-message');
+const sessionNotice = document.querySelector('#session-notice');
+
+const OFFLINE_MESSAGE = 'Sem conexão com o C·Warning. Tente de novo em instantes.';
+const RETURN_KEY = 'cw-voltar';
+const REASON_KEY = 'cw-motivo';
+
+function readSession(key) {
+    try { return sessionStorage.getItem(key); } catch { return null; }
+}
+
+function dropSession(key) {
+    try { sessionStorage.removeItem(key); } catch { /* armazenamento bloqueado */ }
+}
 
 const state = {
     role: 'aluno',
     token: null,
-    pendingLogin: null
-};
-
-const roleNames = {
-    aluno: 'aluno',
-    professor: 'professor',
-    gestao: 'gestor'
+    pendingLogin: null,
+    termsUser: null
 };
 
 const seriesNames = {
@@ -54,12 +66,30 @@ const courseNames = {
     informatica: 'Informática'
 };
 
+// As abas só trocam o rótulo do campo (matrícula ou usuário): quem decide o portal é a conta.
 function submitLabel() {
-    return `Entrar como ${roleNames[state.role]}`;
+    return 'Entrar';
 }
+
+const credentialInputs = [loginInput, passwordInput];
+
+function markCredentials(invalid) {
+    credentialInputs.forEach((input) => {
+        if (invalid) {
+            input.setAttribute('aria-invalid', 'true');
+            input.setAttribute('aria-describedby', 'form-message');
+        } else {
+            input.removeAttribute('aria-invalid');
+            input.removeAttribute('aria-describedby');
+        }
+    });
+}
+
+credentialInputs.forEach((input) => input.addEventListener('input', () => markCredentials(false)));
 
 function clearMessage() {
     message.textContent = '';
+    markCredentials(false);
 }
 
 function showView(view) {
@@ -67,6 +97,7 @@ function showView(view) {
     firstAccessForm.hidden = view !== firstAccessForm;
     welcomePanel.hidden = view !== welcomePanel;
     recoverForm.hidden = view !== recoverForm;
+    termsForm.hidden = view !== termsForm;
 }
 
 // "Esqueci minha senha": formulário no mesmo painel; a resposta é sempre genérica
@@ -113,9 +144,7 @@ recoverForm.addEventListener('submit', async (event) => {
         recoverDone.hidden = false;
         document.querySelector('#recover-title').focus();
     } catch (error) {
-        recoverMessage.textContent = error instanceof TypeError
-            ? 'Não foi possível conectar ao servidor.'
-            : error.message;
+        recoverMessage.textContent = error instanceof TypeError ? OFFLINE_MESSAGE : error.message;
     } finally {
         recoverButton.disabled = false;
         recoverButton.textContent = 'Enviar link';
@@ -200,11 +229,15 @@ form.addEventListener('submit', async (event) => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-        const result = await response.json();
+        const result = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-            throw new Error(result.erro || 'Não foi possível entrar. Tente novamente.');
+            throw Object.assign(
+                new Error(result.erro || 'Não foi possível entrar. Tente novamente.'),
+                { credenciais: response.status === 400 || response.status === 401 }
+            );
         }
+        if (!result.token || !result.usuario) throw new Error('O servidor respondeu de um jeito inesperado. Tente de novo.');
 
         state.token = result.token;
         passwordInput.value = '';
@@ -214,11 +247,10 @@ form.addEventListener('submit', async (event) => {
             showFirstAccess();
             return;
         }
-        enterPortal(result.usuario);
+        await enterPortal(result.usuario);
     } catch (error) {
-        message.textContent = error instanceof TypeError
-            ? 'Não foi possível conectar ao servidor. Confira se a API está em execução.'
-            : error.message;
+        message.textContent = error instanceof TypeError ? OFFLINE_MESSAGE : error.message;
+        markCredentials(Boolean(error.credenciais));
         passwordInput.focus();
     } finally {
         submitButton.disabled = false;
@@ -232,11 +264,50 @@ const portalPaths = {
     gestao: '/gestao'
 };
 
-function enterPortal(usuario) {
+// LGPD: sem o aceite dos termos, a API só libera perfil, senha e privacidade. O login não traz
+// essa informação, então ela vem de /api/me; se /api/me falhar, o portal volta para cá.
+async function termsPending() {
+    try {
+        const response = await fetch('/api/me', { headers: { Authorization: `Bearer ${state.token}` } });
+        if (!response.ok) return false;
+        return (await response.json()).termos_pendentes === true;
+    } catch {
+        return false;
+    }
+}
+
+function showTerms(usuario) {
+    state.termsUser = usuario;
+    termsCheck.checked = false;
+    termsButton.disabled = true;
+    termsMessage.textContent = '';
+    showView(termsForm);
+    document.querySelector('#terms-title').focus();
+}
+
+async function enterPortal(usuario) {
+    if (await termsPending()) {
+        showTerms(usuario);
+        return;
+    }
+    goToPortal(usuario);
+}
+
+// Depois de uma sessão expirada, volta para a tela onde a pessoa estava — só se for um caminho do
+// próprio site e do mesmo portal da conta (nada de URL externa nem portal de outro perfil).
+function returnPathFor(portalPath) {
+    const saved = readSession(RETURN_KEY);
+    dropSession(RETURN_KEY);
+    if (!saved || !/^\/[a-z]+(?:#[\w\-/=&.%~:]*)?$/.test(saved)) return portalPath;
+    const [pathname] = saved.split('#');
+    return pathname === portalPath ? saved : portalPath;
+}
+
+function goToPortal(usuario) {
     const portalPath = portalPaths[usuario.tipo_usuario];
     if (portalPath) {
         sessionStorage.setItem('cwarning-token', state.token);
-        window.location.assign(portalPath);
+        window.location.assign(returnPathFor(portalPath));
         return;
     }
     showWelcome(usuario);
@@ -273,18 +344,16 @@ firstAccessForm.addEventListener('submit', async (event) => {
                 nova_senha: newPassword.value
             })
         });
-        const result = await response.json();
+        const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.erro || 'Não foi possível salvar a senha.');
         const { usuario } = state.pendingLogin;
         state.pendingLogin = null;
         newPassword.value = '';
         confirmPassword.value = '';
         firstAccessForm.hidden = true;
-        enterPortal({ ...usuario, deve_trocar_senha: false });
+        await enterPortal({ ...usuario, deve_trocar_senha: false });
     } catch (error) {
-        firstAccessMessage.textContent = error instanceof TypeError
-            ? 'Não foi possível conectar ao servidor.'
-            : error.message;
+        firstAccessMessage.textContent = error instanceof TypeError ? OFFLINE_MESSAGE : error.message;
     } finally {
         firstAccessButton.disabled = false;
         firstAccessButton.textContent = 'Salvar e entrar';
@@ -318,15 +387,13 @@ passwordChangeForm.addEventListener('submit', async (event) => {
                 nova_senha: newPassword.value
             })
         });
-        const result = await response.json();
+        const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.erro || 'Não foi possível alterar a senha.');
         passwordChangeSuccess.textContent = 'Senha alterada com sucesso.';
         currentPassword.value = '';
         newPassword.value = '';
     } catch (error) {
-        passwordChangeMessage.textContent = error instanceof TypeError
-            ? 'Não foi possível conectar ao servidor.'
-            : error.message;
+        passwordChangeMessage.textContent = error instanceof TypeError ? OFFLINE_MESSAGE : error.message;
     }
 });
 
@@ -355,3 +422,70 @@ logoutButton.addEventListener('click', async () => {
     clearMessage();
     passwordInput.focus();
 });
+
+termsCheck.addEventListener('change', () => {
+    termsButton.disabled = !termsCheck.checked;
+});
+
+termsForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    termsMessage.textContent = '';
+    if (!termsCheck.checked) return;
+    termsButton.disabled = true;
+    termsButton.textContent = 'Salvando...';
+    try {
+        const response = await fetch('/api/privacidade/aceite', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.token}` },
+            body: '{}'
+        });
+        if (response.status === 401) throw new Error('Sua sessão expirou. Entre novamente.');
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.erro || 'Não foi possível registrar o aceite. Tente novamente.');
+        const usuario = state.termsUser;
+        state.termsUser = null;
+        goToPortal(usuario);
+    } catch (error) {
+        termsMessage.textContent = error instanceof TypeError ? OFFLINE_MESSAGE : error.message;
+        termsButton.disabled = !termsCheck.checked;
+    } finally {
+        termsButton.textContent = 'Aceitar e continuar';
+    }
+});
+
+// "Agora não": encerra a sessão e volta para a tela de entrada.
+document.querySelector('#terms-cancel').addEventListener('click', () => {
+    if (state.token) {
+        fetch('/api/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${state.token}` } })
+            .catch(() => {});
+    }
+    state.token = null;
+    state.termsUser = null;
+    sessionStorage.removeItem('cwarning-token');
+    showView(form);
+    loginInput.focus();
+});
+
+// Um portal que perdeu a sessão (401) avisa por cw-motivo; a rota fica em cw-voltar até entrar.
+if (readSession(REASON_KEY) === 'sessao') {
+    dropSession(REASON_KEY);
+    sessionNotice.hidden = false;
+}
+
+// Um portal que recebeu 403 de termos pendentes manda para cá com a sessão ainda válida:
+// retoma direto na etapa de aceite, sem pedir a senha de novo.
+(async () => {
+    const savedToken = sessionStorage.getItem('cwarning-token');
+    if (!savedToken) return;
+    try {
+        const response = await fetch('/api/me', { headers: { Authorization: `Bearer ${savedToken}` } });
+        if (!response.ok) return;
+        const usuario = await response.json();
+        if (usuario.termos_pendentes && !usuario.deve_trocar_senha && form.hidden === false) {
+            state.token = savedToken;
+            showTerms(usuario);
+        }
+    } catch {
+        // Sem conexão: fica na tela de entrada.
+    }
+})();

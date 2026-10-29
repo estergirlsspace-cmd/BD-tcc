@@ -2,6 +2,7 @@ const database = require('../database');
 const { ApiError } = require('../errors');
 const { hashToken } = require('../controllers/authController');
 const { isSharedStudentLogin } = require('../utils/accounts');
+const { termosPendentes } = require('../utils/termos');
 
 const LAST_SEEN_INTERVAL_SECONDS = 60;
 
@@ -17,7 +18,7 @@ function authenticate(request) {
     const session = database.prepare(`
         SELECT s.token_hash, s.curso AS curso_sessao, s.expira_em, s.ultimo_acesso,
                u.id_usuario, u.login, u.tipo_usuario, u.curso, u.serie,
-               u.deve_trocar_senha, a.id_aluno, COALESCE(a.nome, p.nome, u.nome) AS nome, p.area, a.id_turma, t.serie AS turma_serie, t.nome_turma,
+               u.deve_trocar_senha, u.termos_aceitos_em, a.id_aluno, COALESCE(a.nome, p.nome, u.nome) AS nome, p.area, a.id_turma, t.serie AS turma_serie, t.nome_turma,
                p.id_professor
         FROM sessoes s
         JOIN usuarios u ON u.id_usuario = s.id_usuario
@@ -44,6 +45,7 @@ function authenticate(request) {
         tipo_usuario: session.tipo_usuario,
         conta_compartilhada: isSharedStudentLogin(session.login),
         deve_trocar_senha: session.deve_trocar_senha === 1,
+        termos_pendentes: termosPendentes(session.termos_aceitos_em),
         nome: session.nome,
         area: session.area,
         curso: session.curso,

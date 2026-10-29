@@ -14,9 +14,9 @@ function statusBadge(account) {
     return badge('Ativo', 'ok');
 }
 
-function dataTable(headers, rows, emptyText) {
+function dataTable(headers, rows, emptyText, label) {
     if (!rows.length) return emptyState(emptyText, 'users');
-    return el('div', { class: 'tabela-rolagem' },
+    return el('div', { class: 'tabela-rolagem', tabindex: '0', role: 'region', 'aria-label': label },
         el('table', { class: 'tabela tabela-cartoes' },
             el('thead', {}, el('tr', {}, headers.map((header) =>
                 el('th', { scope: 'col' }, header.hidden ? G.srText(header.label) : header.label)))),
@@ -77,11 +77,12 @@ function renderStudents() {
     const all = studentRows();
     const rows = all.filter((student) => (!classFilter || student.id_turma === classFilter)
         && matches(query, student.nome, student.login));
-    count.textContent = `${rows.length} de ${all.length} aluno(s)`;
+    count.textContent = `${rows.length} de ${all.length} ${all.length === 1 ? 'aluno' : 'alunos'}`;
     list.replaceChildren(dataTable(
         [{ label: 'Nome' }, { label: 'Matrícula' }, { label: 'Turma' }, { label: 'Situação' }, { label: 'Ações', hidden: true }],
         rows.map(studentRow),
-        all.length ? 'Nenhum aluno corresponde à busca.' : 'Nenhum aluno matriculado ainda.'));
+        all.length ? 'Nenhum aluno corresponde à busca.' : 'Nenhum aluno matriculado ainda.',
+        'Tabela de alunos'));
 }
 
 function studentRow(student) {
@@ -116,12 +117,12 @@ function showStudentReset(student, container, restore) {
         button('Cancelar', 'botao botao-secundario botao-pequeno', restore));
     form.addEventListener('submit', (event) => {
         event.preventDefault();
-        G.runAction(submit, async () => {
+        G.runFormAction(form, submit, async () => {
             const result = await G.sendJson(`/api/matriculas/${student.id_aluno}/senha`, 'POST',
                 { cpf_inicio: input.value.trim() });
             await G.loadSource('usuarios', { silent: true });
             G.showSuccess(`${student.nome}: ${result.mensagem}`);
-        });
+        }, { fieldFor: () => input });
     });
     container.replaceChildren(form);
     input.focus();
@@ -131,7 +132,7 @@ async function enrollStudent(event) {
     event.preventDefault();
     const form = event.currentTarget;
     const submit = form.querySelector('button[type="submit"]');
-    await G.runAction(submit, async () => {
+    await G.runFormAction(form, submit, async () => {
         const body = {
             nome: $('#aluno-nome').value.trim(),
             matricula: $('#aluno-matricula').value.trim(),
@@ -142,9 +143,24 @@ async function enrollStudent(event) {
         if (email) body.email = email;
         const result = await G.sendJson('/api/matriculas', 'POST', body);
         form.reset();
-        G.showSuccess(`${result.nome} matriculado(a) em ${result.nome_turma}. No primeiro acesso, use a matrícula ${result.matricula} e ceep@ + 4 primeiros números do CPF.`);
+        G.showSuccess(`Matrícula de ${result.nome} feita em ${result.nome_turma}. No primeiro acesso, use a matrícula ${result.matricula} e ceep@ + 4 primeiros números do CPF.${pendingEmailNote(result)}`);
         await G.loadSources('usuarios', 'alunos');
+    }, {
+        fieldFor: G.fieldByMessage([
+            [/e-mail/i, $('#aluno-email')],
+            [/matr[ií]cula/i, $('#aluno-matricula')],
+            [/cpf/i, $('#aluno-cpf')],
+            [/turma/i, $('#aluno-turma')],
+            [/nome/i, $('#aluno-nome')]
+        ])
     });
+}
+
+// O e-mail informado pela gestão só passa a valer depois que a própria pessoa confirmar.
+function pendingEmailNote(result) {
+    return result.email_pendente
+        ? ` Enviamos um link de confirmação para ${result.email_pendente}; o e-mail só passa a valer depois que a pessoa confirmar.`
+        : '';
 }
 
 // ---------------------------------------------------------------- equipe
@@ -168,7 +184,7 @@ async function createStaff(event) {
     event.preventDefault();
     const form = event.currentTarget;
     const submit = form.querySelector('button[type="submit"]');
-    await G.runAction(submit, async () => {
+    await G.runFormAction(form, submit, async () => {
         const type = $('#equipe-perfil').value;
         const body = {
             nome: $('#equipe-nome').value.trim(),
@@ -183,7 +199,15 @@ async function createStaff(event) {
         $('#campo-equipe-area').hidden = false;
         revealPassword(`${result.nome} pode entrar com o usuário "${result.login}" e esta senha provisória:`,
             result.senha_provisoria);
+        if (result.email_pendente) G.showSuccess(pendingEmailNote(result).trim());
         await G.loadSources('usuarios', 'professores');
+    }, {
+        fieldFor: G.fieldByMessage([
+            [/e-mail/i, $('#equipe-email')],
+            [/login|usu[aá]rio/i, $('#equipe-login')],
+            [/[aá]rea/i, $('#equipe-area')],
+            [/nome/i, $('#equipe-nome')]
+        ])
     });
 }
 
@@ -204,7 +228,8 @@ function renderStaff() {
     list.replaceChildren(dataTable(
         [{ label: 'Nome' }, { label: 'Usuário' }, { label: 'Perfil' }, { label: 'Situação' }, { label: 'Ações', hidden: true }],
         staffRows().map(staffRow),
-        'Nenhum membro da equipe cadastrado.'));
+        'Nenhum membro da equipe cadastrado.',
+        'Tabela da equipe'));
 }
 
 function staffRow(member) {
@@ -282,7 +307,7 @@ function classCard(schoolClass) {
     const enrolled = sourceData('alunos').filter((student) => student.id_turma === schoolClass.id_turma).length;
     const frequency = classFrequency(schoolClass.id_turma);
     const meta = el('p', { class: 'texto-suave' },
-        [G.SERIES_NAMES[schoolClass.serie], G.COURSE_NAMES[schoolClass.curso], `${enrolled} aluno(s)`]
+        [G.SERIES_NAMES[schoolClass.serie], G.COURSE_NAMES[schoolClass.curso], `${enrolled} ${enrolled === 1 ? 'aluno' : 'alunos'}`]
             .filter(Boolean).join(' · '));
     const header = el('div', { class: 'turma-cabecalho' },
         el('div', {}, el('h2', { text: schoolClass.nome_turma }), meta),
@@ -313,7 +338,8 @@ function classCard(schoolClass) {
         return el('tr', {}, cell('Disciplina', discipline.nome_disciplina), cell('Professor', select));
     });
     const table = disciplines.length
-        ? el('div', { class: 'tabela-rolagem' },
+        ? el('div', { class: 'tabela-rolagem', tabindex: '0', role: 'region',
+            'aria-label': `Disciplinas de ${schoolClass.nome_turma}` },
             el('table', { class: 'tabela tabela-cartoes' },
                 el('thead', {}, el('tr', {}, el('th', { scope: 'col', text: 'Disciplina' }), el('th', { scope: 'col', text: 'Professor' }))),
                 el('tbody', {}, rows)))
@@ -334,7 +360,7 @@ function disciplineForm(schoolClass) {
         submit);
     form.addEventListener('submit', (event) => {
         event.preventDefault();
-        G.runAction(submit, async () => {
+        G.runFormAction(form, submit, async () => {
             await G.sendJson('/api/disciplinas', 'POST', {
                 id_turma: schoolClass.id_turma,
                 nome_disciplina: nameInput.value.trim(),
@@ -342,7 +368,7 @@ function disciplineForm(schoolClass) {
             });
             G.showSuccess(`Disciplina adicionada a ${schoolClass.nome_turma}.`);
             await G.loadSource('disciplinas', { silent: true });
-        });
+        }, { fieldFor: G.fieldByMessage([[/professor/i, select], [/./, nameInput]]) });
     });
     return form;
 }
@@ -362,8 +388,9 @@ function setupClassForm() {
     suggest();
     $('#form-turma').addEventListener('submit', (event) => {
         event.preventDefault();
-        const submit = event.currentTarget.querySelector('button[type="submit"]');
-        G.runAction(submit, async () => {
+        const form = event.currentTarget;
+        const submit = form.querySelector('button[type="submit"]');
+        G.runFormAction(form, submit, async () => {
             try {
                 const created = await G.sendJson('/api/turmas', 'POST', {
                     nome_turma: name.value.trim(),
@@ -377,7 +404,7 @@ function setupClassForm() {
                 throw new Error(error.message.includes('UNIQUE') ? 'Já existe uma turma com esse nome.' : error.message);
             }
             await G.loadSource('turmas', { silent: true });
-        });
+        }, { fieldFor: G.fieldByMessage([[/curso/i, course], [/s[ée]rie/i, series], [/./, name]]) });
     });
 }
 

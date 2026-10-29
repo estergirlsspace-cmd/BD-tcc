@@ -2,7 +2,7 @@ const database = require('../database');
 const { ApiError } = require('../errors');
 const { readBody, sendJson } = require('../utils/http');
 const { parseSchoolDate } = require('../utils/dates');
-const { schoolNow } = require('../utils/calendario');
+const { parseClassDate } = require('../utils/calendario');
 const { attendancePercent } = require('../utils/frequencia');
 const {
     requireRole, requireFields, getRecordId, positiveId, rejectUnknownFields, canAccessClass
@@ -50,12 +50,6 @@ function rollCall(discipline, date) {
         }));
 }
 
-function classDate(value, field) {
-    const date = parseSchoolDate(value, field, { allowTime: false });
-    if (date > schoolNow().data) throw new ApiError(400, 'Não é possível lançar chamada em data futura.');
-    return date;
-}
-
 function getRollCall(user, searchParams) {
     requireRole(user, ['professor', 'gestao']);
     if (!searchParams.has('id_disciplina') || !searchParams.has('data')) {
@@ -72,7 +66,7 @@ async function saveRollCall(request, response, user) {
     rejectUnknownFields(body, ['id_disciplina', 'data_aula', 'presencas']);
     requireFields(body, ['id_disciplina', 'data_aula', 'presencas']);
     const disciplineId = positiveId(body.id_disciplina, 'id_disciplina');
-    const date = classDate(body.data_aula, 'data_aula');
+    const date = parseClassDate(body.data_aula, 'data_aula');
     if (!Array.isArray(body.presencas) || !body.presencas.length || body.presencas.length > MAX_BATCH) {
         throw new ApiError(400, `Envie em "presencas" de 1 a ${MAX_BATCH} itens { id_aluno, presente }.`);
     }
@@ -106,7 +100,10 @@ async function saveRollCall(request, response, user) {
         INSERT INTO frequencias (id_aluno, id_disciplina, id_usuario_registro, data_aula, presente)
         VALUES (?, ?, ?, ?, ?)
         ON CONFLICT (id_aluno, id_disciplina, data_aula)
-        DO UPDATE SET presente = excluded.presente, id_usuario_registro = excluded.id_usuario_registro
+        DO UPDATE SET presente = excluded.presente, id_usuario_registro = excluded.id_usuario_registro,
+            -- Presença que vira falta conta como lançada agora (o prazo da justificativa parte daqui).
+            criado_em = CASE WHEN frequencias.presente = excluded.presente THEN frequencias.criado_em
+                             ELSE CURRENT_TIMESTAMP END
     `);
     database.exec('BEGIN IMMEDIATE');
     try {

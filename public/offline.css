@@ -1,0 +1,74 @@
+/* C-Warning - página exibida pelo service worker quando não há conexão. Só tokens --cw-*. */
+
+.offline {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+}
+
+.offline__cartao {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 32px 24px;
+  text-align: center;
+  background: var(--cw-superficie);
+  border: 1px solid var(--cw-borda);
+  border-radius: var(--cw-raio);
+  box-shadow: var(--cw-sombra);
+}
+
+.offline__marca {
+  font-size: 1.5rem;
+  color: var(--cw-texto-marca);
+}
+
+.offline__icone {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  font-size: 2rem;
+  color: var(--cw-link);
+  background: var(--cw-azul-suave);
+}
+
+.offline__titulo {
+  margin: 0;
+  font-family: var(--cw-fonte-titulo);
+  font-weight: 700;
+  font-size: 1.375rem;
+  line-height: 1.3;
+  color: var(--cw-texto-marca);
+}
+
+.offline__texto {
+  margin: 0;
+  line-height: 1.55;
+  color: var(--cw-texto-2);
+}
+
+.offline__botao {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 20px;
+  border-radius: var(--cw-raio-sm);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  color: #FFFFFF; /* mesmo padrão de .botao-primario: branco sobre --cw-indigo nos dois temas */
+  background: var(--cw-indigo);
+}
+
+.offline__botao:hover {
+  background: var(--cw-indigo-hover);
+}

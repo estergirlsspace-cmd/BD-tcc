@@ -1,0 +1,27 @@
+/* Erros de formulário junto do campo (ver componentes/formulario.js). Só tokens --cw-*. */
+.cw-campo-erro {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+  margin: 0.35rem 0 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--cw-vermelho-texto);
+}
+
+.cw-campo-erro .ph {
+  flex: none;
+  margin-top: 0.1em;
+  font-size: 1.05em;
+}
+
+.cw-form-erro {
+  margin-top: 0.75rem;
+}
+
+input[aria-invalid="true"],
+select[aria-invalid="true"],
+textarea[aria-invalid="true"] {
+  border-color: var(--cw-vermelho-texto);
+}

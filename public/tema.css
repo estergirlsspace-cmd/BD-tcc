@@ -18,7 +18,9 @@
   --cw-texto-2: #4b4d66;
   --cw-texto-suave: #5f6178; /* metadados; NUNCA usar #8b8da6 para texto (3,3:1) */
   --cw-chip: #f2f3f7;
-  --cw-foco: #f5a300;        /* contorno de foco 3px */
+  --cw-foco: #f5a300;        /* contorno de foco 3px (meio do anel duplo) */
+  --cw-anel-foco: #1f2033;   /* anel em volta do âmbar: 16:1 sobre branco, 14,8:1 sobre --cw-fundo;
+                                âmbar sobre ele 7,7:1 */
   --cw-fonte: 'Figtree', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --cw-fonte-titulo: 'Sora', 'Figtree', system-ui, sans-serif;
   --cw-raio: 16px; --cw-raio-sm: 10px;
@@ -50,6 +52,7 @@
   --cw-texto-marca: #cdc9f5;
   --cw-link: #9fabff;
   --cw-vermelho-texto: #ff8a8f;
+  --cw-anel-foco: #eceafb;   /* anel claro: 14,1:1 sobre --cw-superficie, 15,7:1 sobre --cw-fundo */
   --cw-sombra: 0 8px 24px -12px rgba(0, 0, 0, .6);
   color-scheme: dark;
 }
@@ -72,6 +75,7 @@
     --cw-texto-marca: #cdc9f5;
     --cw-link: #9fabff;
     --cw-vermelho-texto: #ff8a8f;
+    --cw-anel-foco: #eceafb;   /* anel claro: 14,1:1 sobre --cw-superficie, 15,7:1 sobre --cw-fundo */
     --cw-sombra: 0 8px 24px -12px rgba(0, 0, 0, .6);
     color-scheme: dark;
   }
@@ -101,9 +105,12 @@ body {
   display: none !important;
 }
 
-:focus-visible {
+/* Foco em anel duplo, visível nos dois temas (WCAG 2.4.7 / 1.4.11): âmbar de 3px com um anel de
+   contraste (escuro no claro, claro no escuro) por dentro (vão de 2px) e por fora (2px). */
+:root :focus-visible {
   outline: 3px solid var(--cw-foco);
   outline-offset: 2px;
+  box-shadow: 0 0 0 7px var(--cw-anel-foco);
 }
 
 .visually-hidden {
@@ -137,7 +144,7 @@ body {
   font-family: var(--cw-fonte-titulo);
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: var(--cw-indigo);
+  color: var(--cw-texto-marca);
   white-space: nowrap;
 }
 

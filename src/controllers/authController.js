@@ -3,17 +3,28 @@ const database = require('../database');
 const { ApiError } = require('../errors');
 const { readBody, sendJson } = require('../utils/http');
 const { hashPassword, verifyPassword } = require('../utils/password');
+const { registrar } = require('../services/auditoria');
+const { clientAddress } = require('../utils/ip');
 
 const SESSION_LIFETIME_SECONDS = 8 * 60 * 60;
-const MAX_FAILED_ATTEMPTS = 5;
-const FAILURE_WINDOW_MS = 15 * 60 * 1000;
-const LOCK_DURATION_MS = 5 * 60 * 1000;
 const MAX_ATTEMPTS_PER_IP = 20;
 const IP_WINDOW_MS = 60 * 1000;
 const MAX_TRACKED_KEYS = 10000;
+const HOUR_MS = 60 * 60 * 1000;
 
-// Tentativas de login malsucedidas por IP + usuário, mantidas em memória.
-const failedAttempts = new Map();
+// Bloqueio progressivo por CONTA, independente do IP (a senha inicial "ceep@" + 4 dígitos tem só
+// 10.000 combinações): a cada 5 senhas erradas seguidas a conta fica bloqueada — 5 min, depois
+// 1 h e, a partir da 15ª, 24 h. Um acerto zera a contagem; 24 h sem erros também.
+const FAILURES_PER_LOCK = 5;
+const FAILURE_MEMORY_MS = 24 * HOUR_MS;
+function lockDuration(failures) {
+    if (failures >= 15) return 24 * HOUR_MS;
+    if (failures >= 10) return HOUR_MS;
+    return 5 * 60 * 1000;
+}
+
+// Senhas erradas por conta (login em minúsculas), mantidas em memória.
+const accountFailures = new Map();
 // Hash usado quando o usuário não existe, para o tempo de resposta não revelar contas válidas.
 let dummyPasswordHash;
 
@@ -21,26 +32,42 @@ function hashToken(token) {
     return createHash('sha256').update(token).digest('hex');
 }
 
-// Atrás da Cloudflare, o IP real do visitante vem no cabeçalho CF-Connecting-IP.
-function clientAddress(request) {
-    const forwarded = request.headers['cf-connecting-ip']
-        || String(request.headers['x-forwarded-for'] || '').split(',')[0].trim();
-    return forwarded || request.socket.remoteAddress;
-}
-
-function attemptKey(request, login) {
-    return `${clientAddress(request)}|${login.toLowerCase()}`;
-}
-
-// Remove registros vencidos para os mapas não crescerem sem limite.
-function pruneAttempts(now) {
-    if (failedAttempts.size > MAX_TRACKED_KEYS) {
-        for (const [key, entry] of failedAttempts) {
-            if (entry.lockedUntil < now && now - entry.firstFailure > FAILURE_WINDOW_MS) {
-                failedAttempts.delete(key);
-            }
+function pruneAccountFailures(now) {
+    if (accountFailures.size <= MAX_TRACKED_KEYS) return;
+    for (const [key, entry] of accountFailures) {
+        if (entry.lockedUntil < now && now - entry.lastFailure > FAILURE_MEMORY_MS) {
+            accountFailures.delete(key);
         }
     }
+}
+
+function lockedMessage(lockedUntil, now) {
+    const minutes = Math.ceil((lockedUntil - now) / 60000);
+    const wait = minutes > 90 ? `${Math.ceil(minutes / 60)} hora(s)` : `${minutes} minuto(s)`;
+    return `Muitas tentativas incorretas. Tente novamente em ${wait}.`;
+}
+
+// Reserva uma tentativa de senha para a conta ANTES de verificar o hash: a falha já fica contada,
+// então pedidos simultâneos não passam do limite. Devolve a função que desfaz a contagem quando
+// a senha confere. Usado no login e onde a API pede "senha_atual".
+function beginPasswordAttempt(login) {
+    const key = String(login).toLowerCase();
+    const now = Date.now();
+    pruneAccountFailures(now);
+    let entry = accountFailures.get(key);
+    if (entry && entry.lockedUntil > now) throw new ApiError(429, lockedMessage(entry.lockedUntil, now));
+    if (!entry || now - entry.lastFailure > FAILURE_MEMORY_MS) {
+        entry = { failures: 0, lastFailure: now, lockedUntil: 0 };
+        accountFailures.set(key, entry);
+    }
+    entry.failures += 1;
+    entry.lastFailure = now;
+    if (entry.failures % FAILURES_PER_LOCK === 0) {
+        entry.lockedUntil = now + lockDuration(entry.failures);
+    }
+    return function passwordAccepted() {
+        accountFailures.delete(key);
+    };
 }
 
 // Limitador por IP em janela fixa, em memória. Reaproveitado pelo login e por
@@ -89,33 +116,6 @@ function describeDevice(userAgent) {
     return [browser || 'Navegador', system].filter(Boolean).join(' · ');
 }
 
-function assertNotLocked(key) {
-    const entry = failedAttempts.get(key);
-    if (!entry) return;
-    const now = Date.now();
-    if (entry.lockedUntil > now) {
-        const minutes = Math.ceil((entry.lockedUntil - now) / 60000);
-        throw new ApiError(429,
-            `Muitas tentativas incorretas. Tente novamente em ${minutes} minuto(s).`);
-    }
-    if (now - entry.firstFailure > FAILURE_WINDOW_MS) failedAttempts.delete(key);
-}
-
-function registerFailure(key) {
-    const now = Date.now();
-    const entry = failedAttempts.get(key);
-    if (!entry || now - entry.firstFailure > FAILURE_WINDOW_MS) {
-        failedAttempts.set(key, { count: 1, firstFailure: now, lockedUntil: 0 });
-        return;
-    }
-    entry.count += 1;
-    if (entry.count >= MAX_FAILED_ATTEMPTS) {
-        entry.lockedUntil = now + LOCK_DURATION_MS;
-        entry.count = 0;
-        entry.firstFailure = now;
-    }
-}
-
 async function handleLogin(request, response) {
     const body = await readBody(request);
     if (!body || typeof body !== 'object' || Array.isArray(body)) {
@@ -135,8 +135,7 @@ async function handleLogin(request, response) {
 
     const login = body.login.trim();
     assertIpRate(request);
-    const key = attemptKey(request, login);
-    assertNotLocked(key);
+    const passwordAccepted = beginPasswordAttempt(login);
 
     const user = database.prepare(`
         SELECT u.id_usuario, u.login, u.senha, u.tipo_usuario, u.curso, u.serie,
@@ -155,10 +154,9 @@ async function handleLogin(request, response) {
         await verifyPassword(body.senha, dummyPasswordHash);
     }
     if (!user || !(await verifyPassword(body.senha, user.senha))) {
-        registerFailure(key);
         throw new ApiError(401, 'Usuário ou senha inválidos.');
     }
-    failedAttempts.delete(key);
+    passwordAccepted();
 
     const token = randomBytes(32).toString('base64url');
     const expiresAt = Math.floor(Date.now() / 1000) + SESSION_LIFETIME_SECONDS;
@@ -169,6 +167,7 @@ async function handleLogin(request, response) {
     `).run(hashToken(token), user.id_usuario, user.curso, expiresAt,
         describeDevice(request.headers['user-agent']), Math.floor(Date.now() / 1000));
 
+    registrar(user, 'auth.login', `usuario:${user.id_usuario}`);
     sendJson(response, 200, {
         token,
         tipo: 'Bearer',
@@ -191,10 +190,30 @@ async function handleLogin(request, response) {
     });
 }
 
+// Confere a "senha_atual" de quem está logado, com o mesmo bloqueio progressivo por conta do
+// login (quem roubou uma sessão não pode usar estas rotas para adivinhar a senha).
+async function assertCurrentPassword(user, password) {
+    if (typeof password !== 'string' || !password || password.length > 128) {
+        throw new ApiError(400, 'Informe a senha atual em "senha_atual".');
+    }
+    const passwordAccepted = beginPasswordAttempt(user.login);
+    const account = database.prepare(
+        'SELECT senha FROM usuarios WHERE id_usuario = ? AND ativo = 1'
+    ).get(user.id_usuario);
+    if (!account || !(await verifyPassword(password, account.senha))) {
+        // 400, não 401: 401 significa sessão inválida e faria as telas encerrarem o login.
+        throw new ApiError(400, 'A senha atual está incorreta.');
+    }
+    passwordAccepted();
+}
+
 async function handleLogout(request, response, session) {
     database.prepare('DELETE FROM sessoes WHERE token_hash = ?').run(session.tokenHash);
     response.writeHead(204);
     response.end();
 }
 
-module.exports = { handleLogin, handleLogout, hashToken, clientAddress, createIpLimiter };
+module.exports = {
+    handleLogin, handleLogout, hashToken, clientAddress, createIpLimiter, beginPasswordAttempt,
+    assertCurrentPassword
+};

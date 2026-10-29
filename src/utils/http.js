@@ -1,5 +1,12 @@
 const { ApiError } = require('../errors');
 
+// Cabeçalhos aplicados a toda resposta (páginas, arquivos estáticos e API), em app.js.
+// HSTS só tem efeito em HTTPS (produção); localmente, em HTTP, o navegador o ignora.
+const GLOBAL_HEADERS = {
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+    'Strict-Transport-Security': 'max-age=31536000'
+};
+
 async function readBody(request) {
     const chunks = [];
     let size = 0;
@@ -27,9 +34,11 @@ async function readBody(request) {
 function sendJson(response, statusCode, data) {
     response.writeHead(statusCode, {
         'Content-Type': 'application/json; charset=utf-8',
-        'X-Content-Type-Options': 'nosniff'
+        'X-Content-Type-Options': 'nosniff',
+        // Respostas da API carregam dados pessoais e tokens: nunca guardar em cache.
+        'Cache-Control': 'no-store'
     });
     response.end(JSON.stringify(data));
 }
 
-module.exports = { readBody, sendJson };
+module.exports = { readBody, sendJson, GLOBAL_HEADERS };

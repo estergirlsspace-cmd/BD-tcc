@@ -5,6 +5,7 @@ const { requireRole } = require('./schoolController');
 const { schoolNow } = require('../utils/calendario');
 const { MIN_ATTENDANCE, attendancePercent } = require('../utils/frequencia');
 const { sendCsv, decimal } = require('../utils/csv');
+const { registrar } = require('../services/auditoria');
 
 // Painéis do professor e da gestão e relatórios em CSV. Tudo é calculado na hora a partir de
 // frequencias, entregas, justificativas e ocorrências; nada de totais gravados.
@@ -214,6 +215,7 @@ async function handlePainelRequest(request, response, user, parts) {
         if (request.method !== 'GET') throw new ApiError(405, 'Método não permitido.');
         requireRole(user, ['gestao']);
         REPORTS[parts[2]](response);
+        registrar(user, 'relatorio.exportar', `relatorio:${parts[2]}`);
         return;
     }
     throw new ApiError(404, 'Rota não encontrada.');

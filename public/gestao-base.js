@@ -63,10 +63,21 @@ const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selec
 
 // ---------------------------------------------------------------- API e sessão
 
-function leaveToLogin() {
+// expirou: a sessão caiu (401) — o login avisa e, depois de entrar, volta para esta tela.
+// Sair por vontade própria não guarda nada.
+function leaveToLogin({ expirou = false } = {}) {
     sessionStorage.removeItem(TOKEN_KEY);
+    if (expirou) {
+        try {
+            sessionStorage.setItem('cw-motivo', 'sessao');
+            sessionStorage.setItem('cw-voltar', window.location.pathname + window.location.hash);
+        } catch { /* armazenamento indisponível: só volta ao login */ }
+    }
     window.location.replace('/');
 }
+
+const OFFLINE_MESSAGE = 'Sem conexão. Confira a internet e tente de novo.';
+const INVALID_RESPONSE_MESSAGE = 'O servidor respondeu de um jeito inesperado. Tente de novo em instantes.';
 
 class ApiFailure extends Error {
     constructor(message, status) {
@@ -77,24 +88,30 @@ class ApiFailure extends Error {
 
 async function api(path, options = {}) {
     const isJsonBody = typeof options.body === 'string';
-    const response = await fetch(path, {
-        ...options,
-        headers: {
-            ...(isJsonBody ? { 'Content-Type': 'application/json' } : {}),
-            Authorization: `Bearer ${token}`,
-            ...options.headers
-        }
-    });
-    const text = await response.text();
+    let response;
+    let text;
+    try {
+        response = await fetch(path, {
+            ...options,
+            headers: {
+                ...(isJsonBody ? { 'Content-Type': 'application/json' } : {}),
+                Authorization: `Bearer ${token}`,
+                ...options.headers
+            }
+        });
+        text = await response.text();
+    } catch {
+        throw new ApiFailure(OFFLINE_MESSAGE, 0);
+    }
+    if (response.status === 401) {
+        leaveToLogin({ expirou: true });
+        throw new ApiFailure('Sua sessão expirou. Entre de novo.', 401);
+    }
     let result = null;
     try {
         result = text ? JSON.parse(text) : null;
     } catch {
-        throw new ApiFailure('O servidor retornou uma resposta inválida.', response.status);
-    }
-    if (response.status === 401) {
-        leaveToLogin();
-        throw new ApiFailure('Sua sessão expirou. Entre novamente.', 401);
+        throw new ApiFailure(INVALID_RESPONSE_MESSAGE, response.status);
     }
     if (response.status === 501) {
         throw new ApiFailure('Esta função ainda está sendo preparada. Tente de novo mais tarde.', 501);
@@ -326,14 +343,52 @@ async function runAction(trigger, action) {
     }
 }
 
+// Erro que já sabe em qual campo aparecer (validação local antes de chamar a API).
+function fieldError(field, message) {
+    return Object.assign(new Error(message), { field });
+}
+
+// fieldFor a partir da mensagem da API: [[/regex/, campo], ...] — o primeiro que casar vence.
+function fieldByMessage(rules) {
+    return (error) => rules.find(([pattern]) => pattern.test(error.message || ''))?.[1] || null;
+}
+
+// Como runAction, mas o erro aparece junto do campo (CwFormulario: <p> abaixo dele,
+// aria-invalid e aria-describedby). fieldFor(error) escolhe o campo dos erros da API; sem campo,
+// o erro fica no fim do formulário e também vira toast.
+async function runFormAction(form, trigger, action, { fieldFor } = {}) {
+    if (trigger) trigger.disabled = true;
+    clearErrorNotifications();
+    window.CwFormulario?.limparTudo(form);
+    try {
+        return await action();
+    } catch (error) {
+        const field = error.field || fieldFor?.(error) || null;
+        if (window.CwFormulario && form?.isConnected) {
+            window.CwFormulario.mostrar(form, error, field);
+            if (!field) showError(error.message);
+        } else {
+            showError(error.message);
+        }
+        return undefined;
+    } finally {
+        if (trigger?.isConnected) trigger.disabled = false;
+    }
+}
+
 // Confirmação destrutiva inline (sem window.confirm): troca o conteúdo do contêiner por
 // "pergunta + Confirmar + Cancelar" e devolve o foco ao botão original se cancelar.
 function confirmInline(container, { question, confirmLabel, onConfirm, onCancel }) {
     const previous = Array.from(container.childNodes);
+    const opener = document.activeElement;
     const restore = () => {
         container.replaceChildren(...previous);
         onCancel?.();
-        previous.find((node) => node.tagName === 'BUTTON')?.focus();
+        // Volta ao botão que abriu a confirmação (ou ao primeiro botão, se ele foi redesenhado).
+        const target = opener?.isConnected && container.contains(opener)
+            ? opener
+            : container.querySelector('button') || previous.find((node) => node.tagName === 'BUTTON');
+        target?.focus();
     };
     const confirm = button(confirmLabel, 'botao botao-perigo botao-pequeno', async () => {
         await runAction(confirm, onConfirm);
@@ -343,17 +398,23 @@ function confirmInline(container, { question, confirmLabel, onConfirm, onCancel 
         confirm,
         button('Cancelar', 'botao botao-secundario botao-pequeno', restore));
     container.replaceChildren(box);
-    confirm.focus();
+    // Ação destrutiva: o foco começa no lado seguro (Cancelar).
+    box.querySelector('.botao-secundario').focus();
 }
 
 // ---------------------------------------------------------------- arquivos
 
 // Download autenticado: o token vai no cabeçalho, nunca na URL.
 async function downloadAuthenticated(path, fallbackName) {
-    const response = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
+    let response;
+    try {
+        response = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
+    } catch {
+        throw new Error(OFFLINE_MESSAGE);
+    }
     if (response.status === 401) {
-        leaveToLogin();
-        throw new Error('Sua sessão expirou. Entre novamente.');
+        leaveToLogin({ expirou: true });
+        throw new Error('Sua sessão expirou. Entre de novo.');
     }
     if (!response.ok) {
         let message = response.status === 501
@@ -414,6 +475,7 @@ window.CwGestao = {
     el, icon, srText, button, option, loadingState, emptyState, errorState, renderStatusInto, badge,
     avatarInitials, normalize, matches, formatPercent, formatBytes, formatDay, formatCreated, nameOf,
     className, sortedClasses, fillSelect, classOptions, showError, showSuccess, runAction, confirmInline,
+    fieldError, fieldByMessage, runFormAction,
     downloadAuthenticated, uploadFile, attachmentButton,
     sections: {}
 };

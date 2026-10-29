@@ -54,6 +54,9 @@ i.ph-fill {
     top: -100px;
     left: 16px;
     z-index: 100;
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
     padding: 10px 16px;
     border-radius: var(--cw-raio-sm);
     background: var(--cw-indigo);
@@ -140,7 +143,7 @@ i.ph-fill {
     display: flex;
     align-items: center;
     gap: 12px;
-    min-height: 42px;
+    min-height: 44px;
     padding: 8px 12px;
     border-radius: var(--cw-raio-sm);
     color: rgba(255, 255, 255, .86);
@@ -235,8 +238,8 @@ i.ph-fill {
 .sidebar-sair {
     display: grid;
     flex: none;
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     place-items: center;
     border: 0;
     border-radius: var(--cw-raio-sm);
@@ -287,6 +290,7 @@ i.ph-fill {
 .topo-titulo:focus,
 .topo-titulo:focus-visible {
     outline: none;
+    box-shadow: none;
 }
 
 .topo-descricao {
@@ -338,6 +342,7 @@ i.ph-fill {
 
 .cartao h2:focus {
     outline: none;
+    box-shadow: none;
 }
 
 .cartao-recolhivel {
@@ -475,7 +480,8 @@ i.ph-fill {
 }
 
 .botao-pequeno {
-    min-height: 36px;
+    min-height: 44px;
+    min-width: 44px;
     padding: 6px 12px;
     font-size: 14px;
 }
@@ -567,7 +573,7 @@ i.ph-fill {
 
 .campo-mini {
     width: 150px;
-    min-height: 36px;
+    min-height: 44px;
     padding: 6px 10px;
 }
 
@@ -656,7 +662,11 @@ i.ph-fill {
 }
 
 .segmento {
-    min-height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    min-width: 44px;
     padding: 8px 14px;
     border: 0;
     border-radius: 9px;
@@ -676,6 +686,11 @@ i.ph-fill {
     background: var(--cw-azul-suave);
     color: var(--cw-texto-marca);
     box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
+}
+
+/* A sombra do segmento ativo não pode apagar o anel de foco (tema.css). */
+.segmento:focus-visible {
+    box-shadow: 0 0 0 7px var(--cw-anel-foco);
 }
 
 /* ------------------------------------------------------------ selos, avatar */
@@ -829,6 +844,7 @@ i.ph-fill {
 
 .tabela-rolagem {
     overflow-x: auto;
+    border-radius: var(--cw-raio-sm);
 }
 
 .tabela {
@@ -867,7 +883,7 @@ i.ph-fill {
 
 .tabela td select {
     min-width: 200px;
-    min-height: 40px;
+    min-height: 44px;
     padding: 8px 10px;
     border: 1px solid var(--cw-borda-campo);
     border-radius: var(--cw-raio-sm);
@@ -1177,7 +1193,7 @@ a.kpi:hover {
     align-items: center;
     gap: 8px;
     max-width: 100%;
-    min-height: 40px;
+    min-height: 44px;
     padding: 8px 12px;
     border: 1px solid var(--cw-borda);
     border-radius: var(--cw-raio-sm);
@@ -1522,6 +1538,7 @@ a.kpi:hover {
 .opcao:has(input:focus-visible) {
     outline: 3px solid var(--cw-foco);
     outline-offset: 2px;
+    box-shadow: 0 0 0 7px var(--cw-anel-foco);
 }
 
 .amostra {

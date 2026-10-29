@@ -128,30 +128,33 @@ function findPerson(userId) {
         .get(userId);
 }
 
+// Uma consulta só: a outra pessoa, a última mensagem e as não lidas de cada conversa.
 function listConversations(user) {
     const rows = database.prepare(`
-        SELECT c.id_conversa,
-               CASE WHEN c.id_usuario_a = ? THEN c.id_usuario_b ELSE c.id_usuario_a END AS id_outro,
-               m.texto, m.criado_em, m.id_autor,
-               (SELECT COUNT(*) FROM mensagens n
-                WHERE n.id_conversa = c.id_conversa AND n.id_autor != ? AND n.lida_em IS NULL)
-                   AS nao_lidas
-        FROM conversas c
-        JOIN mensagens m ON m.id_mensagem = (
-            SELECT MAX(id_mensagem) FROM mensagens WHERE id_conversa = c.id_conversa)
-        WHERE c.id_usuario_a = ? OR c.id_usuario_b = ?
-        ORDER BY m.id_mensagem DESC
+        WITH minhas AS (
+            SELECT c.id_conversa,
+                   CASE WHEN c.id_usuario_a = ? THEN c.id_usuario_b ELSE c.id_usuario_a END AS id_outro,
+                   MAX(m.id_mensagem) AS id_ultima,
+                   SUM(CASE WHEN m.id_autor != ? AND m.lida_em IS NULL THEN 1 ELSE 0 END) AS nao_lidas
+            FROM conversas c
+            JOIN mensagens m ON m.id_conversa = c.id_conversa
+            WHERE c.id_usuario_a = ? OR c.id_usuario_b = ?
+            GROUP BY c.id_conversa
+        )
+        SELECT minhas.id_conversa, minhas.nao_lidas,
+               ultima.texto, ultima.criado_em, ultima.id_autor, ${PERSON_COLUMNS}
+        FROM minhas
+        JOIN mensagens ultima ON ultima.id_mensagem = minhas.id_ultima
+        JOIN usuarios u ON u.id_usuario = minhas.id_outro
+        ${PERSON_JOINS}
+        ORDER BY minhas.id_ultima DESC
     `).all(user.id_usuario, user.id_usuario, user.id_usuario, user.id_usuario);
-    return rows.map((row) => {
-        const person = database.prepare(`SELECT ${PERSON_COLUMNS} FROM usuarios u ${PERSON_JOINS}
-            WHERE u.id_usuario = ?`).get(row.id_outro);
-        return {
-            id_conversa: row.id_conversa,
-            com: toContact(person, user),
-            ultima: { texto: row.texto, criado_em: row.criado_em, minha: row.id_autor === user.id_usuario },
-            nao_lidas: row.nao_lidas
-        };
-    });
+    return rows.map((row) => ({
+        id_conversa: row.id_conversa,
+        com: toContact(row, user),
+        ultima: { texto: row.texto, criado_em: row.criado_em, minha: row.id_autor === user.id_usuario },
+        nao_lidas: row.nao_lidas
+    }));
 }
 
 function unreadTotal(user) {

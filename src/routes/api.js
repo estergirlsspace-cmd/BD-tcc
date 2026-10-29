@@ -12,6 +12,9 @@ const { handleChamadasRequest } = require('../controllers/chamadasController');
 const { handlePainelRequest } = require('../controllers/painelController');
 const { handleMensagensRequest } = require('../controllers/mensagensController');
 const { handleContaRequest, handlePublicAccountRequest } = require('../controllers/contaController');
+const { handlePrivacidadeRequest } = require('../controllers/privacidadeController');
+const { handleAuditoriaRequest } = require('../controllers/auditoriaController');
+const database = require('../database');
 
 // Módulos por prefixo: /api/<prefixo>/... → handler(request, response, user, parts, searchParams).
 const MODULE_ROUTES = {
@@ -22,7 +25,9 @@ const MODULE_ROUTES = {
     painel: handlePainelRequest,
     relatorios: handlePainelRequest,
     mensagens: handleMensagensRequest,
-    conta: handleContaRequest
+    conta: handleContaRequest,
+    privacidade: handlePrivacidadeRequest,
+    auditoria: handleAuditoriaRequest
 };
 const { handleMuralRequest } = require('../controllers/muralController');
 
@@ -88,6 +93,13 @@ async function handleApiRequest(request, response) {
         return;
     }
 
+    // Verificação de saúde para o Dokploy/monitoramento: sem login e sem dados.
+    if (parts[1] === 'saude' && parts.length === 2 && request.method === 'GET') {
+        database.prepare('SELECT 1').get();
+        sendJson(response, 200, { status: 'ok' });
+        return;
+    }
+
     if (await handlePublicAccountRequest(request, response, parts)) {
         return;
     }
@@ -104,6 +116,11 @@ async function handleApiRequest(request, response) {
     const isProfileRoute = parts[1] === 'me' && parts.length === 2;
     if (user.deve_trocar_senha && !isPasswordRoute && !isProfileRoute) {
         throw new ApiError(403, 'Crie sua nova senha antes de continuar.');
+    }
+    // LGPD: sem aceite dos termos, só perfil, troca de senha e as rotas de privacidade.
+    const isPrivacyRoute = parts[1] === 'privacidade';
+    if (user.termos_pendentes && !isPasswordRoute && !isProfileRoute && !isPrivacyRoute) {
+        throw new ApiError(403, 'Aceite os termos de uso e a política de privacidade para continuar.');
     }
 
     if (MODULE_ROUTES[parts[1]]) {

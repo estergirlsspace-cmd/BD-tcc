@@ -41,7 +41,7 @@ function audienceFromForm() {
     if (audience === 'curso-serie') target.serie = Number($('#aviso-serie').value);
     if (audience === 'turma') {
         const classId = Number($('#aviso-turma').value);
-        if (!classId) throw new Error('Cadastre uma turma antes de publicar para uma turma.');
+        if (!classId) throw G.fieldError($('#aviso-turma'), 'Cadastre uma turma antes de publicar para uma turma.');
         target.id_turma = classId;
     }
     return target;
@@ -74,6 +74,7 @@ function openForm({ focus = true } = {}) {
 }
 
 function closeForm() {
+    window.CwFormulario?.limparTudo($('#form-aviso'));
     editing = null;
     removeAttachment = false;
     $('#form-aviso').reset();
@@ -119,7 +120,8 @@ function startEdit(notice) {
 async function submitNotice(event) {
     event.preventDefault();
     const submit = $('#aviso-enviar');
-    await G.runAction(submit, async () => {
+    const form = $('#form-aviso');
+    await G.runFormAction(form, submit, async () => {
         const body = {
             titulo: $('#aviso-titulo').value.trim(),
             conteudo: $('#aviso-conteudo').value.trim(),
@@ -130,7 +132,7 @@ async function submitNotice(event) {
         };
         const file = $('#aviso-anexo').files[0];
         if (file) {
-            if (file.type && file.type !== 'application/pdf') throw new Error('O anexo deve ser um arquivo PDF.');
+            if (file.type && file.type !== 'application/pdf') throw G.fieldError($('#aviso-anexo'), 'O anexo deve ser um arquivo PDF.');
             submit.textContent = 'Enviando anexo…';
             const uploaded = await G.uploadFile(file);
             body.id_arquivo = uploaded.id_arquivo;
@@ -146,6 +148,17 @@ async function submitNotice(event) {
         }
         closeForm();
         await G.loadSource('avisos', { silent: true });
+    }, {
+        fieldFor: G.fieldByMessage([
+            [/anexo|arquivo|PDF/i, $('#aviso-anexo')],
+            [/t[ií]tulo/i, $('#aviso-titulo')],
+            [/conte[uú]do|texto/i, $('#aviso-conteudo')],
+            [/data/i, $('#aviso-data')],
+            [/turma/i, $('#aviso-turma')],
+            [/curso/i, $('#aviso-curso')],
+            [/s[ée]rie/i, $('#aviso-serie')],
+            [/tipo/i, $('#aviso-tipo')]
+        ])
     });
     submit.textContent = editing ? 'Salvar alterações' : 'Publicar aviso';
 }
@@ -241,8 +254,8 @@ function setup() {
     $('#aviso-anexo').addEventListener('change', (event) => {
         const file = event.target.files[0];
         if (file && file.size > G.MAX_ANEXO_BYTES) {
-            G.showError('O anexo passa de 5 MB. Escolha um PDF menor.');
             event.target.value = '';
+            window.CwFormulario?.erro(event.target, 'O anexo passa de 5 MB. Escolha um PDF menor.');
         }
     });
     onSource(['avisos', 'turmas'], renderNotices);

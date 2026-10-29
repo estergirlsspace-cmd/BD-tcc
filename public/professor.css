@@ -46,6 +46,9 @@ i.ph-fill {
   top: -100px;
   left: 16px;
   z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   padding: 10px 16px;
   border-radius: var(--cw-raio-sm);
   background: var(--cw-indigo);
@@ -194,8 +197,8 @@ i.ph-fill {
 .botao-sair {
   display: inline-grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border: 0;
   border-radius: var(--cw-raio-sm);
   background: transparent;
@@ -249,6 +252,7 @@ i.ph-fill {
 
 .topo-titulo:focus {
   outline: none;
+  box-shadow: none;
 }
 
 .topo-acoes {
@@ -267,6 +271,7 @@ i.ph-fill {
 
 .conteudo:focus {
   outline: none;
+  box-shadow: none;
 }
 
 .abas {
@@ -479,8 +484,8 @@ i.ph-fill {
   display: inline-grid;
   flex: none;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border: 0;
   border-radius: var(--cw-raio-sm);
   background: transparent;
@@ -722,7 +727,7 @@ i.ph-fill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 14px;
   border: 1px solid var(--cw-borda);
   border-radius: 20px;
@@ -1452,6 +1457,12 @@ i.ph-fill {
   gap: 10px;
 }
 
+.aviso-acoes {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+}
+
 .aviso-resumo {
   color: var(--cw-texto-2);
   overflow-wrap: anywhere;
@@ -1666,6 +1677,8 @@ i.ph-fill {
 
   .topo-marca {
     display: inline-flex;
+    align-items: center;
+    min-height: 44px;
     font-size: 20px;
   }
 
@@ -1679,7 +1692,7 @@ i.ph-fill {
   }
 
   .topo-acoes .botao {
-    min-height: 40px;
+    min-height: 44px;
     padding: 0 12px;
   }
 

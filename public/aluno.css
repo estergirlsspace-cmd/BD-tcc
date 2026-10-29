@@ -51,6 +51,9 @@ i.ph-fill {
     top: -100px;
     left: 16px;
     z-index: 100;
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
     padding: 10px 16px;
     border-radius: var(--cw-raio-sm);
     background: var(--cw-indigo);
@@ -378,6 +381,7 @@ i.ph-fill {
 
 .busca:focus-within {
     outline: 3px solid var(--cw-foco);
+    box-shadow: 0 0 0 7px var(--cw-anel-foco);
     outline-offset: 1px;
 }
 
@@ -1142,6 +1146,23 @@ i.ph-fill {
     background: var(--cw-indigo-hover);
 }
 
+/* Estado visível de botões com aria-pressed (o rótulo acessível não muda). */
+.estado-botao {
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--cw-azul-suave);
+    color: var(--cw-link);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+/* Sobre o botão cheio: só contorno, para o texto manter o mesmo contraste do rótulo. */
+.botao-primario .estado-botao {
+    border: 1px solid currentColor;
+    background: transparent;
+    color: #FFFFFF;
+}
+
 /* ------------------------------------------------------------ Agenda */
 
 .agenda {
@@ -1358,6 +1379,7 @@ i.ph-fill {
 .formulario textarea:focus-visible,
 .campo-senha:focus-within {
     outline: 3px solid var(--cw-foco);
+    box-shadow: 0 0 0 7px var(--cw-anel-foco);
     outline-offset: 1px;
 }
 
@@ -1750,7 +1772,7 @@ i.ph-fill {
 }
 
 .botao-pequeno {
-    min-height: 36px;
+    min-height: 44px;
     padding: 0 12px;
     font-size: 13px;
 }
@@ -1886,6 +1908,7 @@ button.anexo:disabled {
 .linha-campo input:focus-visible,
 .campo-leitura:focus-visible {
     outline: 3px solid var(--cw-foco);
+    box-shadow: 0 0 0 7px var(--cw-anel-foco);
     outline-offset: 1px;
 }
 
@@ -1918,6 +1941,7 @@ button.anexo:disabled {
 
 input[type='file']:focus-visible + .zona-anexo {
     outline: 3px solid var(--cw-foco);
+    box-shadow: 0 0 0 7px var(--cw-anel-foco);
     outline-offset: 2px;
 }
 
@@ -1971,6 +1995,7 @@ input[type='file']:focus-visible + .zona-anexo {
 
 .cartao-titulo:focus-visible {
     outline: 3px solid var(--cw-foco);
+    box-shadow: 0 0 0 7px var(--cw-anel-foco);
 }
 
 .cartao-email,
@@ -2168,6 +2193,7 @@ input[type='file']:focus-visible + .zona-anexo {
 
 .interruptor:focus-visible {
     outline: 3px solid var(--cw-foco);
+    box-shadow: 0 0 0 7px var(--cw-anel-foco);
     outline-offset: 2px;
 }
 
@@ -2212,6 +2238,7 @@ input[type='file']:focus-visible + .zona-anexo {
 .opcao-tema:has(input:focus-visible),
 .segmento:has(input:focus-visible) {
     outline: 3px solid var(--cw-foco);
+    box-shadow: 0 0 0 7px var(--cw-anel-foco);
     outline-offset: 2px;
 }
 
@@ -2312,7 +2339,7 @@ input[type='file']:focus-visible + .zona-anexo {
 .segmento {
     display: flex;
     align-items: center;
-    min-height: 38px;
+    min-height: 44px;
     padding: 0 14px;
     border-radius: 8px;
     color: var(--cw-texto-suave);
@@ -2433,7 +2460,8 @@ input[type='file']:focus-visible + .zona-anexo {
         left: 0;
         z-index: 30;
         display: grid;
-        grid-template-columns: repeat(5, 1fr);
+        /* Mais espaço para os rótulos longos (Mensagens, Configurações) caberem em 360 px. */
+        grid-template-columns: 1fr 1fr 1fr 1.1fr 1.3fr;
         padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
         border-top: 1px solid var(--cw-borda);
         background: var(--cw-superficie);

@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#312782">
     <title>Portal do Aluno · C·Warning</title>
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/assets/icones/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/assets/icones/favicon-32.png" sizes="32x32" type="image/png">
+    <link rel="apple-touch-icon" href="/assets/icones/apple-touch-icon.png">
+    <script src="/pwa.js" defer></script>
     <script src="/preferencias.js"></script>
     <link rel="stylesheet" href="/vendor/fontes.css">
     <link rel="stylesheet" href="/vendor/phosphor/regular.css">
@@ -12,10 +17,12 @@
     <link rel="stylesheet" href="/tema.css">
     <link rel="stylesheet" href="/notificacoes.css">
     <link rel="stylesheet" href="/componentes/mensagens.css">
+    <link rel="stylesheet" href="/componentes/formulario.css">
     <link rel="stylesheet" href="/aluno.css">
     <script src="/datas.js" defer></script>
     <script src="/notificacoes.js" defer></script>
     <script src="/componentes/mensagens.js" defer></script>
+    <script src="/componentes/formulario.js" defer></script>
     <script src="/aluno.js" defer></script>
 </head>
 <body>
@@ -36,7 +43,7 @@
                 <li><a class="rail-item" href="#/mensagens" data-secao="mensagens"><span class="rail-icone"><i class="ph ph-chat-circle-dots" aria-hidden="true"></i><span class="badge-contador" data-badge-mensagens aria-hidden="true" hidden></span></span><span class="rail-rotulo">Mensagens</span><span class="visually-hidden" data-sr-mensagens></span></a></li>
             </ul>
             <div class="rail-rodape">
-                <a class="rail-item" href="#/ajustes/perfil" data-secao="ajustes"><span class="rail-icone"><i class="ph ph-gear-six" aria-hidden="true"></i></span><span class="rail-rotulo">Ajustes</span></a>
+                <a class="rail-item" href="#/ajustes/perfil" data-secao="ajustes"><span class="rail-icone"><i class="ph ph-gear-six" aria-hidden="true"></i></span><span class="rail-rotulo">Configurações</span></a>
                 <a class="rail-avatar" href="#/ajustes/perfil" id="rail-avatar" aria-label="Meu perfil">··</a>
                 <button class="rail-sair" type="button" data-sair aria-label="Sair da conta" title="Sair da conta"><i class="ph ph-sign-out" aria-hidden="true"></i></button>
             </div>
@@ -57,9 +64,9 @@
                 </div>
                 <div class="topo-acoes">
                     <form class="busca" id="busca" role="search">
-                        <label class="visually-hidden" for="busca-campo">Buscar avisos no C·Warning</label>
+                        <label class="visually-hidden" for="busca-campo">Buscar avisos</label>
                         <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
-                        <input id="busca-campo" type="search" placeholder="Buscar no C·Warning" autocomplete="off" maxlength="100">
+                        <input id="busca-campo" type="search" placeholder="Buscar avisos" autocomplete="off" maxlength="100">
                     </form>
                     <button class="topo-botao" type="button" id="botao-busca" aria-label="Buscar avisos" aria-expanded="false" aria-controls="busca"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>
                     <a class="topo-botao" href="#/avisos/naolidos" id="sino" aria-label="Avisos não lidos"><i class="ph ph-bell-simple" aria-hidden="true"></i><span class="ponto-alerta ponto-sino" data-ponto-naolidos hidden></span></a>
@@ -81,7 +88,7 @@
             <a class="aba" href="#/avisos/todos" data-secao="avisos"><span class="aba-icone"><i class="ph ph-megaphone-simple" aria-hidden="true"></i><span class="ponto-alerta" data-ponto-naolidos hidden></span></span><span>Avisos</span><span class="visually-hidden" data-sr-naolidos></span></a>
             <a class="aba" href="#/agenda/hoje" data-secao="agenda"><span class="aba-icone"><i class="ph ph-calendar-dots" aria-hidden="true"></i></span><span>Agenda</span></a>
             <a class="aba" href="#/mensagens" data-secao="mensagens"><span class="aba-icone"><i class="ph ph-chat-circle-dots" aria-hidden="true"></i><span class="badge-contador" data-badge-mensagens aria-hidden="true" hidden></span></span><span>Mensagens</span><span class="visually-hidden" data-sr-mensagens></span></a>
-            <a class="aba" href="#/ajustes/perfil" data-secao="ajustes"><span class="aba-icone"><i class="ph ph-gear-six" aria-hidden="true"></i></span><span>Ajustes</span></a>
+            <a class="aba" href="#/ajustes/perfil" data-secao="ajustes"><span class="aba-icone"><i class="ph ph-gear-six" aria-hidden="true"></i></span><span>Configurações</span></a>
         </nav>
     </div>
 

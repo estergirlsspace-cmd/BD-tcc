@@ -68,9 +68,13 @@ function onPasswordChanged(userId) {
     });
 }
 
-function onStaffCreated(userId) {
+// O e-mail informado pela gestão no cadastro ainda não está confirmado (não vira e-mail de
+// recuperação): o aviso de conta criada vai para esse endereço junto com o link de confirmação.
+function onStaffCreated(userId, pendingAddress = null) {
     detach('onStaffCreated', async () => {
-        const to = email.recipient(userId);
+        const to = pendingAddress
+            ? accountWithAddress(userId, pendingAddress)
+            : email.recipient(userId);
         if (!to) return;
         const { login } = database.prepare('SELECT login FROM usuarios WHERE id_usuario = ?')
             .get(userId);
@@ -82,16 +86,22 @@ function onStaffCreated(userId) {
     });
 }
 
+// Destinatário para um endereço ainda não gravado em usuarios.email (conta ativa), ou null.
+function accountWithAddress(userId, address) {
+    const account = database.prepare(`
+        SELECT u.id_usuario, COALESCE(a.nome, p.nome, u.nome, u.login) AS nome
+        FROM usuarios u
+        LEFT JOIN alunos a ON a.id_usuario = u.id_usuario
+        LEFT JOIN professores p ON p.id_usuario = u.id_usuario
+        WHERE u.id_usuario = ? AND u.ativo = 1
+    `).get(userId);
+    return account ? { ...account, email: address } : null;
+}
+
 // Link de confirmação vai para o endereço novo (ainda não gravado em usuarios.email).
 function sendEmailConfirmation(userId, address, token) {
     detach('sendEmailConfirmation', async () => {
-        const account = database.prepare(`
-            SELECT u.id_usuario, COALESCE(a.nome, p.nome, u.nome, u.login) AS nome
-            FROM usuarios u
-            LEFT JOIN alunos a ON a.id_usuario = u.id_usuario
-            LEFT JOIN professores p ON p.id_usuario = u.id_usuario
-            WHERE u.id_usuario = ? AND u.ativo = 1
-        `).get(userId);
+        const account = accountWithAddress(userId, address);
         if (!account) return;
         await email.sendTemplate('cw-confirmar-email', { id_usuario: userId, email: address }, {
             NOME: account.nome,

@@ -5,8 +5,33 @@ const { ApiError } = require('../errors');
 const { sendJson } = require('../utils/http');
 const { getRecordId } = require('./schoolController');
 const arquivos = require('../utils/arquivos');
+const { registrar } = require('../services/auditoria');
 
 const ORPHAN_SWEEP_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+// Lê, valida e grava o arquivo. Registro primeiro (o id define o caminho), conteúdo depois; se a
+// gravação falhar, o registro é desfeito. Tudo síncrono depois da leitura, sem await no meio.
+async function storeUpload(request, user, rawName) {
+    const content = await arquivos.readUpload(request);
+    const type = arquivos.detectFileType(content);
+    if (!type) {
+        throw new ApiError(415, 'O conteúdo não é um PDF, JPG ou PNG válido.');
+    }
+    const name = arquivos.sanitizeFileName(rawName, type);
+    const sha256 = createHash('sha256').update(content).digest('hex');
+    const fileId = Number(database.prepare(`
+        INSERT INTO arquivos (id_usuario, nome, tipo_mime, tamanho, sha256)
+        VALUES (?, ?, ?, ?, ?)
+    `).run(user.id_usuario, name, type, content.length, sha256).lastInsertRowid);
+    try {
+        arquivos.ensureDirectory();
+        writeFileSync(arquivos.storagePath(fileId), content, { mode: 0o600, flag: 'wx' });
+    } catch (error) {
+        database.prepare('DELETE FROM arquivos WHERE id_arquivo = ?').run(fileId);
+        throw error;
+    }
+    return { id_arquivo: fileId, nome: name, tipo_mime: type, tamanho: content.length };
+}
 
 // Upload em corpo binário cru: Content-Type (application/pdf|image/jpeg|image/png) e
 // X-Nome-Arquivo (nome original, URI-encoded). O tipo declarado só precisa ser um dos aceitos;
@@ -20,30 +45,15 @@ async function uploadFile(request, response, user) {
     if (typeof rawName !== 'string' || !rawName.trim()) {
         throw new ApiError(400, 'Informe o nome do arquivo no cabeçalho X-Nome-Arquivo.');
     }
-    arquivos.assertUploadQuota(user);
-
-    const content = await arquivos.readUpload(request);
-    const type = arquivos.detectFileType(content);
-    if (!type) {
-        throw new ApiError(415, 'O conteúdo não é um PDF, JPG ou PNG válido.');
-    }
-    const name = arquivos.sanitizeFileName(rawName, type);
-    const sha256 = createHash('sha256').update(content).digest('hex');
-
-    // Registro primeiro (o id define o caminho), conteúdo depois; se a gravação falhar, o
-    // registro é desfeito. Tudo síncrono, sem await entre as duas etapas.
-    const fileId = Number(database.prepare(`
-        INSERT INTO arquivos (id_usuario, nome, tipo_mime, tamanho, sha256)
-        VALUES (?, ?, ?, ?, ?)
-    `).run(user.id_usuario, name, type, content.length, sha256).lastInsertRowid);
+    // Cota reservada antes de ler o corpo e liberada só depois do registro gravado.
+    const releaseUpload = arquivos.reserveUpload(user);
+    let file;
     try {
-        arquivos.ensureDirectory();
-        writeFileSync(arquivos.storagePath(fileId), content, { mode: 0o600, flag: 'wx' });
-    } catch (error) {
-        database.prepare('DELETE FROM arquivos WHERE id_arquivo = ?').run(fileId);
-        throw error;
+        file = await storeUpload(request, user, rawName);
+    } finally {
+        releaseUpload();
     }
-    sendJson(response, 201, { id_arquivo: fileId, nome: name, tipo_mime: type, tamanho: content.length });
+    sendJson(response, 201, file);
 }
 
 // filename (ASCII, para clientes antigos) + filename* (UTF-8, RFC 6266/5987).
@@ -70,6 +80,7 @@ function downloadFile(response, user, fileId) {
     } catch {
         throw new ApiError(404, 'Arquivo não encontrado.');
     }
+    if (database.prepare('SELECT 1 FROM justificativas WHERE id_arquivo = ?').get(file.id_arquivo)) registrar(user, 'atestado.baixar', `arquivo:${file.id_arquivo}`);
     response.writeHead(200, {
         'Content-Type': file.tipo_mime,
         'Content-Length': size,

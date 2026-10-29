@@ -3,9 +3,10 @@ const database = require('../database');
 const { ApiError } = require('../errors');
 const { readBody, sendJson } = require('../utils/http');
 const { hashPassword, verifyPassword, newPasswordProblem } = require('../utils/password');
-const { hashToken, createIpLimiter } = require('./authController');
+const { hashToken, createIpLimiter, assertCurrentPassword } = require('./authController');
 const email = require('../services/email');
 const notificacoes = require('../services/notificacoes');
+const { registrar } = require('../services/auditoria');
 
 // Conta: e-mail, preferências de notificação, dispositivos conectados e recuperação de senha.
 
@@ -137,11 +138,23 @@ function emailInUse(address, exceptUserId) {
     ).get(address, exceptUserId));
 }
 
+// Prepara a confirmação de `address` para a conta: troca o token pendente por um novo e devolve-o.
+// Não abre transação (roda dentro da do chamador); o envio fica com quem chama, depois do COMMIT.
+function issueEmailConfirmation(userId, address) {
+    database.prepare(
+        "DELETE FROM tokens WHERE id_usuario = ? AND finalidade = 'confirmar_email'"
+    ).run(userId);
+    return createToken(userId, 'confirmar_email', CONFIRM_TOKEN_SECONDS, address);
+}
+
+// Trocar ou remover o e-mail de recuperação exige a senha atual: com uma sessão roubada não dá
+// para apontar a recuperação de senha para outro endereço.
 async function requestEmailChange(request, response, user) {
     const body = await readBody(request);
-    rejectUnknownFields(body, ['email']);
+    rejectUnknownFields(body, ['email', 'senha_atual']);
     const address = email.normalizeEmail(body.email);
     if (!address) throw new ApiError(400, 'Informe um e-mail válido.');
+    await assertCurrentPassword(user, body.senha_atual);
     const current = database.prepare('SELECT email FROM usuarios WHERE id_usuario = ?')
         .get(user.id_usuario);
     if (current?.email === address) throw new ApiError(400, 'Este já é o seu e-mail.');
@@ -154,10 +167,7 @@ async function requestEmailChange(request, response, user) {
     database.exec('BEGIN IMMEDIATE');
     let token;
     try {
-        database.prepare(
-            "DELETE FROM tokens WHERE id_usuario = ? AND finalidade = 'confirmar_email'"
-        ).run(user.id_usuario);
-        token = createToken(user.id_usuario, 'confirmar_email', CONFIRM_TOKEN_SECONDS, address);
+        token = issueEmailConfirmation(user.id_usuario, address);
         database.exec('COMMIT');
     } catch (error) {
         database.exec('ROLLBACK');
@@ -170,7 +180,10 @@ async function requestEmailChange(request, response, user) {
     });
 }
 
-function removeEmail(response, user) {
+async function removeEmail(request, response, user) {
+    const body = await readBody(request);
+    rejectUnknownFields(body, ['senha_atual']);
+    await assertCurrentPassword(user, body.senha_atual);
     database.exec('BEGIN IMMEDIATE');
     try {
         database.prepare('UPDATE usuarios SET email = NULL WHERE id_usuario = ?').run(user.id_usuario);
@@ -182,6 +195,7 @@ function removeEmail(response, user) {
         database.exec('ROLLBACK');
         throw error;
     }
+    registrar(user, 'email.remover', `usuario:${user.id_usuario}`);
     sendJson(response, 200, { email: null, mensagem: 'E-mail removido da conta.' });
 }
 
@@ -192,6 +206,8 @@ async function confirmEmail(request, response) {
     const tokenHash = readToken(body);
     database.exec('BEGIN IMMEDIATE');
     let address;
+    let previous;
+    let userId;
     try {
         const token = database.prepare(`
             DELETE FROM tokens
@@ -209,13 +225,23 @@ async function confirmEmail(request, response) {
             database.exec('COMMIT');
             throw new ApiError(409, 'Este e-mail já está em uso em outra conta.');
         }
+        previous = database.prepare('SELECT email FROM usuarios WHERE id_usuario = ?')
+            .get(token.id_usuario).email;
         database.prepare('UPDATE usuarios SET email = ? WHERE id_usuario = ?')
             .run(token.dado, token.id_usuario);
         database.exec('COMMIT');
         address = token.dado;
+        userId = token.id_usuario;
     } catch (error) {
         if (database.isTransaction) database.exec('ROLLBACK');
         throw error;
+    }
+    const actor = { id_usuario: userId };
+    registrar(actor, 'email.alterar', `usuario:${userId}`);
+    // Pendência: avisar o endereço anterior da troca. Ainda não há modelo de e-mail para isso
+    // (não reaproveitamos cw-senha-alterada); por ora a troca fica registrada na auditoria.
+    if (previous && previous !== address) {
+        registrar(actor, 'email.alterar_sem_aviso', `usuario:${userId}`);
     }
     sendJson(response, 200, { email: address, mensagem: 'E-mail confirmado.' });
 }
@@ -300,6 +326,7 @@ async function resetPassword(request, response) {
         if (database.isTransaction) database.exec('ROLLBACK');
         throw error;
     }
+    registrar(account, 'senha.redefinir_link', `usuario:${account.id_usuario}`);
     notificacoes.onPasswordChanged(account.id_usuario);
     sendJson(response, 200, { mensagem: 'Senha redefinida. Entre com a nova senha.' });
 }
@@ -366,7 +393,7 @@ async function handleContaRequest(request, response, user, parts) {
     }
     if (section === 'email' && parts.length === 3) {
         if (method === 'POST') await requestEmailChange(request, response, user);
-        else if (method === 'DELETE') removeEmail(response, user);
+        else if (method === 'DELETE') await removeEmail(request, response, user);
         else throw notAllowed();
         return;
     }
@@ -404,4 +431,4 @@ async function handlePublicAccountRequest(request, response, parts) {
     return false;
 }
 
-module.exports = { handleContaRequest, handlePublicAccountRequest };
+module.exports = { handleContaRequest, handlePublicAccountRequest, issueEmailConfirmation };

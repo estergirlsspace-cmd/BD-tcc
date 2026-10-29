@@ -1,5 +1,5 @@
 // Portal da Gestão — Configurações: perfil e e-mail, senha, notificações por e-mail,
-// aparência (window.cwAparencia) e dispositivos conectados.
+// aparência (window.cwAparencia), senha e segurança (com dispositivos conectados) e privacidade (LGPD).
 
 (function () {
 'use strict';
@@ -7,7 +7,9 @@
 const G = window.CwGestao;
 const { $, $$, el, icon, button, badge, onSource, renderStatusInto, emptyState } = G;
 
-const CONFIG_TABS = ['perfil', 'senha', 'notificacoes', 'aparencia', 'dispositivos'];
+const CONFIG_TABS = ['perfil', 'senha', 'notificacoes', 'aparencia', 'privacidade'];
+// Endereços antigos que agora vivem dentro de outra aba.
+const TAB_ALIASES = { dispositivos: 'senha', seguranca: 'senha' };
 const NOTIFICATION_TYPES = [
     ['urgente', 'Avisos urgentes', 'Quando um aviso marcado como urgente é publicado.'],
     ['turma', 'Avisos de turma', 'Avisos publicados para turmas.'],
@@ -38,39 +40,68 @@ function renderEmail() {
                 renderEmail();
                 $('#campo-email-novo')?.focus();
             }),
-            button([icon('trash'), 'Remover'], 'botao botao-texto botao-perigo-texto botao-pequeno', () =>
-                G.confirmInline(actions, {
-                    question: 'Remover o e-mail? Você deixa de receber notificações e não consegue recuperar a senha sozinho.',
-                    confirmLabel: 'Remover',
-                    onConfirm: async () => {
-                        await G.api('/api/conta/email', { method: 'DELETE' });
-                        G.showSuccess('E-mail removido.');
-                        await G.loadSource('conta', { silent: true });
-                    }
-                })));
+            button([icon('trash'), 'Remover'], 'botao botao-texto botao-perigo-texto botao-pequeno', () => {
+                box.replaceChildren(removeEmailForm());
+                $('#campo-email-remover-senha')?.focus();
+            }));
         box.replaceChildren(el('div', { class: 'linha-email' },
             icon('envelope-simple'), el('strong', { text: email }), badge('Confirmado', 'ok'), actions));
         return;
     }
     const inputId = 'campo-email-novo';
     const input = el('input', { id: inputId, type: 'email', maxlength: 254, required: true, autocomplete: 'email', spellcheck: 'false' });
+    const password = currentPasswordField('campo-email-senha');
     const submit = el('button', { type: 'submit', class: 'botao botao-primario' }, 'Enviar link de confirmação');
     const form = el('form', { class: 'formulario formulario-estreito' },
         el('div', { class: 'campo' }, el('label', { for: inputId, text: email ? 'Novo e-mail' : 'Seu e-mail' }), input),
+        password.field,
         el('div', { class: 'linha-botoes' }, submit,
             email ? button('Cancelar', 'botao botao-secundario', () => { editingEmail = false; renderEmail(); }) : null));
     form.addEventListener('submit', (event) => {
         event.preventDefault();
-        G.runAction(submit, async () => {
+        G.runFormAction(form, submit, async () => {
             const address = input.value.trim();
-            const result = await G.sendJson('/api/conta/email', 'POST', { email: address });
+            const result = await G.sendJson('/api/conta/email', 'POST', { email: address, senha_atual: password.input.value });
             editingEmail = false;
             box.replaceChildren(el('div', { class: 'aviso-info', role: 'status' }, icon('envelope-simple-open'),
                 el('p', { text: result?.mensagem || `Enviamos um link para ${address}. Abra o e-mail e confirme para concluir.` })));
             G.showSuccess('Link de confirmação enviado.');
-        });
+        }, { fieldFor: G.fieldByMessage([[/senha|tentativas/i, password.input], [/e-mail/i, input]]) });
     });
     box.replaceChildren(form);
+}
+
+// Trocar ou remover o e-mail pede a senha atual (a API exige "senha_atual").
+function currentPasswordField(id) {
+    const input = el('input', { id, type: 'password', maxlength: 128, required: true, autocomplete: 'current-password' });
+    const field = el('div', { class: 'campo' },
+        el('label', { for: id, text: 'Sua senha atual' }),
+        el('small', { id: `${id}-dica`, class: 'texto-suave bloco', text: 'Para sua segurança, confirme que é você.' }),
+        input);
+    input.setAttribute('aria-describedby', `${id}-dica`);
+    return { input, field };
+}
+
+function removeEmailForm() {
+    const password = currentPasswordField('campo-email-remover-senha');
+    const submit = el('button', { type: 'submit', class: 'botao botao-perigo' }, icon('trash'), 'Remover e-mail');
+    const cancel = button('Cancelar', 'botao botao-secundario', () => {
+        renderEmail();
+        $('#perfil-email .linha-email .acoes button')?.focus();
+    });
+    const form = el('form', { class: 'formulario formulario-estreito' },
+        el('p', { text: 'Remover o e-mail? Você deixa de receber notificações e não consegue recuperar a senha sozinho.' }),
+        password.field,
+        el('div', { class: 'linha-botoes' }, submit, cancel));
+    form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        G.runFormAction(form, submit, async () => {
+            await G.api('/api/conta/email', { method: 'DELETE', body: JSON.stringify({ senha_atual: password.input.value }) });
+            G.showSuccess('E-mail removido.');
+            await G.loadSource('conta', { silent: true });
+        }, { fieldFor: G.fieldByMessage([[/senha|tentativas/i, password.input]]) });
+    });
+    return form;
 }
 
 // ---------------------------------------------------------------- notificações
@@ -161,7 +192,9 @@ function renderSessions() {
     if (others) {
         footer.append(button([icon('sign-out'), 'Encerrar todas as outras'], 'botao botao-secundario', () =>
             G.confirmInline(footer, {
-                question: `Encerrar ${others} sessão(ões) em outros aparelhos?`,
+                question: others === 1
+                    ? 'Encerrar a sessão no outro aparelho?'
+                    : `Encerrar as ${others} sessões em outros aparelhos?`,
                 confirmLabel: 'Encerrar todas',
                 onConfirm: async () => {
                     await G.api('/api/conta/sessoes', { method: 'DELETE' });
@@ -180,23 +213,58 @@ function setupPasswordForm() {
         event.preventDefault();
         const form = event.currentTarget;
         const submit = form.querySelector('button[type="submit"]');
-        G.runAction(submit, async () => {
+        G.runFormAction(form, submit, async () => {
             const newPassword = $('#senha-nova').value;
-            if (newPassword !== $('#senha-confirmacao').value) throw new Error('As duas senhas novas não são iguais.');
+            if (newPassword !== $('#senha-confirmacao').value) {
+                throw G.fieldError($('#senha-confirmacao'), 'As duas senhas novas não são iguais.');
+            }
             const result = await G.sendJson('/api/auth/password', 'POST', {
                 senha_atual: $('#senha-atual').value,
                 nova_senha: newPassword
             });
             form.reset();
             G.showSuccess(result.mensagem);
-        });
+        }, { fieldFor: G.fieldByMessage([[/nova senha/i, $('#senha-nova')], [/atual|tentativas/i, $('#senha-atual')], [/./, $('#senha-nova')]]) });
     });
+}
+
+// ---------------------------------------------------------------- privacidade (LGPD)
+
+// Data de hoje em Brasília (AAAA-MM-DD) para o nome do arquivo exportado.
+function schoolToday() {
+    return new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+}
+
+// Aba e painel criados aqui para não mexer no HTML da página.
+function setupPrivacy() {
+    const tabs = $('[data-pagina="configuracoes"] .segmentos-abas');
+    if (!tabs || $('[data-config="privacidade"]')) return;
+    tabs.append(el('a', { class: 'segmento', href: '#/configuracoes/privacidade', dataset: { abaConfig: 'privacidade' }, text: 'Privacidade' }));
+    const download = button([icon('download-simple'), 'Baixar meus dados'], 'botao botao-primario', () =>
+        G.runAction(download, async () => {
+            await G.downloadAuthenticated('/api/privacidade/meus-dados', `cw-meus-dados-${schoolToday()}.json`);
+            G.showSuccess('Arquivo com os seus dados baixado.');
+        }));
+    tabs.parentElement.append(el('div', { dataset: { config: 'privacidade' }, hidden: true },
+        el('section', { class: 'cartao' },
+            el('div', { class: 'cartao-cabecalho' },
+                el('h2', { text: 'Privacidade' }),
+                el('p', { class: 'texto-suave', text: 'Como o C·Warning usa os dados de estudantes, professores e gestão, com base na LGPD.' })),
+            el('p', {},
+                el('a', { class: 'link', href: '/privacidade', target: '_blank', rel: 'noopener' },
+                    'Ler a política de privacidade e os termos de uso', G.srText(' (abre em nova aba)')))),
+        el('section', { class: 'cartao' },
+            el('div', { class: 'cartao-cabecalho' },
+                el('h2', { text: 'Seus dados' }),
+                el('p', { class: 'texto-suave', text: 'Baixe uma cópia de tudo o que o sistema guarda sobre você (arquivo .json). O pedido fica no registro de auditoria.' })),
+            el('div', { class: 'linha-botoes' }, download))));
 }
 
 // ---------------------------------------------------------------- seção
 
 function showTab(tab) {
-    configTab = CONFIG_TABS.includes(tab) ? tab : 'perfil';
+    const wanted = TAB_ALIASES[tab] || tab;
+    configTab = CONFIG_TABS.includes(wanted) ? wanted : 'perfil';
     $$('[data-aba-config]').forEach((node) => {
         const active = node.dataset.abaConfig === configTab;
         node.classList.toggle('ativo', active);
@@ -205,16 +273,17 @@ function showTab(tab) {
     });
     $$('[data-config]').forEach((panel) => { panel.hidden = panel.dataset.config !== configTab; });
     if (['perfil', 'notificacoes'].includes(configTab)) G.ensureSource('conta');
-    if (configTab === 'dispositivos') G.loadSource('sessoes');
+    if (configTab === 'senha') G.loadSource('sessoes');
 }
 
 G.sections.configuracoes = {
     title: 'Configurações',
-    description: 'Seu perfil, senha, notificações, aparência e dispositivos.',
+    description: 'Seu perfil, senha e segurança, notificações, aparência e privacidade.',
     setup() {
         renderProfile();
         setupPasswordForm();
         setupAppearance();
+        setupPrivacy();
         onSource(['conta'], () => {
             renderEmail();
             renderNotifications();

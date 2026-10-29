@@ -320,6 +320,20 @@ database.exec(`
 `);
 ensureColumn('posts_avisos', 'id_arquivo', 'INTEGER REFERENCES arquivos(id_arquivo) ON DELETE SET NULL');
 
+// ---- Sprint 3: LGPD ----
+ensureColumn('usuarios', 'termos_aceitos_em', 'TEXT'); // aceite dos termos e da política de privacidade
+database.exec(`
+    -- Registro de auditoria: quem acessou ou alterou dados pessoais e ações administrativas.
+    CREATE TABLE IF NOT EXISTS auditoria (
+        id_auditoria INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_usuario INTEGER REFERENCES usuarios(id_usuario) ON DELETE SET NULL,
+        acao TEXT NOT NULL,
+        alvo TEXT,
+        criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS auditoria_data_idx ON auditoria (criado_em);
+`);
+
 // Instalação nova (banco vazio): cria a primeira conta da gestão a partir de variáveis de
 // ambiente. A senha é provisória e precisa ser trocada no primeiro acesso.
 const hasManager = database.prepare(

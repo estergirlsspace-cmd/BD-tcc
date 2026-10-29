@@ -25,6 +25,16 @@ Para começar com um banco vazio, há dois caminhos:
 
 Para acessar a partir de outro computador, use o endereço de rede local mostrado ao iniciar o servidor e confirme que o Firewall do Windows permite conexões de entrada na porta configurada. O endereço da máquina pode mudar ao reconectar à rede. Este servidor deve ser usado somente em rede confiável; para acesso pela internet, configure HTTPS e um proxy reverso.
 
+### Proxy reverso e `TRUST_PROXY`
+
+Os limitadores de tentativas (login, recuperação de senha) usam o IP de quem fez a requisição.
+
+- **Sem `TRUST_PROXY`** (padrão, acesso direto ou rede local): vale o endereço da conexão (`socket.remoteAddress`). Cabeçalhos como `X-Forwarded-For`, `X-Real-Ip` e `CF-Connecting-IP` são ignorados — qualquer cliente pode forjá-los.
+- **`TRUST_PROXY=1`** (produção: Cloudflare → Traefik/Dokploy → contêiner): vale o `X-Real-Ip` gravado pelo Traefik (o IP que ele viu). O `CF-Connecting-IP` só é usado quando esse `X-Real-Ip` pertence às faixas oficiais da Cloudflare (lista em `src/utils/ip.js`, copiada de https://www.cloudflare.com/ips-v4 e ips-v6; atualize se a Cloudflare publicar faixas novas). Quem acessa a VPS direto, sem passar pela Cloudflare, é limitado pelo próprio IP, mesmo enviando um `CF-Connecting-IP` falso.
+- Só defina `TRUST_PROXY` quando o contêiner **não** puder ser acessado sem passar pelo proxy (a porta do Node não deve estar publicada na internet). Valores `0`, `false` ou vazio equivalem a não definir.
+
+Além do limite por IP, cada conta tem bloqueio progressivo independente do IP: a cada 5 senhas erradas seguidas, 5 min de bloqueio; na 10ª, 1 h; da 15ª em diante, 24 h (429). Um acerto zera a contagem (24 h sem erros também). Vale para o login e para as rotas que pedem `senha_atual` (`/api/auth/password` e `/api/conta/email`).
+
 ## Estrutura
 
 ```text
@@ -71,7 +81,7 @@ POST /api/equipe
 {"login":"maria.souza","tipo_usuario":"professor","nome":"Maria Souza","area":"humanas"}
 ```
 
-Áreas de professor: `natureza`, `humanas`, `linguagens`, `matematica`, `informatica`, `redes`. A área define o tema do portal do professor. Para gerar uma nova senha provisória, use `POST /api/equipe/ID_DO_USUARIO/senha`.
+Áreas de professor: `natureza`, `humanas`, `linguagens`, `matematica`, `informatica`, `redes`. A área define o tema do portal do professor. O `email` opcional (aqui e em `POST /api/matriculas`) **não** vira e-mail de recuperação na hora: o endereço recebe um link de confirmação (e, na equipe, o aviso de conta criada) e só é gravado depois de confirmado. A resposta traz `email: null` e `email_pendente: "<endereço>"` (ou `null` sem e-mail). Para gerar uma nova senha provisória, use `POST /api/equipe/ID_DO_USUARIO/senha`.
 
 As contas antigas `professor` e `gestao` continuam existindo. Para definir as senhas delas:
 
@@ -128,7 +138,7 @@ Todos os corpos e respostas usam JSON. IDs são inteiros positivos. Erros usam `
 | Mural do aluno | `GET /api/mural`, `PUT/DELETE /api/mural/:id/leitura`, `POST /api/mural/leitura`, `PUT /api/mural/:id/salvo` | Somente aluno (professor e Gestão recebem 403) |
 | Horários | `GET/POST /api/horarios`, `GET/PATCH/DELETE /api/horarios/:id` (cada horário traz `nome_disciplina` e `professor`) | Aluno consulta o curso/série da conta; professor consulta/publica nas turmas vinculadas; Gestão consulta e publica |
 | Atividades e avaliações | `GET/POST /api/atividades`, `GET/PATCH/DELETE /api/atividades/:id` | Aluno consulta atividades do curso/série, cada uma com `entrega` (`null` ou `{ enviado_em, nota, feedback }` da própria entrega); professor e Gestão publicam |
-| Entregas | `POST /api/atividades/:id/entregas`, `GET /api/atividades/:id/entregas` | Aluno envia sua resposta; professor/gestão consultam entregas das turmas permitidas |
+| Entregas | `POST /api/atividades/:id/entregas`, `GET /api/atividades/:id/entregas` | Aluno envia (ou reenvia, enquanto não houver nota) sua resposta — entrega já corrigida → 409; professor/gestão consultam entregas das turmas permitidas |
 | Notas e feedback | `PATCH /api/entregas/:id` | Professor da disciplina e Gestão corrigem (nota/feedback); aluno consulta apenas as próprias notas |
 | Frequência | `GET/POST /api/frequencias` | Aluno consulta a própria frequência; professor registra nas turmas vinculadas; Gestão consulta e registra |
 | Desempenho | `GET /api/desempenho` | Aluno consulta o próprio desempenho; Gestão consulta usando `?id_aluno=ID` |
@@ -150,7 +160,7 @@ POST /api/matriculas
 {"matricula":"20260001","nome":"Nome do aluno","id_turma":1,"cpf_inicio":"1234"}
 ```
 
-Contas não são excluídas quando têm histórico (avisos, atividades, frequências, entregas): a API recusa a exclusão e a Gestão **desativa** a conta. A pessoa deixa de entrar e o histórico continua. Turmas e disciplinas com registros vinculados também não podem ser excluídas.
+Contas não são excluídas quando têm histórico (avisos, atividades, frequências, entregas, ocorrências, justificativas, conversas, arquivos): a API recusa a exclusão (409) e a Gestão **desativa** a conta. Também não é possível excluir a própria conta (400) nem a última conta ativa da gestão (409). Quando a Gestão define a senha de outra pessoa por `PATCH /api/usuarios/:id`, a senha é provisória (troca obrigatória no próximo acesso) e as sessões abertas dessa pessoa são encerradas. A pessoa deixa de entrar e o histórico continua. Turmas e disciplinas com registros vinculados também não podem ser excluídas.
 
 ```json
 POST /api/contas/ID_DO_USUARIO/situacao
@@ -210,18 +220,18 @@ O estado fica na tabela `avisos_usuarios` (`id_post`, `id_usuario`, `lido_em`, `
 
 | Rota | Acesso | Resumo |
 | --- | --- | --- |
-| `POST /api/arquivos` | Qualquer usuário logado | Corpo binário cru (não JSON) com `Content-Type` `application/pdf`, `image/jpeg` ou `image/png` e `X-Nome-Arquivo` (nome original, URI-encoded). Até 5 MB (413 acima). O tipo gravado é o detectado pela assinatura do conteúdo (`%PDF-`, `FF D8 FF`, `89 50 4E 47 0D 0A 1A 0A`); conteúdo de outro tipo é recusado com 415. O nome é saneado e recebe a extensão do tipo real. Até 10 arquivos não vinculados por pessoa em 24 h (429). Devolve `{ id_arquivo, nome, tipo_mime, tamanho }`. |
-| `GET /api/arquivos/:id` | Quem enviou; Gestão; quem pode ver o aviso do qual é anexo; atestado: o aluno dono e o professor da disciplina | Download com `Content-Disposition: attachment`, `nosniff`, `Content-Security-Policy: sandbox` e `Cache-Control: private, no-store`. Sem permissão responde 404. |
+| `POST /api/arquivos` | Qualquer usuário logado | Corpo binário cru (não JSON) com `Content-Type` `application/pdf`, `image/jpeg` ou `image/png` e `X-Nome-Arquivo` (nome original, URI-encoded). Até 5 MB (413 acima). O tipo gravado é o detectado pela assinatura do conteúdo (`%PDF-`, `FF D8 FF`, `89 50 4E 47 0D 0A 1A 0A`); conteúdo de outro tipo é recusado com 415. O nome é saneado e recebe a extensão do tipo real. Até 10 arquivos não vinculados por pessoa em 24 h e 2 envios simultâneos por pessoa (429). Devolve `{ id_arquivo, nome, tipo_mime, tamanho }`. |
+| `GET /api/arquivos/:id` | Quem enviou; Gestão; quem pode ver o aviso do qual é anexo; atestado: só o aluno dono (e a Gestão) | Download com `Content-Disposition: attachment`, `nosniff`, `Content-Security-Policy: sandbox` e `Cache-Control: private, no-store`. Sem permissão responde 404. |
 | `POST/PATCH /api/avisos` | Professor/Gestão | Aceitam `id_arquivo` (arquivo enviado por quem publica; `null` remove o anexo). |
 | `GET /api/avisos`, `GET /api/mural` | Conforme o perfil | Cada aviso traz `anexo: { id_arquivo, nome, tipo_mime, tamanho } \| null`. Em `/api/avisos`, o autor (e a Gestão, em todos) recebe `leituras: { confirmadas, publico_total }`. |
-| `POST /api/justificativas` | Aluno | `{ id_disciplina, data_falta, motivo, id_arquivo? }`, só para falta registrada do próprio aluno, até 5 dias úteis (segunda a sexta) depois da falta (409 fora do prazo ou repetida). |
-| `GET /api/justificativas?situacao=` | Aluno: as próprias; professor: das suas disciplinas; Gestão: todas | Item `{ id_justificativa, aluno: { id_aluno, nome, turma }, id_disciplina, disciplina, data_falta, motivo, anexo, situacao, resposta, analisado_em, criado_em }`. |
-| `PATCH /api/justificativas/:id` | Gestão | `{ situacao: "aceita" \| "recusada", resposta? }`. `GET /api/frequencias` traz `justificativa: { situacao } \| null` em cada registro (sempre `null` em presença). |
+| `POST /api/justificativas` | Aluno | `{ id_disciplina, data_falta, motivo, id_arquivo? }`, só para falta registrada do próprio aluno, até 5 dias úteis (segunda a sexta) contados da data da falta ou do dia em que ela foi lançada, o que for mais tarde (409 fora do prazo ou repetida). |
+| `GET /api/justificativas?situacao=` | Aluno: as próprias; professor: das suas disciplinas; Gestão: todas | Item `{ id_justificativa, aluno: { id_aluno, nome, turma }, id_disciplina, disciplina, data_falta, motivo, anexo, situacao, resposta, analisado_em, criado_em }`. Para o professor (minimização, LGPD) o item é só `{ id_justificativa, aluno, id_disciplina, disciplina, data_falta, situacao }`. |
+| `PATCH /api/justificativas/:id` | Gestão | `{ situacao: "aceita" \| "recusada", resposta? }`; só justificativa `pendente` (já analisada → 409). `GET /api/frequencias` traz `justificativa: { situacao } \| null` em cada registro (sempre `null` em presença). |
 | `POST /api/ocorrencias` | Professor das turmas do aluno; Gestão | `{ id_aluno, descricao }`. |
 | `GET /api/ocorrencias?situacao=` | Aluno: as próprias (autor só com `perfil`); professor: as que registrou; Gestão: todas | Item `{ id_ocorrencia, aluno: { id_aluno, nome, turma }, descricao, situacao, criado_em, resolvida_em, autor: { nome, perfil } }`. |
 | `PATCH /api/ocorrencias/:id` | Gestão | `{ situacao: "resolvida" }`. |
 | `GET /api/chamadas?id_disciplina=&data=` | Professor da disciplina; Gestão | Lista `[{ id_aluno, nome, presente: true \| false \| null, frequencia: { aulas, presencas, faltas, percentual } }]` (frequência acumulada na disciplina; `percentual` é `null` sem aulas). |
-| `PUT /api/chamadas` | Professor da disciplina; Gestão | `{ id_disciplina, data_aula, presencas: [{ id_aluno, presente }] }` (1 a 200 alunos da turma, sem data futura), gravado em uma transação; devolve a mesma lista do `GET`. |
+| `PUT /api/chamadas` | Professor da disciplina; Gestão | `{ id_disciplina, data_aula, presencas: [{ id_aluno, presente }] }` (1 a 200 alunos ativos da turma; `data_aula` em dia útil, do início do ano letivo — 1º de fevereiro do ano corrente — até hoje, senão 400; as mesmas regras valem para `POST /api/frequencias`), gravado em uma transação; devolve a mesma lista do `GET`. |
 | `GET /api/painel` | Professor; Gestão | Professor: `hoje`, `aulas_hoje` (com `em_andamento` e `chamada_feita`), `aula_em_andamento`, `turmas` (`alunos`, `frequencia`), `entregas` (`enviadas`/`total` das 10 atividades mais recentes), `justificativas_pendentes`, `mensagens_nao_lidas`. Gestão: `kpis` (`alunos`, `frequencia_media`, `alunos_abaixo_75`, `ocorrencias_abertas`, `justificativas_pendentes`), `frequencia_por_turma`, `alunos_atencao` (frequência abaixo de 75% ou ocorrência aberta), `mensagens_nao_lidas`. |
 | `GET /api/relatorios/frequencia.csv`, `GET /api/relatorios/alunos-em-risco.csv` | Gestão | CSV UTF-8 com BOM, separador `;`, decimal com vírgula; células que começam com `=`, `+`, `-` ou `@` recebem `'` na frente (proteção contra injeção de fórmula). |
 | `PATCH /api/entregas/:id`, `GET /api/atividades/:id/entregas` | Professor da disciplina; Gestão | O professor da disciplina também corrige (nota e feedback) e vê as notas; fora do escopo responde 404. |
@@ -251,8 +261,12 @@ Os modelos de e-mail ficam na Resend (domínio `ceeplourdinhaguerra.com.br`), co
 ## Sprint 2 — comunicação
 
 **Conta** (logado): `GET /api/conta` → `{ email, notificacoes: { urgente, turma, prazos, eventos, mensagens } }`;
-`PUT /api/conta/notificacoes` `{ tipo: true|false, … }`; `POST /api/conta/email` `{ email }` envia um link de
-confirmação (24 h) para o endereço novo, que só é gravado depois de confirmado; `DELETE /api/conta/email` remove.
+`PUT /api/conta/notificacoes` `{ tipo: true|false, … }`; `POST /api/conta/email` `{ email, senha_atual }` envia um
+link de confirmação (24 h) para o endereço novo, que só é gravado depois de confirmado (resposta
+`{ email_pendente, mensagem }`); `DELETE /api/conta/email` com corpo JSON `{ senha_atual }` remove. Senha atual
+ausente ou errada → 400 `{ erro: "A senha atual está incorreta." }` (nunca 401); bloqueio da conta → 429.
+Pendência: ainda não há modelo de e-mail para avisar o endereço anterior quando o e-mail é trocado; por ora a troca
+fica na auditoria (`email.alterar` e `email.alterar_sem_aviso`).
 Dispositivos: `GET /api/conta/sessoes` → `[{ id, dispositivo, ultimo_acesso, atual }]` (o `id` é um prefixo do hash,
 nunca o token), `DELETE /api/conta/sessoes/:id` e `DELETE /api/conta/sessoes` (todas menos a atual).
 
@@ -276,6 +290,10 @@ cada tipo respeita o silenciamento da pessoa; os envios automáticos usam `envio
 ambiente: `RESEND_API_KEY` (sem ela os envios só aparecem no log como “simulado”), `APP_URL` (padrão
 `https://ceeplourdinhaguerra.com.br`) e `CW_AGENDADOR=0` para desligar o agendador (testes e scripts).
 
+## Testes automatizados
+
+`npm test` (ou `node --test --test-concurrency=1 "tests/**/*.test.js"`) roda 130 testes em cerca de 45 s, sem rede e sem dependências: cada domínio sobe o servidor numa porta livre com um banco novo gerado por `scripts/seed-exemplo.js` em diretório temporário (o banco real nunca é tocado). Cobrem autenticação e limites, permissões entre perfis e turmas, mural, avisos, anexos, justificativas, ocorrências, chamada, mensagens, conta, relatórios, validação de entradas e os utilitários de data, calendário, CSV e senha. O servidor de teste roda com `TRUST_PROXY=1` e cabeçalhos iguais aos da produção (Cloudflare → Traefik).
+
 ## Regras de segurança e dados
 
 - A Gestão é o único perfil que administra usuários, turmas, matrículas e disciplinas e que altera notas.
@@ -285,3 +303,58 @@ ambiente: `RESEND_API_KEY` (sem ela os envios só aparecem no log como “simula
 - Respostas para dados não autorizados não incluem cadastros de terceiros.
 - A série e o curso da turma são validados na matrícula; as seleções da tela de login não substituem o vínculo cadastrado pela Gestão.
 - HTTP 401 significa não autenticado; 403, perfil sem permissão; 404, registro ausente ou fora do escopo; 409, conflito de chave única/relacionamento.
+
+## Privacidade e LGPD
+
+Os usuários são, na maioria, adolescentes (art. 14 da LGPD). Base legal: art. 7º, III (execução de política pública
+de educação pela escola pública), sempre no melhor interesse do estudante. A política completa, em linguagem simples,
+fica em `public/privacidade.html` (rota `/privacidade`).
+
+- **Aceite dos termos.** Depois do login (e do primeiro acesso), quem ainda não aceitou vê a etapa "Termos e
+  privacidade" no próprio painel de entrada. Enquanto `termos_pendentes` for verdadeiro, a API só libera `/api/me`,
+  `/api/auth/password` e `/api/privacidade/*` (403 nas demais). A versão vigente é a data de publicação, na constante
+  `TERMOS_VERSAO` de `src/controllers/privacidadeController.js`; ao mudar o texto, atualize essa data e
+  `TERMOS_PUBLICADOS_EM` (e faça o middleware comparar `termos_aceitos_em` com ela, para pedir o aceite de novo).
+- **Rotas.** `GET /api/privacidade/termos` (versão e situação do aceite), `POST /api/privacidade/aceite` (corpo `{}`
+  ou `{ "versao": "2026-10-29" }`), `GET /api/privacidade/meus-dados` (JSON com perfil, matrícula, frequências,
+  entregas, justificativas, ocorrências sobre a pessoa, mensagens, avisos lidos/salvos, arquivos, sessões e o próprio
+  registro de auditoria; art. 18 — os portais baixam como `cw-meus-dados-AAAA-MM-DD.json` em Ajustes/Configurações ›
+  Privacidade) e, só para a gestão, `GET /api/auditoria?acao=&id_usuario=&de=AAAA-MM-DD&ate=AAAA-MM-DD&pagina=&por_pagina=`
+  (`acao` exata, como `aluno.matricular`, ou o grupo, como `senha`; até 100 por página; tela em Relatórios).
+- **Auditoria** (`src/services/auditoria.js`, art. 37). Guarda só quem, ação, alvo (ex.: `aluno:21`) e data — nunca
+  senha, texto de mensagem, motivo ou descrição. Registra: login com sucesso, troca e redefinição de senha (pela
+  pessoa, por link ou pela gestão), matrícula, criação/desativação/reativação/exclusão de contas, análise de
+  justificativa, registro e resolução de ocorrência, download de atestado, exportação de relatório, aceite dos termos
+  e exportação dos próprios dados. Uma falha ao auditar vai para o log e não interrompe a ação.
+- **Retenção** (agendador, a cada 5 minutos): auditoria é apagada após **2 anos**; sessões expiradas (8 h) e links de
+  senha/e-mail vencidos (30 min / 24 h) são apagados; chaves de e-mails automáticos, após 60 dias; arquivos enviados e
+  não vinculados, após 24 h; backups, 7 diários + 4 semanais. Dados escolares (frequência, entregas, justificativas,
+  ocorrências) ficam enquanto houver vínculo e pelo prazo das normas de arquivo escolar; desativar uma conta mantém o
+  histórico e só bloqueia o acesso.
+- **Quem acessa.** Aluno: os próprios dados. Professor: dados das turmas/disciplinas em que leciona e as ocorrências
+  que registrou. Gestão: todos os dados e o registro de auditoria.
+- **Pendências da escola:** confirmar o e-mail de contato (`contato@ceeplourdinhaguerra.com.br` é provisório), indicar
+  o encarregado de proteção de dados (art. 41), confirmar o prazo de guarda do arquivo escolar e o prazo de resposta
+  aos pedidos dos titulares.
+
+## Backup e restauração
+
+**Como funciona.** O próprio servidor faz um backup diário do banco às **03h (horário de Brasília)**, em `src/services/backup.js`. A cópia usa a API de backup online do SQLite (`backup()` do módulo `node:sqlite`): o banco é copiado em etapas enquanto o sistema continua atendendo, e o arquivo final é consistente (escritas feitas durante a cópia entram no backup). O arquivo é gravado primeiro como `.tmp`, passa por `PRAGMA integrity_check` (aberto só leitura) e só então é renomeado; se a verificação falhar, a cópia é descartada e o erro aparece no log. Os backups têm permissão `600` (só o dono lê) e a pasta, `700`. O log registra só nome do arquivo, tamanho e duração, sem dados pessoais.
+
+- **Onde ficam:** `DATA_DIR/backups/educacao-AAAA-MM-DD.sqlite` (em produção, `/data/backups/` no volume do Docker; localmente, `data/backups/`). Fora do git, como o banco.
+- **Quando:** o servidor confere a cada 10 minutos (e 1 minuto após iniciar). Se já passou das 03h e o arquivo do dia não existe, o backup é feito — assim um redeploy ou reinício durante a madrugada não perde o backup do dia. Instalação sem nenhum backup recebe o primeiro logo ao iniciar. O nome do arquivo do dia garante que não se repete.
+- **Retenção:** os 7 backups mais recentes + os 4 domingos mais recentes (cópias semanais); o resto é apagado automaticamente após cada backup bem-sucedido.
+- **Desligar:** `CW_BACKUP=0` (testes e scripts).
+- **Desligamento gracioso:** em `SIGTERM`/`SIGINT` (o Dokploy manda `SIGTERM` no redeploy), o servidor para de aceitar conexões, espera as requisições em andamento por até 10 s, espera um backup em andamento terminar, fecha o banco e sai com código 0.
+
+**Restaurar** (com o servidor **parado** — no Dokploy, pare a aplicação e rode o script num terminal do container ou com o volume montado):
+
+```bash
+node scripts/restaurar-backup.js                                       # lista os backups
+node scripts/restaurar-backup.js educacao-2026-10-28.sqlite            # verifica e mostra o plano
+node scripts/restaurar-backup.js educacao-2026-10-28.sqlite --confirmar
+```
+
+A pasta de dados vem de `DATA_DIR` (ou `--dir <pasta>`). O script confere a integridade do backup escolhido e só substitui o banco com `--confirmar`. Antes, guarda o banco atual como `educacao.antes-restauracao-<data>.sqlite` na mesma pasta (apague essas cópias depois de conferir que está tudo certo — elas também contêm dados pessoais).
+
+**Pendência: cópia externa.** Os backups ficam no mesmo volume da VPS; protegem contra erro humano e corrupção do arquivo, mas **não** contra perda do servidor ou do disco. Recomenda-se copiar `DATA_DIR/backups/` periodicamente para fora da VPS (ex.: armazenamento de objetos com criptografia, ou o backup de volumes do próprio Dokploy), com acesso restrito, por conter dados pessoais (LGPD). Isso ainda não está implementado.

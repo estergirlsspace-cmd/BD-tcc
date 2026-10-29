@@ -3,6 +3,7 @@ const { ApiError } = require('../errors');
 const { readBody, sendJson } = require('../utils/http');
 const { parseBody } = require('../utils/validation');
 const notificacoes = require('../services/notificacoes');
+const { registrar } = require('../services/auditoria');
 const { studentNoticeScope, teacherNoticeScope, noticeAudienceFrom } = require('../utils/audience');
 const { assertOwnFile, attachmentColumns, attachmentFrom } = require('../utils/arquivos');
 
@@ -69,6 +70,12 @@ const HISTORY_CHECKS = {
         ['entregas de atividades', `SELECT COUNT(*) AS n FROM entregas_atividades e
             JOIN alunos a ON a.id_aluno = e.id_aluno WHERE a.id_usuario = ?`],
         ['ocorrências registradas', 'SELECT COUNT(*) AS n FROM ocorrencias WHERE id_usuario_autor = ?'],
+        ['ocorrências como aluno', `SELECT COUNT(*) AS n FROM ocorrencias o
+            JOIN alunos a ON a.id_aluno = o.id_aluno WHERE a.id_usuario = ?`],
+        ['justificativas de falta', `SELECT COUNT(*) AS n FROM justificativas j
+            JOIN alunos a ON a.id_aluno = j.id_aluno WHERE a.id_usuario = ?`],
+        ['conversas de mensagens',
+            'SELECT COUNT(*) AS n FROM conversas WHERE ? IN (id_usuario_a, id_usuario_b)'],
         ['arquivos enviados', 'SELECT COUNT(*) AS n FROM arquivos WHERE id_usuario = ?']
     ],
     alunos: [
@@ -90,6 +97,14 @@ const HISTORY_CHECKS = {
         ['justificativas', 'SELECT COUNT(*) AS n FROM justificativas WHERE id_disciplina = ?']
     ]
 };
+
+// A própria conta não pode ser excluída. Isso já garante que a última conta ativa da gestão
+// também não: quem exclui é sempre outra conta ativa da gestão.
+function assertAccountRemovable(user, recordId) {
+    if (recordId === user.id_usuario) {
+        throw new ApiError(400, 'Você não pode excluir a sua própria conta.');
+    }
+}
 
 function assertDeletable(table, recordId) {
     const found = (HISTORY_CHECKS[table] || [])
@@ -177,6 +192,9 @@ function listRecords(resource, user) {
         .map((record) => publicRecord(resource, record, user));
 }
 
+// Criação/exclusão de contas e matrículas pela rota genérica entra no registro de auditoria.
+const AUDITED_TABLES = { usuarios: 'conta', alunos: 'aluno' };
+
 async function handleCollection(request, response, resource, user) {
     if (request.method === 'GET') {
         sendJson(response, 200, listRecords(resource, user));
@@ -229,6 +247,7 @@ async function handleCollection(request, response, resource, user) {
         ? fetchNotice(recordId)
         : database.prepare(`SELECT * FROM ${resource.table} WHERE ${resource.id} = ?`).get(recordId);
 
+    if (AUDITED_TABLES[resource.table]) registrar(user, `${AUDITED_TABLES[resource.table]}.criar`, `${AUDITED_TABLES[resource.table]}:${recordId}`);
     if (resource.table === 'posts_avisos') notificacoes.onNoticePublished(record.id_post);
     sendJson(response, 201, publicRecord(resource, record, user));
 }
@@ -246,8 +265,9 @@ async function handleRecord(request, response, resource, id, user) {
     const currentRecord = database.prepare(
         `SELECT * FROM ${resource.table} WHERE ${resource.id} = ?`
     ).get(recordId);
-    if (resource.table === 'posts_avisos' && user.tipo_usuario === 'professor'
-        && currentRecord?.id_usuario_autor !== user.id_usuario) {
+    // Leitura segue a mesma visibilidade da listagem; alterar ou excluir, só o autor (ou a gestão).
+    if (request.method !== 'GET' && resource.table === 'posts_avisos'
+        && user.tipo_usuario === 'professor' && currentRecord?.id_usuario_autor !== user.id_usuario) {
         throw new ApiError(404, 'Aviso não encontrado.');
     }
 
@@ -262,6 +282,7 @@ async function handleRecord(request, response, resource, id, user) {
     }
 
     if (request.method === 'DELETE') {
+        if (resource.table === 'usuarios') assertAccountRemovable(user, recordId);
         assertDeletable(resource.table, recordId);
         const result = database.prepare(
             `DELETE FROM ${resource.table} WHERE ${resource.id} = ?`
@@ -269,6 +290,7 @@ async function handleRecord(request, response, resource, id, user) {
         if (result.changes === 0) {
             throw new ApiError(404, 'Registro não encontrado.');
         }
+        if (AUDITED_TABLES[resource.table]) registrar(user, `${AUDITED_TABLES[resource.table]}.excluir`, `${AUDITED_TABLES[resource.table]}:${recordId}`);
         response.writeHead(204);
         response.end();
         return;
@@ -299,12 +321,10 @@ async function handleRecord(request, response, resource, id, user) {
         assertCoherentAudience({ ...currentRecord, ...values });
         assertOwnFile(user, values.id_arquivo, currentRecord.id_arquivo);
     }
-    const fields = Object.keys(values);
-    if (fields.length === 0) {
+    if (Object.keys(values).length === 0) {
         throw new ApiError(400, 'Informe ao menos um campo para atualizar.');
     }
 
-    const assignments = fields.map((field) => `${field} = ?`).join(', ');
     if (resource.table === 'alunos' && values.id_turma !== undefined) {
         const current = database.prepare(
             'SELECT id_usuario FROM alunos WHERE id_aluno = ?'
@@ -347,10 +367,6 @@ async function handleRecord(request, response, resource, id, user) {
             throw new ApiError(409, 'Rematricule o aluno antes de alterar o curso ou série da conta.');
         }
     }
-    if (resource.table === 'usuarios' && values.senha !== undefined
-        && recordId !== user.id_usuario) {
-        values.deve_trocar_senha = 1;
-    }
     if (resource.table === 'turmas'
         && (values.curso !== undefined || values.serie !== undefined)) {
         const currentClass = database.prepare(
@@ -368,12 +384,28 @@ async function handleRecord(request, response, resource, id, user) {
             throw new ApiError(409, 'A turma não pode mudar de curso/série enquanto houver matrículas incompatíveis.');
         }
     }
-    const result = database.prepare(
-        `UPDATE ${resource.table} SET ${assignments} WHERE ${resource.id} = ?`
-    ).run(...fields.map((field) => values[field]), recordId);
-    if (result.changes === 0) {
-        throw new ApiError(404, 'Registro não encontrado.');
+    // Senha de outra pessoa definida pela gestão é provisória: troca obrigatória no próximo
+    // acesso e as sessões abertas dela são encerradas (na mesma transação da troca).
+    const resetsOthersPassword = resource.table === 'usuarios' && values.senha !== undefined
+        && recordId !== user.id_usuario;
+    if (resetsOthersPassword) values.deve_trocar_senha = 1;
+    const fields = Object.keys(values);
+    const assignments = fields.map((field) => `${field} = ?`).join(', ');
+    database.exec('BEGIN IMMEDIATE');
+    try {
+        const result = database.prepare(
+            `UPDATE ${resource.table} SET ${assignments} WHERE ${resource.id} = ?`
+        ).run(...fields.map((field) => values[field]), recordId);
+        if (result.changes === 0) throw new ApiError(404, 'Registro não encontrado.');
+        if (resetsOthersPassword) {
+            database.prepare('DELETE FROM sessoes WHERE id_usuario = ?').run(recordId);
+        }
+        database.exec('COMMIT');
+    } catch (error) {
+        database.exec('ROLLBACK');
+        throw error;
     }
+    if (resetsOthersPassword) registrar(user, 'senha.redefinir_conta', `usuario:${recordId}`);
 
     const updated = resource.table === 'posts_avisos'
         ? fetchNotice(recordId)
