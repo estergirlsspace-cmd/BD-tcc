@@ -19,6 +19,47 @@ function publicRecord(resource, record, user) {
     return publicFields;
 }
 
+// Registros que seriam apagados em cascata junto com o item. Se houver algum, a exclusão é
+// recusada: o histórico escolar não pode sumir (contas devem ser desativadas, não excluídas).
+const HISTORY_CHECKS = {
+    usuarios: [
+        ['avisos publicados', 'SELECT COUNT(*) AS n FROM posts_avisos WHERE id_usuario_autor = ?'],
+        ['atividades publicadas', 'SELECT COUNT(*) AS n FROM atividades WHERE id_usuario_autor = ?'],
+        ['frequências registradas', 'SELECT COUNT(*) AS n FROM frequencias WHERE id_usuario_registro = ?'],
+        ['frequências como aluno', `SELECT COUNT(*) AS n FROM frequencias f
+            JOIN alunos a ON a.id_aluno = f.id_aluno WHERE a.id_usuario = ?`],
+        ['entregas de atividades', `SELECT COUNT(*) AS n FROM entregas_atividades e
+            JOIN alunos a ON a.id_aluno = e.id_aluno WHERE a.id_usuario = ?`]
+    ],
+    alunos: [
+        ['frequências', 'SELECT COUNT(*) AS n FROM frequencias WHERE id_aluno = ?'],
+        ['entregas de atividades', 'SELECT COUNT(*) AS n FROM entregas_atividades WHERE id_aluno = ?']
+    ],
+    turmas: [
+        ['alunos matriculados', 'SELECT COUNT(*) AS n FROM alunos WHERE id_turma = ?'],
+        ['disciplinas', 'SELECT COUNT(*) AS n FROM disciplinas WHERE id_turma = ?'],
+        ['avisos', 'SELECT COUNT(*) AS n FROM posts_avisos WHERE id_turma = ?'],
+        ['atividades', 'SELECT COUNT(*) AS n FROM atividades WHERE id_turma = ?']
+    ],
+    disciplinas: [
+        ['atividades', 'SELECT COUNT(*) AS n FROM atividades WHERE id_disciplina = ?'],
+        ['frequências', 'SELECT COUNT(*) AS n FROM frequencias WHERE id_disciplina = ?'],
+        ['horários', 'SELECT COUNT(*) AS n FROM horarios WHERE id_disciplina = ?']
+    ]
+};
+
+function assertDeletable(table, recordId) {
+    const found = (HISTORY_CHECKS[table] || [])
+        .map(([label, sql]) => [label, database.prepare(sql).get(recordId).n])
+        .filter(([, count]) => count > 0);
+    if (!found.length) return;
+    const details = found.map(([label, count]) => `${count} ${label}`).join(', ');
+    const advice = ['usuarios', 'alunos'].includes(table)
+        ? 'Desative a conta em vez de excluir.'
+        : 'Remova ou transfira esses registros antes.';
+    throw new ApiError(409, `Não é possível excluir: há histórico vinculado (${details}). ${advice}`);
+}
+
 function listRecords(resource, user) {
     let where = '';
     let params = [];
@@ -180,6 +221,7 @@ async function handleRecord(request, response, resource, id, user) {
     }
 
     if (request.method === 'DELETE') {
+        assertDeletable(resource.table, recordId);
         const result = database.prepare(
             `DELETE FROM ${resource.table} WHERE ${resource.id} = ?`
         ).run(recordId);

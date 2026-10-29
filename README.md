@@ -149,6 +149,15 @@ POST /api/matriculas
 {"matricula":"20260001","nome":"Nome do aluno","id_turma":1,"cpf_inicio":"1234"}
 ```
 
+Contas não são excluídas quando têm histórico (avisos, atividades, frequências, entregas): a API recusa a exclusão e a Gestão **desativa** a conta. A pessoa deixa de entrar e o histórico continua. Turmas e disciplinas com registros vinculados também não podem ser excluídas.
+
+```json
+POST /api/contas/ID_DO_USUARIO/situacao
+{"ativo": false}
+```
+
+A Gestão não pode desativar a própria conta nem a última conta ativa da gestão.
+
 Se o aluno esquecer a senha, a Gestão a redefine para a de primeiro acesso:
 
 ```json

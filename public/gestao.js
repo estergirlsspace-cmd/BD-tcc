@@ -447,7 +447,13 @@ function renderStudents() {
         status.append(statusBadge(student));
         row.append(status);
         const actions = document.createElement('td');
-        actions.append(button('Redefinir senha', 'small-button', () => showStudentReset(student, actions)));
+        if (student.ativo !== 0) {
+            actions.append(button('Redefinir senha', 'small-button', () => showStudentReset(student, actions)));
+        }
+        actions.append(activeToggle(student, student.nome, actions, async () => {
+            users = await api('/api/usuarios');
+            renderStudents();
+        }));
         row.append(actions);
         return row;
     }));
@@ -482,6 +488,33 @@ function showStudentReset(student, cell) {
     });
     cell.replaceChildren(form);
     input.focus();
+}
+
+/* ---------- Desativar / reativar contas ---------- */
+
+// Desativar mantém todo o histórico da pessoa; só impede o acesso ao sistema.
+function activeToggle(account, name, cell, refresh) {
+    const active = account.ativo !== 0;
+    const save = async (nextActive) => {
+        try {
+            const result = await api(`/api/contas/${account.id_usuario}/situacao`, {
+                method: 'POST',
+                body: JSON.stringify({ ativo: nextActive })
+            });
+            await refresh();
+            showSuccess(`${name}: ${result.mensagem}`);
+        } catch (error) {
+            showError(error.message);
+        }
+    };
+    if (!active) return button('Reativar', 'small-button', () => save(true));
+    return button('Desativar', 'small-button danger', () => {
+        const box = element('span', 'inline-form');
+        box.append(element('span', 'hint', 'A pessoa não consegue mais entrar. O histórico é mantido.'));
+        box.append(button('Confirmar', 'small-button danger', () => save(false)));
+        box.append(button('Cancelar', 'small-button', () => refresh()));
+        cell.replaceChildren(box);
+    });
 }
 
 /* ---------- Equipe ---------- */
@@ -565,7 +598,13 @@ function renderStaff() {
         row.append(status);
         const actions = document.createElement('td');
         if (member.id_usuario !== currentUser.id_usuario) {
-            actions.append(button('Gerar nova senha', 'small-button', () => confirmStaffReset(member, actions)));
+            if (member.ativo !== 0) {
+                actions.append(button('Gerar nova senha', 'small-button', () => confirmStaffReset(member, actions)));
+            }
+            actions.append(activeToggle(member, member.nome, actions, async () => {
+                users = await api('/api/usuarios');
+                renderStaff();
+            }));
         } else {
             actions.append(element('span', 'notice-audience', 'Você'));
         }

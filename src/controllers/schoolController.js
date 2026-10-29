@@ -269,6 +269,59 @@ async function resetStaffPassword(request, response, user, userId) {
     });
 }
 
+// Desativar mantém todo o histórico (avisos, atividades, frequências) e só impede o acesso.
+async function setAccountActive(request, response, user, userId) {
+    requireRole(user, ['gestao']);
+    const body = await readBody(request);
+    rejectUnknownFields(body, ['ativo']);
+    if (typeof body.ativo !== 'boolean') {
+        throw new ApiError(400, 'Informe "ativo" como verdadeiro ou falso.');
+    }
+    const account = database.prepare(
+        'SELECT id_usuario, login, tipo_usuario, ativo FROM usuarios WHERE id_usuario = ?'
+    ).get(userId);
+    if (!account) throw new ApiError(404, 'Conta não encontrada.');
+    if (!body.ativo) {
+        if (account.id_usuario === user.id_usuario) {
+            throw new ApiError(400, 'Você não pode desativar a sua própria conta.');
+        }
+        if (account.tipo_usuario === 'gestao') {
+            const otherManagers = database.prepare(`
+                SELECT COUNT(*) AS n FROM usuarios
+                WHERE tipo_usuario = 'gestao' AND ativo = 1 AND id_usuario != ?
+            `).get(account.id_usuario).n;
+            if (!otherManagers) {
+                throw new ApiError(409, 'Esta é a última conta ativa da gestão e não pode ser desativada.');
+            }
+        }
+    } else if (account.tipo_usuario === 'aluno' && database.prepare(`
+        SELECT 1 FROM usuarios
+        WHERE login = ? AND tipo_usuario = 'aluno' AND ativo = 1 AND id_usuario != ?
+    `).get(account.login, account.id_usuario)) {
+        throw new ApiError(409, 'Já existe outro aluno ativo com essa matrícula.');
+    }
+
+    database.exec('BEGIN IMMEDIATE');
+    try {
+        database.prepare('UPDATE usuarios SET ativo = ? WHERE id_usuario = ?')
+            .run(body.ativo ? 1 : 0, account.id_usuario);
+        if (!body.ativo) {
+            database.prepare('DELETE FROM sessoes WHERE id_usuario = ?').run(account.id_usuario);
+        }
+        database.exec('COMMIT');
+    } catch (error) {
+        database.exec('ROLLBACK');
+        throw error;
+    }
+    sendJson(response, 200, {
+        id_usuario: account.id_usuario,
+        ativo: body.ativo,
+        mensagem: body.ativo
+            ? 'Conta reativada.'
+            : 'Conta desativada. O histórico foi mantido e a pessoa não consegue mais entrar.'
+    });
+}
+
 async function changePassword(request, response, user) {
     const body = await readBody(request);
     rejectUnknownFields(body, ['senha_atual', 'nova_senha']);
@@ -854,6 +907,12 @@ async function handleSchoolRequest(request, response, user, parts, searchParams)
 
     if (parts[1] === 'matriculas' && parts.length === 2 && request.method === 'POST') {
         await enrollStudent(request, response, user);
+        return true;
+    }
+
+    if (parts[1] === 'contas' && parts.length === 4 && parts[3] === 'situacao'
+        && request.method === 'POST') {
+        await setAccountActive(request, response, user, getRecordId(parts[2]));
         return true;
     }
 
