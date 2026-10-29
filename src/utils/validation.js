@@ -99,6 +99,11 @@ function parseBody(body, resource, isCreate) {
             throw new ApiError(400, `O campo "${field}" deve ser um texto não vazio.`);
         }
 
+        if (field === 'area' && !['natureza', 'humanas', 'linguagens', 'matematica',
+            'informatica', 'redes'].includes(value)) {
+            throw new ApiError(400, 'Área inválida. Use natureza, humanas, linguagens, matematica, informatica ou redes.');
+        }
+
         const isIdField = field.startsWith('id_');
         if (isIdField && (!Number.isInteger(value) || value < 1)) {
             throw new ApiError(400, `O campo "${field}" deve ser um número inteiro positivo.`);

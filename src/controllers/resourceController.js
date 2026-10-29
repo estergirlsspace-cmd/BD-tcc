@@ -133,6 +133,8 @@ async function handleCollection(request, response, resource, user) {
             throw new ApiError(400, 'A matrícula deve vincular um usuário aluno a uma turma do mesmo curso.');
         }
     }
+    // Senha definida pela gestão é provisória: o usuário precisa trocá-la no primeiro acesso.
+    if (resource.table === 'usuarios') values.deve_trocar_senha = 1;
     const fields = Object.keys(values);
     const placeholders = fields.map(() => '?').join(', ');
     const result = database.prepare(
@@ -253,6 +255,10 @@ async function handleRecord(request, response, resource, id, user) {
             && (nextCourse !== profile.class_course || nextSeries !== profile.class_series)) {
             throw new ApiError(409, 'Rematricule o aluno antes de alterar o curso ou série da conta.');
         }
+    }
+    if (resource.table === 'usuarios' && values.senha !== undefined
+        && recordId !== user.id_usuario) {
+        values.deve_trocar_senha = 1;
     }
     if (resource.table === 'turmas'
         && (values.curso !== undefined || values.serie !== undefined)) {

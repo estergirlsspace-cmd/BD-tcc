@@ -3,10 +3,9 @@ const passwordInput = document.querySelector('#password');
 const togglePasswordButton = document.querySelector('#toggle-password');
 const message = document.querySelector('#form-message');
 const submitButton = document.querySelector('#submit-button');
-const studentOptions = document.querySelector('#student-options');
-const teacherOptions = document.querySelector('#teacher-options');
-const selectionSummary = document.querySelector('#selection-summary');
-const selectionValue = document.querySelector('#selection-value');
+const loginInput = document.querySelector('#login-id');
+const loginLabel = document.querySelector('#login-label');
+const staffAccessHint = document.querySelector('#staff-access-hint');
 const welcomePanel = document.querySelector('#welcome-panel');
 const welcomeTitle = document.querySelector('#welcome-title');
 const welcomeDetails = document.querySelector('#welcome-details');
@@ -16,7 +15,6 @@ const logoutButton = document.querySelector('#logout-button');
 const changePasswordToggle = document.querySelector('#change-password-toggle');
 const passwordChangeForm = document.querySelector('#password-change-form');
 const passwordChangeMessage = document.querySelector('#password-change-message');
-const matriculaInput = document.querySelector('#matricula');
 const firstAccessHint = document.querySelector('#first-access-hint');
 const firstAccessForm = document.querySelector('#first-access-form');
 const firstAccessMessage = document.querySelector('#first-access-message');
@@ -24,7 +22,6 @@ const firstAccessButton = document.querySelector('#first-access-button');
 
 const state = {
     role: 'aluno',
-    area: 'natureza',
     token: null,
     pendingLogin: null
 };
@@ -39,34 +36,6 @@ const courseNames = {
     redes: 'Redes de Computadores',
     informatica: 'Informática'
 };
-
-const areaNames = {
-    natureza: 'Área de Natureza',
-    humanas: 'Área de Humanas',
-    linguagens: 'Área de Linguagens',
-    matematica: 'Área de Matemática',
-    informatica: 'Base Técnica - Informática',
-    redes: 'Base Técnica - Redes'
-};
-
-function updateSelectionSummary() {
-    const hideSummary = state.role !== 'professor';
-    selectionSummary.hidden = hideSummary;
-    selectionSummary.classList.toggle('is-hidden', hideSummary);
-
-    if (state.role === 'professor') {
-        selectionSummary.querySelector('span[aria-hidden="true"]').textContent = '👩‍🏫';
-        selectionValue.textContent = areaNames[state.area];
-    }
-}
-
-function selectExclusive(button, selector) {
-    document.querySelectorAll(selector).forEach((option) => {
-        const selected = option === button;
-        option.classList.toggle('is-selected', selected);
-        option.setAttribute('aria-pressed', String(selected));
-    });
-}
 
 function clearMessage() {
     message.textContent = '';
@@ -83,23 +52,14 @@ document.querySelectorAll('[data-role]').forEach((button) => {
         });
 
         const isStudent = state.role === 'aluno';
-        const isTeacher = state.role === 'professor';
-        studentOptions.hidden = !isStudent;
-        studentOptions.classList.toggle('is-hidden', !isStudent);
-        matriculaInput.required = isStudent;
+        loginLabel.textContent = isStudent ? 'Matrícula' : 'Usuário';
+        loginInput.placeholder = isStudent
+            ? 'Digite o número da sua matrícula'
+            : 'Digite seu usuário';
+        loginInput.inputMode = isStudent ? 'numeric' : 'text';
         firstAccessHint.hidden = !isStudent;
-        teacherOptions.hidden = !isTeacher;
-        teacherOptions.classList.toggle('is-hidden', !isTeacher);
+        staffAccessHint.hidden = isStudent;
         clearMessage();
-        updateSelectionSummary();
-    });
-});
-
-document.querySelectorAll('[data-area]').forEach((button) => {
-    button.addEventListener('click', () => {
-        state.area = button.dataset.area;
-        selectExclusive(button, '[data-area]');
-        updateSelectionSummary();
     });
 });
 
@@ -118,7 +78,7 @@ function showWelcome(user) {
             ? user.nome_turma || (user.serie
                 ? `${seriesNames[user.serie]} — ${courseNames[user.curso]}`
                 : 'Conta aguardando matrícula')
-            : areaNames[state.area];
+            : user.area || 'Professor';
 
     welcomeTitle.textContent = 'Bem-vindo(a)';
     welcomeDetails.textContent = user.conta_compartilhada
@@ -143,12 +103,7 @@ form.addEventListener('submit', async (event) => {
     submitButton.textContent = 'Entrando...';
 
     const typedPassword = passwordInput.value;
-    const payload = {
-        login: state.role === 'aluno'
-            ? matriculaInput.value.trim()
-            : state.role === 'professor' ? 'professor' : 'gestao',
-        senha: typedPassword
-    };
+    const payload = { login: loginInput.value.trim(), senha: typedPassword };
 
     try {
         const response = await fetch('/api/auth/login', {
@@ -189,7 +144,6 @@ function enterPortal(usuario) {
     }
     if (usuario.tipo_usuario === 'professor') {
         sessionStorage.setItem('cwarning-token', state.token);
-        sessionStorage.setItem('cwarning-professor-area', state.area);
         window.location.assign('/professor');
         return;
     }
@@ -317,4 +271,3 @@ logoutButton.addEventListener('click', async () => {
     passwordInput.focus();
 });
 
-updateSelectionSummary();

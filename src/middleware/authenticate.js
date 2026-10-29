@@ -15,7 +15,7 @@ function authenticate(request) {
     const session = database.prepare(`
         SELECT s.token_hash, s.curso AS curso_sessao, s.expira_em,
                u.id_usuario, u.login, u.tipo_usuario, u.curso, u.serie,
-               u.deve_trocar_senha, a.id_aluno, a.nome, a.id_turma, t.serie AS turma_serie, t.nome_turma,
+               u.deve_trocar_senha, a.id_aluno, COALESCE(a.nome, p.nome) AS nome, p.area, a.id_turma, t.serie AS turma_serie, t.nome_turma,
                p.id_professor
         FROM sessoes s
         JOIN usuarios u ON u.id_usuario = s.id_usuario
@@ -37,6 +37,7 @@ function authenticate(request) {
         conta_compartilhada: isSharedStudentLogin(session.login),
         deve_trocar_senha: session.deve_trocar_senha === 1,
         nome: session.nome,
+        area: session.area,
         curso: session.curso,
         serie: session.turma_serie || session.serie,
         id_aluno: session.id_aluno,

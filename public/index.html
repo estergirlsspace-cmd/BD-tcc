@@ -27,38 +27,12 @@
             </div>
 
             <form class="login-form" id="login-form">
-                <label class="field-group" for="matricula" id="student-options">
-                    <span class="field-label">Matrícula</span>
-                    <input class="text-input" id="matricula" name="matricula" type="text"
-                        inputmode="numeric" autocomplete="username" pattern="[0-9]{3,20}"
-                        placeholder="Digite o número da sua matrícula" required>
+                <label class="field-group" for="login-id" id="login-field">
+                    <span class="field-label" id="login-label">Matrícula</span>
+                    <input class="text-input" id="login-id" name="username" type="text"
+                        inputmode="numeric" autocomplete="username" autocapitalize="none"
+                        spellcheck="false" placeholder="Digite o número da sua matrícula" required>
                 </label>
-
-                <section class="selection-panel is-hidden" id="teacher-options"
-                    aria-label="Área de atuação do professor" hidden>
-                    <div class="field-group">
-                        <span class="field-label">Área de atuação</span>
-                        <div class="option-grid teacher-areas" role="group" aria-label="Área de atuação">
-                            <button class="option-button is-selected" type="button"
-                                aria-pressed="true" data-area="natureza">🌿 Natureza</button>
-                            <button class="option-button" type="button"
-                                aria-pressed="false" data-area="humanas">🌎 Humanas</button>
-                            <button class="option-button" type="button"
-                                aria-pressed="false" data-area="linguagens">📚 Linguagens</button>
-                            <button class="option-button" type="button"
-                                aria-pressed="false" data-area="matematica">➗ Matemática</button>
-                            <button class="option-button" type="button"
-                                aria-pressed="false" data-area="informatica">💻 Base Técnica - Informática</button>
-                            <button class="option-button" type="button"
-                                aria-pressed="false" data-area="redes">📡 Base Técnica - Redes</button>
-                        </div>
-                    </div>
-                </section>
-
-                <p class="selection-summary" id="selection-summary">
-                    <span aria-hidden="true">🎓</span>
-                    <span>Turma: <strong id="selection-value"></strong></span>
-                </p>
 
                 <label class="field-group password-group" for="password">
                     <span class="field-label">Senha</span>
@@ -72,6 +46,9 @@
 
                 <p class="field-hint" id="first-access-hint">
                     Primeiro acesso? Use <strong>ceep@</strong> seguido dos 4 primeiros números do seu CPF.
+                </p>
+                <p class="field-hint" id="staff-access-hint" hidden>
+                    Primeiro acesso? Use a senha provisória entregue pela gestão.
                 </p>
 
                 <p class="form-message" id="form-message" role="status" aria-live="polite"></p>

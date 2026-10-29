@@ -1,6 +1,7 @@
 const database = require('../database');
 const { ApiError } = require('../errors');
 const { readBody, sendJson } = require('../utils/http');
+const { randomInt } = require('node:crypto');
 const { hashPassword, verifyPassword } = require('../utils/password');
 
 function requireRole(user, roles) {
@@ -66,6 +67,7 @@ function getProfile(request, response, user) {
         login: user.conta_compartilhada ? null : user.login,
         tipo_usuario: user.tipo_usuario,
         nome: user.nome,
+        area: user.area,
         conta_compartilhada: user.conta_compartilhada,
         deve_trocar_senha: user.deve_trocar_senha,
         curso: user.curso,
@@ -165,6 +167,100 @@ async function resetStudentPassword(request, response, user, studentId) {
     }
     sendJson(response, 200, {
         mensagem: 'Senha redefinida. No próximo acesso o aluno deverá criar uma nova senha.'
+    });
+}
+
+const STAFF_LOGIN_PATTERN = /^[a-z0-9][a-z0-9._-]{2,49}$/i;
+const TEACHER_AREAS = ['natureza', 'humanas', 'linguagens', 'matematica', 'informatica', 'redes'];
+// Sem caracteres ambíguos (0/O, 1/l/I) para facilitar a digitação da senha provisória.
+const PROVISIONAL_ALPHABET = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+function provisionalPassword() {
+    return Array.from({ length: 10 },
+        () => PROVISIONAL_ALPHABET[randomInt(PROVISIONAL_ALPHABET.length)]).join('');
+}
+
+async function createStaffMember(request, response, user) {
+    requireRole(user, ['gestao']);
+    const body = await readBody(request);
+    rejectUnknownFields(body, ['login', 'tipo_usuario', 'nome', 'area']);
+    requireFields(body, ['login', 'tipo_usuario', 'nome']);
+    if (typeof body.login !== 'string' || !STAFF_LOGIN_PATTERN.test(body.login.trim())) {
+        throw new ApiError(400,
+            'O usuário deve ter de 3 a 50 caracteres: letras, números, ponto, hífen ou sublinhado.');
+    }
+    if (!['professor', 'gestao'].includes(body.tipo_usuario)) {
+        throw new ApiError(400, 'O tipo deve ser "professor" ou "gestao".');
+    }
+    if (typeof body.nome !== 'string' || !body.nome.trim() || body.nome.length > 150) {
+        throw new ApiError(400, 'Informe o nome com até 150 caracteres.');
+    }
+    if (body.tipo_usuario === 'professor' && !TEACHER_AREAS.includes(body.area)) {
+        throw new ApiError(400, `Informe a área do professor: ${TEACHER_AREAS.join(', ')}.`);
+    }
+    if (body.tipo_usuario === 'gestao' && body.area !== undefined) {
+        throw new ApiError(400, 'A área só se aplica a professores.');
+    }
+    const login = body.login.trim();
+    if (database.prepare('SELECT 1 FROM usuarios WHERE login = ?').get(login)) {
+        throw new ApiError(409, 'Já existe um usuário com esse login.');
+    }
+
+    const password = provisionalPassword();
+    database.exec('BEGIN IMMEDIATE');
+    try {
+        const userId = Number(database.prepare(`
+            INSERT INTO usuarios (login, senha, tipo_usuario, ativo, deve_trocar_senha)
+            VALUES (?, ?, ?, 1, 1)
+        `).run(login, hashPassword(password), body.tipo_usuario).lastInsertRowid);
+        let teacherId = null;
+        if (body.tipo_usuario === 'professor') {
+            teacherId = Number(database.prepare(
+                'INSERT INTO professores (id_usuario, nome, area) VALUES (?, ?, ?)'
+            ).run(userId, body.nome.trim(), body.area).lastInsertRowid);
+        }
+        database.exec('COMMIT');
+        sendJson(response, 201, {
+            id_usuario: userId,
+            id_professor: teacherId,
+            login,
+            nome: body.nome.trim(),
+            tipo_usuario: body.tipo_usuario,
+            area: body.area ?? null,
+            senha_provisoria: password,
+            aviso: 'Entregue esta senha à pessoa. Ela não será exibida de novo e deve ser trocada no primeiro acesso.'
+        });
+    } catch (error) {
+        database.exec('ROLLBACK');
+        throw error;
+    }
+}
+
+async function resetStaffPassword(request, response, user, userId) {
+    requireRole(user, ['gestao']);
+    const staff = database.prepare(`
+        SELECT id_usuario FROM usuarios
+        WHERE id_usuario = ? AND tipo_usuario IN ('professor', 'gestao')
+    `).get(userId);
+    if (!staff) throw new ApiError(404, 'Professor ou membro da gestão não encontrado.');
+    if (staff.id_usuario === user.id_usuario) {
+        throw new ApiError(400, 'Para trocar a sua própria senha, use "Alterar senha".');
+    }
+    const password = provisionalPassword();
+    database.exec('BEGIN IMMEDIATE');
+    try {
+        database.prepare(`
+            UPDATE usuarios SET senha = ?, deve_trocar_senha = 1 WHERE id_usuario = ?
+        `).run(hashPassword(password), staff.id_usuario);
+        database.prepare('DELETE FROM sessoes WHERE id_usuario = ?').run(staff.id_usuario);
+        database.exec('COMMIT');
+    } catch (error) {
+        database.exec('ROLLBACK');
+        throw error;
+    }
+    sendJson(response, 200, {
+        senha_provisoria: password,
+        aviso: 'Entregue esta senha à pessoa. Ela deve ser trocada no primeiro acesso.'
     });
 }
 
@@ -751,6 +847,17 @@ async function handleSchoolRequest(request, response, user, parts, searchParams)
 
     if (parts[1] === 'matriculas' && parts.length === 2 && request.method === 'POST') {
         await enrollStudent(request, response, user);
+        return true;
+    }
+
+    if (parts[1] === 'equipe' && parts.length === 2 && request.method === 'POST') {
+        await createStaffMember(request, response, user);
+        return true;
+    }
+
+    if (parts[1] === 'equipe' && parts.length === 4 && parts[3] === 'senha'
+        && request.method === 'POST') {
+        await resetStaffPassword(request, response, user, getRecordId(parts[2]));
         return true;
     }
 

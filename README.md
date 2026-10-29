@@ -59,7 +59,16 @@ data/
 
 ## Contas iniciais
 
-As contas de professor e Gestão usam os logins `professor` e `gestao`. Atualize as senhas:
+Professores e membros da Gestão entram com **usuário próprio** (ex.: matrícula de servidor ou `nome.sobrenome`; não use CPF). A Gestão cria cada conta e o sistema gera uma **senha provisória**, exibida uma única vez, que deve ser trocada no primeiro acesso:
+
+```json
+POST /api/equipe
+{"login":"maria.souza","tipo_usuario":"professor","nome":"Maria Souza","area":"humanas"}
+```
+
+Áreas de professor: `natureza`, `humanas`, `linguagens`, `matematica`, `informatica`, `redes`. A área define o tema do portal do professor. Para gerar uma nova senha provisória, use `POST /api/equipe/ID_DO_USUARIO/senha`.
+
+As contas antigas `professor` e `gestao` continuam existindo. Para definir as senhas delas:
 
 ```powershell
 $env:PROFESSOR_SENHA = Read-Host "Senha de professor"
@@ -84,7 +93,7 @@ Para gerar dados de exemplo (turmas, disciplinas, horários, 36 alunos, atividad
 
 ## Autenticação
 
-`POST /api/auth/login` recebe `login` (matrícula do aluno ou usuário de professor/Gestão) e `senha`:
+`POST /api/auth/login` recebe `login` (matrícula do aluno ou usuário de professor/Gestão) e `senha`. Na tela, as abas Aluno, Professor e Gestão só mudam o rótulo do campo (Matrícula ou Usuário):
 
 ```json
 { "login": "20260001", "senha": "SUA_SENHA" }

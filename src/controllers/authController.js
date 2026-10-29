@@ -72,7 +72,7 @@ async function handleLogin(request, response) {
 
     const user = database.prepare(`
         SELECT u.id_usuario, u.login, u.senha, u.tipo_usuario, u.curso, u.serie,
-               u.deve_trocar_senha, a.id_aluno, a.nome, a.id_turma,
+               u.deve_trocar_senha, a.id_aluno, COALESCE(a.nome, p.nome) AS nome, p.area, a.id_turma,
                t.serie AS turma_serie, t.nome_turma, p.id_professor
         FROM usuarios u
         LEFT JOIN alunos a ON a.id_usuario = u.id_usuario
@@ -107,6 +107,7 @@ async function handleLogin(request, response) {
             id_usuario: user.id_usuario,
             login: user.login,
             nome: user.nome,
+            area: user.area,
             tipo_usuario: user.tipo_usuario,
             conta_compartilhada: false,
             deve_trocar_senha: user.deve_trocar_senha === 1,

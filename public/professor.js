@@ -65,14 +65,14 @@ async function api(path, options = {}) {
 
 async function initializePortal() {
     currentUser = await api('/api/me');
-    if (currentUser.tipo_usuario !== 'professor') {
+    if (currentUser.tipo_usuario !== 'professor' || currentUser.deve_trocar_senha) {
         sessionStorage.removeItem('cwarning-token');
         window.location.replace('/');
         return;
     }
 
-    document.querySelector('#teacher-login').textContent = currentUser.login || 'Professor';
-    const [areaName, theme] = teacherAreas[sessionStorage.getItem('cwarning-professor-area')]
+    document.querySelector('#teacher-login').textContent = currentUser.nome || currentUser.login;
+    const [areaName, theme] = teacherAreas[currentUser.area]
         || ['Área docente', 'theme-natureza'];
     document.querySelector('#teacher-area').textContent = areaName;
     document.body.classList.add(theme);

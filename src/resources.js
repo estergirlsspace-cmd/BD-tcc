@@ -15,7 +15,7 @@ const resources = {
     professores: {
         table: 'professores',
         id: 'id_professor',
-        fields: ['id_usuario', 'id_disciplina'],
+        fields: ['id_usuario', 'id_disciplina', 'nome', 'area'],
         required: ['id_usuario']
     },
     turmas: {
