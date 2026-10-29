@@ -4,7 +4,8 @@ FROM node:24-alpine
 WORKDIR /app
 COPY . .
 
-# O banco fica no volume /data. Na primeira execução, ele é criado a partir de data/educacao.sqlite.
+# O banco fica no volume /data e nunca vem do repositório. Num volume vazio, as tabelas são
+# criadas na inicialização e a primeira conta da gestão vem de ADMIN_LOGIN/ADMIN_SENHA.
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=3000 \
@@ -14,4 +15,4 @@ RUN mkdir -p /data && chown node:node /data
 USER node
 EXPOSE 3000
 
-CMD ["sh", "-c", "[ -f \"$DATA_DIR/educacao.sqlite\" ] || cp data/educacao.sqlite \"$DATA_DIR/educacao.sqlite\"; exec node server.js"]
+CMD ["node", "server.js"]

@@ -218,4 +218,19 @@ database.exec(`
 `);
 database.exec('PRAGMA foreign_keys = ON');
 
+// Instalação nova (banco vazio): cria a primeira conta da gestão a partir de variáveis de
+// ambiente. A senha é provisória e precisa ser trocada no primeiro acesso.
+const hasManager = database.prepare(
+    "SELECT 1 FROM usuarios WHERE tipo_usuario = 'gestao' AND ativo = 1"
+).get();
+if (!hasManager && process.env.ADMIN_LOGIN && process.env.ADMIN_SENHA) {
+    const { hashPasswordSync } = require('./utils/password');
+    database.prepare(`
+        INSERT INTO usuarios (login, nome, senha, tipo_usuario, ativo, deve_trocar_senha)
+        VALUES (?, ?, ?, 'gestao', 1, 1)
+    `).run(process.env.ADMIN_LOGIN.trim(), process.env.ADMIN_NOME || 'Gestão',
+        hashPasswordSync(process.env.ADMIN_SENHA));
+    console.log(`Conta inicial da gestão criada: ${process.env.ADMIN_LOGIN.trim()}`);
+}
+
 module.exports = database;

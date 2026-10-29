@@ -1,7 +1,8 @@
-// Cadastra turmas, disciplinas, horários, alunos, atividades, avisos e frequências de exemplo.
+// Cria um banco de exemplo: contas de gestão e professor, turmas, disciplinas, horários, alunos,
+// atividades, avisos e frequências. Rode com o banco vazio (data/educacao.sqlite inexistente).
 // Cada aluno recebe matrícula e um "início de CPF" fictício; a senha inicial é ceep@ + esses
-// 4 dígitos e precisa ser trocada no primeiro acesso. A lista sai em data/alunos-exemplo.csv
-// (fora do git), para testes.
+// 4 dígitos e precisa ser trocada no primeiro acesso. Logins e senhas de teste saem em
+// data/contas-exemplo.csv e data/alunos-exemplo.csv (fora do git).
 // Uso: node scripts/seed-exemplo.js
 const { randomInt } = require('node:crypto');
 const { writeFileSync } = require('node:fs');
@@ -33,13 +34,41 @@ function isoDate(offsetDays) {
     return date.toISOString().slice(0, 10);
 }
 
-const professor = database.prepare(`
-    SELECT p.id_professor, u.id_usuario FROM professores p
-    JOIN usuarios u ON u.id_usuario = p.id_usuario
-    WHERE u.login = 'lucas.professor'
-`).get();
-const gestao = database.prepare("SELECT id_usuario FROM usuarios WHERE login = 'lucas'").get();
-if (!professor || !gestao) throw new Error('Crie antes os usuários lucas e lucas.professor.');
+if (database.prepare('SELECT 1 FROM turmas LIMIT 1').get()) {
+    throw new Error('O banco já tem turmas. Rode este script só com um banco vazio.');
+}
+
+function randomPassword() {
+    const alphabet = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    return Array.from({ length: 10 }, () => alphabet[randomInt(alphabet.length)]).join('');
+}
+
+// Contas de teste da equipe (sem troca obrigatória de senha, para agilizar os testes).
+function ensureStaff(login, type, name, area) {
+    const password = randomPassword();
+    let account = database.prepare('SELECT id_usuario FROM usuarios WHERE login = ?').get(login);
+    if (account) {
+        database.prepare('UPDATE usuarios SET senha = ?, ativo = 1, deve_trocar_senha = 0 WHERE id_usuario = ?')
+            .run(hashPassword(password), account.id_usuario);
+    } else {
+        account = { id_usuario: Number(database.prepare(`
+            INSERT INTO usuarios (login, nome, senha, tipo_usuario, ativo, deve_trocar_senha)
+            VALUES (?, ?, ?, ?, 1, 0)
+        `).run(login, name, hashPassword(password), type).lastInsertRowid) };
+    }
+    let teacherId = null;
+    if (type === 'professor') {
+        const teacher = database.prepare('SELECT id_professor FROM professores WHERE id_usuario = ?')
+            .get(account.id_usuario);
+        teacherId = teacher?.id_professor ?? Number(database.prepare(
+            'INSERT INTO professores (id_usuario, nome, area) VALUES (?, ?, ?)'
+        ).run(account.id_usuario, name, area).lastInsertRowid);
+    }
+    return { login, password, id_usuario: account.id_usuario, id_professor: teacherId };
+}
+
+const gestao = ensureStaff('gestao.exemplo', 'gestao', 'Gestão (exemplo)');
+const professor = ensureStaff('professor.exemplo', 'professor', 'Professor(a) de exemplo', 'informatica');
 
 let studentIndex = 0;
 const studentList = [['matricula', 'nome', 'turma', 'senha_inicial']];
@@ -128,6 +157,11 @@ try {
     throw error;
 }
 
-writeFileSync(path.join(__dirname, '..', 'data', 'alunos-exemplo.csv'),
+// As listas ficam na mesma pasta do banco (DATA_DIR), nunca no repositório.
+const outputDirectory = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
+writeFileSync(path.join(outputDirectory, 'contas-exemplo.csv'),
+    `perfil;login;senha\ngestao;${gestao.login};${gestao.password}\nprofessor;${professor.login};${professor.password}\n`,
+    { mode: 0o600 });
+writeFileSync(path.join(outputDirectory, 'alunos-exemplo.csv'),
     `${studentList.map((row) => row.join(';')).join('\n')}\n`, { mode: 0o600 });
 console.log(`Exemplo criado: 6 turmas, 24 disciplinas, ${studentIndex} alunos.`);

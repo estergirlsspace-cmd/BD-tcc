@@ -16,7 +16,12 @@ $env:PORT = "3000"
 node .\server.js
 ```
 
-O banco persistente está em `data\educacao.sqlite`. Ele e as migrações são criados automaticamente sem apagar dados existentes. Faça cópias de segurança periódicas desse arquivo e pare o servidor antes de copiá-lo.
+O banco persistente fica em `data/educacao.sqlite` (ou na pasta definida em `DATA_DIR`). **Ele nunca vai para o git**, porque guarda dados pessoais de alunos (LGPD). Tabelas e migrações são criadas automaticamente na inicialização, sem apagar dados existentes. Faça cópias de segurança periódicas desse arquivo e pare o servidor antes de copiá-lo.
+
+Para começar com um banco vazio, há dois caminhos:
+
+- **Dados de exemplo (desenvolvimento):** `node scripts/seed-exemplo.js` cria contas de teste da gestão e de professor, 6 turmas e 36 alunos fictícios. Os logins e senhas de teste ficam em `contas-exemplo.csv` e `alunos-exemplo.csv`, na mesma pasta do banco e fora do git.
+- **Instalação real:** defina `ADMIN_LOGIN`, `ADMIN_SENHA` e, se quiser, `ADMIN_NOME`. Se não houver nenhuma conta da gestão, essa conta é criada com senha provisória, que precisa ser trocada no primeiro acesso. O resto (turmas, professores, alunos) é cadastrado pelo portal da gestão.
 
 Para acessar a partir de outro computador, use o endereço de rede local mostrado ao iniciar o servidor e confirme que o Firewall do Windows permite conexões de entrada na porta configurada. O endereço da máquina pode mudar ao reconectar à rede. Este servidor deve ser usado somente em rede confiável; para acesso pela internet, configure HTTPS e um proxy reverso.
 
@@ -54,7 +59,7 @@ public/
   professor.css
   professor.js
 data/
-  educacao.sqlite
+  educacao.sqlite   (gerado localmente; fora do git)
 ```
 
 ## Contas iniciais
@@ -89,7 +94,7 @@ Cada aluno tem conta própria:
 
 O acesso compartilhado por curso e série foi desativado.
 
-Para gerar dados de exemplo (turmas, disciplinas, horários, 36 alunos, atividades, avisos e frequência), rode `node scripts/seed-exemplo.js`. A lista de matrículas e senhas iniciais de teste sai em `data/alunos-exemplo.csv`, fora do git.
+Para gerar dados de exemplo (turmas, disciplinas, horários, 36 alunos, atividades, avisos e frequência), rode `node scripts/seed-exemplo.js` com o banco vazio. As listas de logins e senhas de teste saem em `contas-exemplo.csv` e `alunos-exemplo.csv`, junto do banco e fora do git.
 
 ## Autenticação
 
