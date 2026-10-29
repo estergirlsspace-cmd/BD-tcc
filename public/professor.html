@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#b58a2a">
+    <title>Portal do Professor | C-Warning</title>
+    <link rel="stylesheet" href="/professor.css">
+    <script src="/professor.js" defer></script>
+</head>
+<body>
+    <div class="portal-layout">
+        <aside class="sidebar">
+            <a class="brand" href="/professor" aria-label="C-Warning, início">
+                <span class="brand-icon" aria-hidden="true">👩‍🏫</span>
+                <span><strong>C-Warning</strong><small>Portal do Professor</small></span>
+            </a>
+
+            <p class="sidebar-label">Menu principal</p>
+            <nav class="nav-list" aria-label="Navegação do portal">
+                <button class="nav-button active" type="button" data-page="comunicados">
+                    <span aria-hidden="true">📢</span> Comunicados
+                </button>
+                <button class="nav-button" type="button" data-page="salvos">
+                    <span aria-hidden="true">🔖</span> Salvos
+                </button>
+                <button class="nav-button" type="button" data-page="horario">
+                    <span aria-hidden="true">🗓️</span> Horário
+                </button>
+                <button class="nav-button" type="button" data-page="turmas">
+                    <span aria-hidden="true">🏫</span> Minhas turmas
+                </button>
+                <button class="nav-button" type="button" data-page="recebidos">
+                    <span aria-hidden="true">📨</span> Comunicados recebidos
+                </button>
+            </nav>
+
+            <div class="sidebar-bottom">
+                <div class="teacher-card">
+                    <span class="teacher-avatar" aria-hidden="true">P</span>
+                    <span><strong id="teacher-login">Professor</strong><small id="teacher-area">Área docente</small></span>
+                </div>
+                <button class="logout-button" id="logout-button" type="button">Sair do portal</button>
+            </div>
+        </aside>
+
+        <main class="main-area">
+            <header class="topbar">
+                <div>
+                    <p class="eyebrow">CEEP Lourdinha Guerra</p>
+                    <h1 id="topbar-title">Comunicados</h1>
+                    <p id="topbar-description">Publique informações para as turmas vinculadas ao seu perfil.</p>
+                </div>
+                <span class="cohort-badge">Portal do Professor</span>
+            </header>
+
+            <div class="container">
+                <p class="status-message" id="status-message" role="status" aria-live="polite"></p>
+                <p class="assignment-notice" id="assignment-notice" hidden>
+                    Seu perfil ainda não está vinculado a disciplinas e turmas. Peça à Gestão para associar
+                    seu cadastro às disciplinas; depois disso, elas aparecerão aqui para publicar avisos.
+                </p>
+
+                <section class="tab-content active" id="page-comunicados">
+                    <div class="welcome-card">
+                        <h2>Organize seus comunicados</h2>
+                        <p>As publicações ficam associadas à sua conta e só podem ser direcionadas às turmas vinculadas ao seu perfil.</p>
+                    </div>
+
+                    <section class="content-card">
+                        <h2>Criar novo comunicado</h2>
+                        <p class="muted">Selecione uma disciplina vinculada; a turma de destino é definida pelo cadastro escolar.</p>
+                        <form class="notice-form" id="notice-form">
+                            <label>
+                                Disciplina e turma
+                                <select id="notice-discipline" required>
+                                    <option value="">Carregando disciplinas...</option>
+                                </select>
+                            </label>
+                            <label>
+                                Título
+                                <input id="notice-title" type="text" maxlength="200" placeholder="Ex.: Avaliação da disciplina" required>
+                            </label>
+                            <label>
+                                Mensagem
+                                <textarea id="notice-content" maxlength="10000" rows="5" placeholder="Escreva as informações para a turma..." required></textarea>
+                            </label>
+                            <div class="form-row">
+                                <label>
+                                    Tipo
+                                    <select id="notice-type">
+                                        <option value="aviso">Aviso</option>
+                                        <option value="evento">Evento</option>
+                                        <option value="atividade">Atividade</option>
+                                        <option value="avaliacao">Avaliação</option>
+                                        <option value="comunicado">Comunicado</option>
+                                    </select>
+                                </label>
+                                <label>
+                                    Data do evento <span class="optional">(opcional)</span>
+                                    <input id="notice-date" type="datetime-local">
+                                </label>
+                            </div>
+                            <button class="primary-button" id="publish-button" type="submit">Publicar comunicado</button>
+                        </form>
+                    </section>
+
+                    <section class="content-card">
+                        <h2>Publicações disponíveis</h2>
+                        <p class="muted">Consulte publicações suas e comunicados destinados às suas turmas.</p>
+                        <label class="search-field">
+                            <span class="visually-hidden">Buscar comunicado</span>
+                            <input id="notice-search" type="search" placeholder="Buscar comunicado">
+                        </label>
+                        <div class="filter-row" aria-label="Filtrar comunicados">
+                            <button class="filter-button active" type="button" data-filter="todos">Todos</button>
+                            <button class="filter-button" type="button" data-filter="aviso">Avisos</button>
+                            <button class="filter-button" type="button" data-filter="evento">Eventos</button>
+                            <button class="filter-button" type="button" data-filter="atividade">Atividades</button>
+                            <button class="filter-button" type="button" data-filter="avaliacao">Avaliações</button>
+                        </div>
+                        <div id="notice-list" class="notice-list" aria-live="polite"></div>
+                    </section>
+                </section>
+
+                <section class="tab-content" id="page-salvos" hidden>
+                    <div class="page-heading">
+                        <h2>Comunicados salvos</h2>
+                        <p>Organize referências neste navegador em pastas de sua preferência.</p>
+                    </div>
+                    <section class="content-card">
+                        <form class="saved-toolbar" id="folder-form">
+                            <label class="visually-hidden" for="folder-name">Nome da pasta</label>
+                            <input id="folder-name" type="text" maxlength="50" placeholder="Nome da nova pasta" required>
+                            <button class="secondary-button" type="submit">Criar pasta</button>
+                            <label class="visually-hidden" for="saved-folder-select">Pasta selecionada</label>
+                            <select id="saved-folder-select"></select>
+                        </form>
+                        <div id="saved-list" class="notice-list"></div>
+                    </section>
+                </section>
+
+                <section class="tab-content" id="page-horario" hidden>
+                    <div class="page-heading">
+                        <h2>Horário dos professores</h2>
+                        <p>Horários cadastrados para as turmas e disciplinas vinculadas ao seu perfil.</p>
+                    </div>
+                    <section class="content-card">
+                        <div id="schedule-list" class="schedule-list" aria-live="polite"></div>
+                    </section>
+                </section>
+
+                <section class="tab-content" id="page-turmas" hidden>
+                    <div class="page-heading">
+                        <h2>Minhas turmas e disciplinas</h2>
+                        <p>Vínculos cadastrados pela Gestão escolar.</p>
+                    </div>
+                    <section class="content-card">
+                        <div id="class-list" class="class-list" aria-live="polite"></div>
+                    </section>
+                </section>
+
+                <section class="tab-content" id="page-recebidos" hidden>
+                    <div class="page-heading">
+                        <h2>Comunicados recebidos</h2>
+                        <p>Informações da escola destinadas às turmas vinculadas ao seu perfil.</p>
+                    </div>
+                    <section class="content-card">
+                        <div id="received-list" class="notice-list" aria-live="polite"></div>
+                    </section>
+                </section>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

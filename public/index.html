@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#2584bd">
+    <title>C-Warning | CEEP Lourdinha Guerra</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+</head>
+<body>
+    <main class="page-shell">
+        <section class="login-card" aria-labelledby="page-title">
+            <header class="brand">
+                <div class="brand-icon" aria-hidden="true">👩‍🏫</div>
+                <h1 id="page-title">C-Warning</h1>
+                <p>CEEP Lourdinha Guerra</p>
+            </header>
+
+            <div class="role-tabs" role="tablist" aria-label="Tipo de acesso">
+                <button class="role-tab is-selected" id="role-aluno" type="button"
+                    role="tab" aria-selected="true" data-role="aluno">Aluno</button>
+                <button class="role-tab" id="role-professor" type="button"
+                    role="tab" aria-selected="false" data-role="professor">Professor</button>
+                <button class="role-tab" id="role-gestao" type="button"
+                    role="tab" aria-selected="false" data-role="gestao">Gestão</button>
+            </div>
+
+            <form class="login-form" id="login-form">
+                <section class="selection-panel" id="student-options" aria-label="Dados do aluno">
+                    <div class="field-group">
+                        <span class="field-label">Série</span>
+                        <div class="option-grid series-options" role="group" aria-label="Série">
+                            <button class="option-button is-selected" type="button"
+                                aria-pressed="true" data-series="1">1ª Série</button>
+                            <button class="option-button" type="button"
+                                aria-pressed="false" data-series="2">2ª Série</button>
+                            <button class="option-button" type="button"
+                                aria-pressed="false" data-series="3">3ª Série</button>
+                        </div>
+                    </div>
+
+                    <div class="field-group">
+                        <span class="field-label">Curso</span>
+                        <div class="option-grid course-options" role="group" aria-label="Curso">
+                            <button class="option-button" type="button"
+                                aria-pressed="false" data-course="redes">📡 Redes</button>
+                            <button class="option-button is-selected" type="button"
+                                aria-pressed="true" data-course="informatica">💻 Informática</button>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="selection-panel is-hidden" id="teacher-options"
+                    aria-label="Área de atuação do professor" hidden>
+                    <div class="field-group">
+                        <span class="field-label">Área de atuação</span>
+                        <div class="option-grid teacher-areas" role="group" aria-label="Área de atuação">
+                            <button class="option-button is-selected" type="button"
+                                aria-pressed="true" data-area="natureza">🌿 Natureza</button>
+                            <button class="option-button" type="button"
+                                aria-pressed="false" data-area="humanas">🌎 Humanas</button>
+                            <button class="option-button" type="button"
+                                aria-pressed="false" data-area="linguagens">📚 Linguagens</button>
+                            <button class="option-button" type="button"
+                                aria-pressed="false" data-area="matematica">➗ Matemática</button>
+                            <button class="option-button" type="button"
+                                aria-pressed="false" data-area="informatica">💻 Base Técnica - Informática</button>
+                            <button class="option-button" type="button"
+                                aria-pressed="false" data-area="redes">📡 Base Técnica - Redes</button>
+                        </div>
+                    </div>
+                </section>
+
+                <p class="selection-summary" id="selection-summary">
+                    <span aria-hidden="true">🎓</span>
+                    <span>Turma: <strong id="selection-value"></strong></span>
+                </p>
+
+                <label class="field-group password-group" for="password">
+                    <span class="field-label">Senha</span>
+                    <span class="password-control">
+                        <input id="password" name="password" type="password"
+                            placeholder="Digite a senha" autocomplete="current-password" required>
+                        <button class="visibility-button" id="toggle-password" type="button"
+                            aria-label="Mostrar senha" aria-pressed="false">👁</button>
+                    </span>
+                </label>
+
+                <p class="form-message" id="form-message" role="status" aria-live="polite"></p>
+                <button class="submit-button" id="submit-button" type="submit">Entrar</button>
+            </form>
+
+            <section class="welcome-panel is-hidden" id="welcome-panel" aria-live="polite" hidden>
+                <div class="welcome-icon" aria-hidden="true">✓</div>
+                <h2 id="welcome-title">Acesso realizado</h2>
+                <p id="welcome-details"></p>
+                <p class="form-message shared-account-notice" id="shared-account-notice" hidden>
+                    Este acesso é compartilhado por toda a turma. A alteração de senha vale para todos;
+                    entregas, notas e frequência não podem ser identificadas individualmente por esta conta.
+                </p>
+                <button class="text-button" id="change-password-toggle" type="button">
+                    Alterar senha
+                </button>
+                <form class="password-change-form is-hidden" id="password-change-form" hidden>
+                    <label class="field-group" for="current-password">
+                        <span class="field-label">Senha atual</span>
+                        <input class="text-input" id="current-password" type="password"
+                            autocomplete="current-password" required>
+                    </label>
+                    <label class="field-group" for="new-password">
+                        <span class="field-label">Nova senha</span>
+                        <input class="text-input" id="new-password" type="password"
+                            minlength="8" autocomplete="new-password" required>
+                    </label>
+                    <p class="form-message" id="password-change-message" role="status"
+                        aria-live="polite"></p>
+                    <button class="submit-button" type="submit">Salvar nova senha</button>
+                </form>
+                <p class="form-message" id="logout-message" role="status" aria-live="polite"></p>
+                <button class="submit-button" id="logout-button" type="button">Sair</button>
+            </section>
+        </section>
+        <footer class="page-footer">CEEP Lourdinha Guerra <span aria-hidden="true">·</span> C-Warning</footer>
+    </main>
+</body>
+</html>

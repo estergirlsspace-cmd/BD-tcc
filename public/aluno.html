@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#6f8eaf">
+    <title>Portal do Aluno | C-Warning</title>
+    <link rel="stylesheet" href="/aluno.css">
+    <script src="/aluno.js" defer></script>
+</head>
+<body>
+    <div class="portal-layout">
+        <aside class="sidebar">
+            <a class="brand" href="/aluno" aria-label="C-Warning, início">
+                <span class="brand-icon" aria-hidden="true">🎓</span>
+                <span><strong>C-Warning</strong><small>Portal do Aluno</small></span>
+            </a>
+
+            <p class="sidebar-label">Menu principal</p>
+            <nav class="nav-list" aria-label="Navegação do portal">
+                <button class="nav-button active" type="button" data-page="comunicados">
+                    <span aria-hidden="true">📢</span> Comunicados
+                </button>
+                <button class="nav-button" type="button" data-page="lourdinha">
+                    <span aria-hidden="true">💬</span> Lourdinha
+                </button>
+                <button class="nav-button" type="button" data-page="perfil">
+                    <span aria-hidden="true">👤</span> Meu perfil
+                </button>
+                <button class="nav-button" type="button" data-page="salvos">
+                    <span aria-hidden="true">🔖</span> Salvos
+                </button>
+            </nav>
+
+            <div class="sidebar-bottom">
+                <div class="student-card">
+                    <span class="student-avatar" aria-hidden="true">A</span>
+                    <span><strong>Acesso compartilhado</strong><small id="sidebar-course">Carregando turma...</small></span>
+                </div>
+                <button class="logout-button" id="logout-button" type="button">Sair da conta</button>
+            </div>
+        </aside>
+
+        <main class="main-area">
+            <header class="topbar">
+                <div>
+                    <p class="eyebrow">CEEP Lourdinha Guerra</p>
+                    <h1 id="topbar-title">Comunicados</h1>
+                    <p id="topbar-description">Avisos destinados ao seu curso e à sua série.</p>
+                </div>
+                <span class="cohort-badge" id="cohort-badge">Turma</span>
+            </header>
+
+            <div class="container">
+                <p class="shared-notice">
+                    Este acesso é compartilhado por curso e série. Ele não identifica alunos individualmente
+                    para entregas, notas ou frequência.
+                </p>
+                <p class="status-message" id="status-message" role="status" aria-live="polite"></p>
+
+                <section class="tab-content active" id="page-comunicados">
+                    <div class="welcome-card">
+                        <h2 id="welcome-heading">Bem-vindo(a)!</h2>
+                        <p>Confira os comunicados publicados para a sua turma.</p>
+                    </div>
+                    <section class="content-card">
+                        <h2>Comunicados da turma</h2>
+                        <p class="muted">Os avisos são carregados do sistema escolar e filtrados pelo curso e série do seu acesso.</p>
+                        <label class="search-field">
+                            <span class="visually-hidden">Buscar comunicado</span>
+                            <input id="notice-search" type="search" placeholder="Buscar comunicado">
+                        </label>
+                        <div class="filter-row" id="notice-filters" aria-label="Filtrar comunicados">
+                            <button class="filter-button active" type="button" data-filter="todos">Todos</button>
+                            <button class="filter-button" type="button" data-filter="aviso">Avisos</button>
+                            <button class="filter-button" type="button" data-filter="evento">Eventos</button>
+                            <button class="filter-button" type="button" data-filter="atividade">Atividades</button>
+                            <button class="filter-button" type="button" data-filter="avaliacao">Avaliações</button>
+                        </div>
+                        <div id="notice-list" class="notice-list" aria-live="polite"></div>
+                    </section>
+                </section>
+
+                <section class="tab-content" id="page-lourdinha" hidden>
+                    <div class="page-heading">
+                        <h2>Lourdinha</h2>
+                        <p>Assistente virtual do CEEP</p>
+                    </div>
+                    <section class="chat-card">
+                        <div class="chat-header"><span aria-hidden="true">💬</span><div><strong>Lourdinha</strong><small>Assistente escolar</small></div></div>
+                        <div class="chat-messages" id="chat-messages" aria-live="polite">
+                            <p class="chat-bubble assistant">Olá! Posso ajudar com informações gerais do portal. Para horários, provas e avisos específicos, confira a aba Comunicados ou procure a escola.</p>
+                        </div>
+                        <form class="chat-form" id="chat-form">
+                            <label class="visually-hidden" for="chat-input">Mensagem para Lourdinha</label>
+                            <input id="chat-input" type="text" maxlength="500" placeholder="Digite sua pergunta..." autocomplete="off">
+                            <button type="submit">Enviar</button>
+                        </form>
+                    </section>
+                </section>
+
+                <section class="tab-content" id="page-perfil" hidden>
+                    <div class="page-heading"><h2>Meu perfil</h2><p>Dados do acesso à turma</p></div>
+                    <section class="content-card profile-card">
+                        <div class="profile-avatar" aria-hidden="true">A</div>
+                        <dl>
+                            <div><dt>Perfil</dt><dd>Aluno — acesso compartilhado</dd></div>
+                            <div><dt>Curso</dt><dd id="profile-course">—</dd></div>
+                            <div><dt>Série</dt><dd id="profile-series">—</dd></div>
+                        </dl>
+                    </section>
+                    <section class="content-card">
+                        <h2>Horários</h2>
+                        <p class="muted">Os horários cadastrados para a turma aparecem aqui.</p>
+                        <div id="schedule-list" class="schedule-list"></div>
+                    </section>
+                    <section class="content-card password-card">
+                        <h2>Alterar senha da turma</h2>
+                        <p class="muted">A nova senha será compartilhada por todos que acessam este curso e esta série.</p>
+                        <form id="password-form" class="password-form">
+                            <label>Senha atual<input id="current-password" type="password" autocomplete="current-password" required></label>
+                            <label>Nova senha<input id="new-password" type="password" minlength="8" autocomplete="new-password" required></label>
+                            <button type="submit">Salvar senha</button>
+                        </form>
+                    </section>
+                </section>
+
+                <section class="tab-content" id="page-salvos" hidden>
+                    <div class="page-heading"><h2>Comunicados salvos</h2><p>Guarde avisos para consultar novamente neste navegador.</p></div>
+                    <section class="content-card">
+                        <div class="saved-toolbar">
+                            <label class="search-field"><span class="visually-hidden">Nome da pasta</span><input id="folder-name" type="text" maxlength="50" placeholder="Nome da nova pasta"></label>
+                            <button class="secondary-button" id="create-folder" type="button">Criar pasta</button>
+                        </div>
+                        <label class="saved-folder-label" for="saved-folder-select">Pasta</label>
+                        <select id="saved-folder-select"></select>
+                        <div id="saved-list" class="notice-list"></div>
+                    </section>
+                </section>
+            </div>
+        </main>
+    </div>
+</body>
+</html>
