@@ -84,7 +84,8 @@ async function initializePortal() {
     setupSearch();
     setupSavedFolders();
     document.querySelector('#notice-form').addEventListener('submit', publishNotice);
-    document.querySelector('#logout-button').addEventListener('click', logout);
+    document.querySelectorAll('#logout-button, [data-logout]')
+        .forEach((button) => button.addEventListener('click', logout));
 
     const [classResult, disciplineResult, noticeResult, scheduleResult] = await Promise.all([
         loadResource('/api/turmas', 'Não foi possível carregar as turmas.'),

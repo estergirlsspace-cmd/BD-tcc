@@ -78,7 +78,8 @@ async function initializePortal() {
     setupFolders();
     setupChat();
     setupPasswordChange();
-    document.querySelector('#logout-button').addEventListener('click', logout);
+    document.querySelectorAll('#logout-button, [data-logout]')
+        .forEach((button) => button.addEventListener('click', logout));
     await Promise.all([
         loadNotices().catch((error) => showError(error.message)),
         loadSchedule()

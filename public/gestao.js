@@ -85,7 +85,8 @@ async function initializePortal() {
     setupStaff();
     setupClasses();
     setupPasswordForm();
-    document.querySelector('#logout-button').addEventListener('click', logout);
+    document.querySelectorAll('#logout-button, [data-logout]')
+        .forEach((logoutButton) => logoutButton.addEventListener('click', logout));
 
     await reloadAll();
 }

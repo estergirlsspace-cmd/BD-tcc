@@ -6,6 +6,7 @@
     <meta name="theme-color" content="#6f8eaf">
     <title>Portal do Aluno | C-Warning</title>
     <link rel="stylesheet" href="/aluno.css">
+    <link rel="stylesheet" href="/navegacao.css">
     <script src="/datas.js" defer></script>
     <script src="/aluno.js" defer></script>
 </head>
@@ -20,16 +21,19 @@
             <p class="sidebar-label">Menu principal</p>
             <nav class="nav-list" aria-label="Navegação do portal">
                 <button class="nav-button active" type="button" data-page="comunicados">
-                    <span aria-hidden="true">📢</span> Comunicados
+                    <span class="nav-icon" aria-hidden="true">📢</span> <span class="nav-text">Comunicados</span><span class="nav-short" aria-hidden="true">Avisos</span>
                 </button>
                 <button class="nav-button" type="button" data-page="lourdinha">
-                    <span aria-hidden="true">💬</span> Lourdinha
+                    <span class="nav-icon" aria-hidden="true">💬</span> <span class="nav-text">Lourdinha</span>
                 </button>
                 <button class="nav-button" type="button" data-page="perfil">
-                    <span aria-hidden="true">👤</span> Meu perfil
+                    <span class="nav-icon" aria-hidden="true">👤</span> <span class="nav-text">Meu perfil</span><span class="nav-short" aria-hidden="true">Perfil</span>
                 </button>
                 <button class="nav-button" type="button" data-page="salvos">
-                    <span aria-hidden="true">🔖</span> Salvos
+                    <span class="nav-icon" aria-hidden="true">🔖</span> <span class="nav-text">Salvos</span>
+                </button>
+                <button class="nav-button nav-logout" type="button" data-logout>
+                    <span class="nav-icon" aria-hidden="true">🚪</span> <span class="nav-text">Sair</span>
                 </button>
             </nav>
 

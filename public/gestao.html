@@ -7,6 +7,7 @@
     <title>Portal da Gestão | C-Warning</title>
     <link rel="stylesheet" href="/professor.css">
     <link rel="stylesheet" href="/gestao.css">
+    <link rel="stylesheet" href="/navegacao.css">
     <script src="/datas.js" defer></script>
     <script src="/gestao.js" defer></script>
 </head>
@@ -21,19 +22,22 @@
             <p class="sidebar-label">Menu principal</p>
             <nav class="nav-list" aria-label="Navegação do portal">
                 <button class="nav-button active" type="button" data-page="comunicados" aria-current="page">
-                    <span aria-hidden="true">📢</span> Comunicados
+                    <span class="nav-icon" aria-hidden="true">📢</span> <span class="nav-text">Comunicados</span><span class="nav-short" aria-hidden="true">Avisos</span>
                 </button>
                 <button class="nav-button" type="button" data-page="alunos">
-                    <span aria-hidden="true">🎓</span> Alunos
+                    <span class="nav-icon" aria-hidden="true">🎓</span> <span class="nav-text">Alunos</span>
                 </button>
                 <button class="nav-button" type="button" data-page="equipe">
-                    <span aria-hidden="true">👥</span> Equipe
+                    <span class="nav-icon" aria-hidden="true">👥</span> <span class="nav-text">Equipe</span>
                 </button>
                 <button class="nav-button" type="button" data-page="turmas">
-                    <span aria-hidden="true">🏫</span> Turmas e disciplinas
+                    <span class="nav-icon" aria-hidden="true">🏫</span> <span class="nav-text">Turmas e disciplinas</span><span class="nav-short" aria-hidden="true">Turmas</span>
                 </button>
                 <button class="nav-button" type="button" data-page="conta">
-                    <span aria-hidden="true">🔑</span> Minha conta
+                    <span class="nav-icon" aria-hidden="true">🔑</span> <span class="nav-text">Minha conta</span><span class="nav-short" aria-hidden="true">Conta</span>
+                </button>
+                <button class="nav-button nav-logout" type="button" data-logout>
+                    <span class="nav-icon" aria-hidden="true">🚪</span> <span class="nav-text">Sair</span>
                 </button>
             </nav>
 
