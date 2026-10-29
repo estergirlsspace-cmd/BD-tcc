@@ -292,7 +292,7 @@ ambiente: `RESEND_API_KEY` (sem ela os envios só aparecem no log como “simula
 
 ## Testes automatizados
 
-`npm test` (ou `node --test --test-concurrency=1 "tests/**/*.test.js"`) roda 130 testes em cerca de 45 s, sem rede e sem dependências: cada domínio sobe o servidor numa porta livre com um banco novo gerado por `scripts/seed-exemplo.js` em diretório temporário (o banco real nunca é tocado). Cobrem autenticação e limites, permissões entre perfis e turmas, mural, avisos, anexos, justificativas, ocorrências, chamada, mensagens, conta, relatórios, validação de entradas e os utilitários de data, calendário, CSV e senha. O servidor de teste roda com `TRUST_PROXY=1` e cabeçalhos iguais aos da produção (Cloudflare → Traefik).
+`npm test` (ou `node --test --test-concurrency=1 "tests/**/*.test.js"`) roda 147 testes em cerca de 50 s, sem rede e sem dependências: cada domínio sobe o servidor numa porta livre com um banco novo gerado por `scripts/seed-exemplo.js` em diretório temporário (o banco real nunca é tocado). Cobrem autenticação e limites, permissões entre perfis e turmas, mural, avisos, anexos, horários em PDF, pastas e salvos, importação por planilha, justificativas, ocorrências, chamada, mensagens, conta, relatórios, validação de entradas e os utilitários de data, calendário, CSV e senha. O servidor de teste roda com `TRUST_PROXY=1` e cabeçalhos iguais aos da produção (Cloudflare → Traefik).
 
 ## Regras de segurança e dados
 
@@ -358,3 +358,40 @@ node scripts/restaurar-backup.js educacao-2026-10-28.sqlite --confirmar
 A pasta de dados vem de `DATA_DIR` (ou `--dir <pasta>`). O script confere a integridade do backup escolhido e só substitui o banco com `--confirmar`. Antes, guarda o banco atual como `educacao.antes-restauracao-<data>.sqlite` na mesma pasta (apague essas cópias depois de conferir que está tudo certo — elas também contêm dados pessoais).
 
 **Pendência: cópia externa.** Os backups ficam no mesmo volume da VPS; protegem contra erro humano e corrupção do arquivo, mas **não** contra perda do servidor ou do disco. Recomenda-se copiar `DATA_DIR/backups/` periodicamente para fora da VPS (ex.: armazenamento de objetos com criptografia, ou o backup de volumes do próprio Dokploy), com acesso restrito, por conter dados pessoais (LGPD). Isso ainda não está implementado.
+
+## Sprint 4 — horários em PDF, pastas de salvos e importação por planilha
+
+Contrato completo em `docs/sprint-4-contrato.md`.
+
+**Horários em PDF** (`/api/horarios-pdf`). A gestão envia o PDF por `POST /api/arquivos` e o publica com
+`PUT /api/horarios-pdf/turma/:id_turma` ou `PUT /api/horarios-pdf/professores` (`{ "id_arquivo": n }`; só PDF
+enviado pela própria pessoa; publicar de novo substitui o anterior). `DELETE` nas mesmas rotas remove.
+`GET /api/horarios-pdf` devolve ao aluno `{ turma }`, ao professor `{ professores, turmas }` (só as turmas em que
+leciona) e à gestão `{ professores, turmas }` (todas as publicadas); cada item tem `id_horario_pdf`, `publico`,
+`id_turma`, `nome_turma`, `arquivo { id_arquivo, nome, tamanho }` e `atualizado_em`. O download continua em
+`GET /api/arquivos/:id`: horário da turma → alunos da turma, professores dela e gestão; horário dos professores →
+professores e gestão. Arquivo vinculado a horário não é órfão; o PDF substituído sai na limpeza diária (24 h).
+Auditoria: `horario.publicar` e `horario.remover`.
+
+**Pastas e salvos** (aluno, professor e gestão). `GET/POST /api/pastas`, `PATCH/DELETE /api/pastas/:id` (nome de
+1 a 40 caracteres, único por pessoa sem diferenciar maiúsculas, até 30 pastas; excluir a pasta mantém os avisos
+salvos, sem pasta). `GET /api/salvos[?id_pasta=n | ?sem_pasta=1]`, `PUT /api/salvos/:id_post { "id_pasta": n|null }`
+(salva ou move, mantendo a data em que foi salvo) e `DELETE /api/salvos/:id_post`. Só avisos visíveis à pessoa (mesma
+regra do mural/listagem); fora disso, 404. O mural do aluno traz `id_pasta` em cada aviso; desmarcar o salvo pelo
+mural também tira o aviso da pasta.
+
+**Importação de alunos** (`POST /api/matriculas/importar[?simular=1]`, só gestão). Corpo CSV (`Content-Type:
+text/csv`), até 1 MB e 2.000 linhas, UTF-8 com ou sem BOM, separador `;`, `,` ou tab. Colunas: `matricula`, `nome`,
+`turma` (nome como cadastrado; acentos, maiúsculas, `ª`/`a` e tipo de traço não importam), `cpf` (4 primeiros dígitos
+ou CPF inteiro, com ou sem pontuação) e `email` (opcional). Modelo em `/modelos/alunos.csv`. Resposta
+`{ total, validos, erros: [{ linha, campo, mensagem }], alunos: [{ linha, matricula, nome, turma }] }`: com
+`simular=1` nada é gravado (200); sem ele, qualquer erro → 400 com o relatório, e sem erros todos entram numa única
+transação → 201 com `importados`. Regras iguais às da matrícula individual (senha inicial `ceep@` + 4 primeiros
+dígitos do CPF, troca obrigatória no primeiro acesso, e-mail como confirmação pendente — enviados em segundo plano,
+um a cada 0,55 s). Uma importação por vez (429 se houver outra em andamento). O CPF só é usado para calcular a senha:
+nunca é gravado, devolvido, registrado em log nem citado em mensagens ("CPF inválido na linha N"). Células são sempre
+texto (uma fórmula como `=SOMA(...)` não é avaliada). Auditoria `aluno.importar` com alvo `lote:<n>`.
+
+Para gerar o CSV: no Excel, *Arquivo → Salvar como → CSV UTF-8 (delimitado por vírgulas)*; no Google Planilhas,
+*Arquivo → Fazer download → Valores separados por vírgula (.csv)*. Formate as colunas `matricula` e `cpf` como
+**texto** antes de digitar, para a planilha não remover zeros à esquerda nem converter em notação científica.

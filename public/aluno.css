@@ -1,6 +1,114 @@
-/* Portal do Aluno (C·Warning). Tokens em /tema.css (--cw-*).
-   Web: rail 76px + subnavegação 248px + topo 68px + conteúdo.
-   Celular (< 900px): topo compacto, chips de subseção e abas inferiores fixas. */
+/* Portal do Aluno (C·Warning). Tokens base em /tema.css (--cw-*), redefinidos abaixo com a
+   identidade do protótipo da equipe ("Códigos Interface"): azul-marinho #0B192C + vermelho
+   #DC2626, cartões arredondados (16/24px), sombras leves e fonte Figtree (no lugar da Inter).
+   Web: rail escuro 88px + subnavegação 248px + topo 68px + conteúdo em coluna central.
+   Celular (< 900px): topo azul-marinho com marca, sino e avatar; abas inferiores com o
+   botão central (Avisos) destacado em vermelho. */
+
+/* Tema do aluno. Contrastes (WCAG 2.x) calculados sobre --cw-superficie salvo indicação:
+   claro  texto 14,6 · texto-2 7,6 · texto-suave 5,4 (5,2 sobre o fundo) · link 10,9 ·
+          vermelho-texto 6,5 · borda-campo 4,8 · branco/navy 17,7 · branco/crimson 4,8
+   escuro texto 14,7 · texto-2 10,8 · texto-suave 7,5 · link 8,5 · vermelho-texto 7,6 ·
+          borda-campo 4,5 · branco/botão 6,8 · branco/crimson 4,8 */
+body.portal-aluno {
+    --cw-navy: #0B192C;          /* cabeçalho, rail, cartão de destaque */
+    --cw-navy-2: #1E3E62;        /* gradiente do destaque */
+    --cw-navy-texto: #FFFFFF;    /* 17,7:1 sobre --cw-navy */
+    --cw-navy-suave: #CBD5E1;    /* 11,9:1 sobre --cw-navy */
+    --cw-navy-apagado: #94A3B8;  /* 6,9:1 sobre --cw-navy (itens inativos do rail) */
+    --cw-indigo: #0B192C;        /* botão principal (branco 17,7:1) */
+    --cw-indigo-hover: #1E3E62;
+    --cw-indigo-escuro: #030712;
+    --cw-azul: #1E3E62;          /* barras, ponto de não lido (branco 10,9:1) */
+    --cw-azul-suave: #F0F4F8;
+    --cw-vermelho: #DC2626;      /* faixa urgente, botão central (branco 4,8:1) */
+    --cw-vermelho-hover: #B91C1C;
+    --cw-vermelho-suave: #FFE4E6;
+    --cw-fundo: #F8FAFC;
+    --cw-superficie: #FFFFFF;
+    --cw-borda: #E2E8F0;
+    --cw-borda-campo: #64748B;   /* 4,8:1 (>= 3:1, WCAG 1.4.11) */
+    --cw-texto: #1E293B;
+    --cw-texto-2: #475569;
+    --cw-texto-suave: #5B6B80;
+    --cw-chip: #F1F5F9;
+    --cw-texto-marca: #0B192C;
+    --cw-link: #1E3E62;
+    --cw-vermelho-texto: #B91C1C; /* 6,5:1 sobre branco, 5,4:1 sobre --cw-vermelho-suave */
+    --cw-anel-foco: #0B192C;     /* âmbar sobre ele 8,5:1 */
+    --cw-fonte: 'Figtree', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --cw-fonte-titulo: var(--cw-fonte);
+    --cw-raio: 16px;
+    --cw-raio-sm: 12px;
+    --cw-raio-lg: 24px;
+    --cw-sombra-sm: 0 1px 2px rgba(15, 23, 42, .06), 0 1px 3px rgba(15, 23, 42, .04);
+    --cw-sombra: 0 4px 12px -2px rgba(15, 23, 42, .10), 0 2px 4px -2px rgba(15, 23, 42, .06);
+    --cw-sombra-destaque: 0 18px 32px -14px rgba(11, 25, 44, .55);
+    --cw-sombra-vermelha: 0 10px 22px -10px rgba(220, 38, 38, .55);
+    color-scheme: light;
+}
+
+:root[data-tema="escuro"] body.portal-aluno {
+    --cw-navy: #0A1424;
+    --cw-navy-2: #1E3E62;
+    --cw-navy-suave: #CBD5E1;
+    --cw-navy-apagado: #9AACC3;  /* 8,0:1 sobre --cw-navy */
+    --cw-indigo: #2F5C93;        /* branco 6,8:1 */
+    --cw-indigo-hover: #3A6BA8;
+    --cw-indigo-escuro: #030712;
+    --cw-azul: #3D6CA8;          /* branco 5,4:1; 3,2:1 sobre a superfície */
+    --cw-azul-suave: #172E4D;
+    --cw-vermelho-suave: #3A1219;
+    --cw-fundo: #050B16;
+    --cw-superficie: #0E1B2E;
+    --cw-borda: #233752;
+    --cw-borda-campo: #6E84A3;
+    --cw-texto: #E6EDF6;
+    --cw-texto-2: #C2CEDD;
+    --cw-texto-suave: #9AACC3;
+    --cw-chip: #182A42;
+    --cw-texto-marca: #DCE6F3;
+    --cw-link: #93B8EC;
+    --cw-vermelho-texto: #FF8A8A;
+    --cw-anel-foco: #E6EDF6;
+    --cw-sombra-sm: 0 1px 2px rgba(0, 0, 0, .4);
+    --cw-sombra: 0 6px 16px -4px rgba(0, 0, 0, .6);
+    --cw-sombra-destaque: 0 18px 32px -14px rgba(0, 0, 0, .8);
+    --cw-sombra-vermelha: 0 10px 22px -10px rgba(220, 38, 38, .45);
+    color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root[data-tema="auto"] body.portal-aluno {
+        --cw-navy: #0A1424;
+        --cw-navy-2: #1E3E62;
+        --cw-navy-suave: #CBD5E1;
+        --cw-navy-apagado: #9AACC3;
+        --cw-indigo: #2F5C93;
+        --cw-indigo-hover: #3A6BA8;
+        --cw-indigo-escuro: #030712;
+        --cw-azul: #3D6CA8;
+        --cw-azul-suave: #172E4D;
+        --cw-vermelho-suave: #3A1219;
+        --cw-fundo: #050B16;
+        --cw-superficie: #0E1B2E;
+        --cw-borda: #233752;
+        --cw-borda-campo: #6E84A3;
+        --cw-texto: #E6EDF6;
+        --cw-texto-2: #C2CEDD;
+        --cw-texto-suave: #9AACC3;
+        --cw-chip: #182A42;
+        --cw-texto-marca: #DCE6F3;
+        --cw-link: #93B8EC;
+        --cw-vermelho-texto: #FF8A8A;
+        --cw-anel-foco: #E6EDF6;
+        --cw-sombra-sm: 0 1px 2px rgba(0, 0, 0, .4);
+        --cw-sombra: 0 6px 16px -4px rgba(0, 0, 0, .6);
+        --cw-sombra-destaque: 0 18px 32px -14px rgba(0, 0, 0, .8);
+        --cw-sombra-vermelha: 0 10px 22px -10px rgba(220, 38, 38, .45);
+        color-scheme: dark;
+    }
+}
 
 html,
 body {
@@ -80,10 +188,10 @@ i.ph-fill {
     flex-shrink: 0;
     align-items: center;
     gap: 6px;
-    width: 76px;
+    width: 88px;
     padding: 20px 0 16px;
-    border-right: 1px solid var(--cw-borda);
-    background: var(--cw-superficie);
+    background: var(--cw-navy);
+    color: var(--cw-navy-texto, #FFFFFF);
 }
 
 .rail-marca {
@@ -91,18 +199,27 @@ i.ph-fill {
     align-items: center;
     justify-content: center;
     width: 48px;
-    height: 44px;
-    margin-bottom: 14px;
+    height: 48px;
+    margin-bottom: 18px;
     border-radius: var(--cw-raio-sm);
-    font-size: 30px;
-    line-height: 1;
 }
 
-.rail-marca .cw-marca__ponto {
-    width: 6px;
-    height: 6px;
-    margin-left: 2px;
-    box-shadow: 0 0 0 1.5px var(--cw-superficie);
+/* Marca do protótipo: quadrado vermelho com "C" branco (4,8:1). */
+.logo-c {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: 1px solid rgba(255, 255, 255, .2);
+    border-radius: var(--cw-raio-sm);
+    background: var(--cw-vermelho);
+    box-shadow: var(--cw-sombra-vermelha);
+    color: #FFFFFF;
+    font-size: 19px;
+    font-weight: 800;
+    line-height: 1;
 }
 
 .rail-lista {
@@ -117,29 +234,38 @@ i.ph-fill {
     align-items: center;
     justify-content: center;
     gap: 4px;
-    width: 62px;
-    height: 56px;
-    border-radius: 14px;
-    color: var(--cw-texto-suave);
+    position: relative;
+    width: 72px;
+    height: 60px;
+    border-radius: var(--cw-raio);
+    color: var(--cw-navy-apagado);
 }
 
 .rail-item:hover {
-    background: var(--cw-fundo);
+    background: rgba(255, 255, 255, .06);
+    color: #FFFFFF;
 }
 
 .rail-item.ativo {
-    background: var(--cw-chip);
-    color: var(--cw-texto);
+    background: rgba(255, 255, 255, .12);
+    color: #FFFFFF;
+}
+
+.rail-item.ativo::before {
+    content: "";
+    position: absolute;
+    top: 14px;
+    bottom: 14px;
+    left: -8px;
+    width: 4px;
+    border-radius: 0 4px 4px 0;
+    background: var(--cw-vermelho);
 }
 
 .rail-icone {
     position: relative;
     display: flex;
     font-size: 22px;
-}
-
-.rail-item.ativo .rail-icone {
-    color: var(--cw-link);
 }
 
 .rail-rotulo {
@@ -152,9 +278,9 @@ i.ph-fill {
     position: absolute;
     top: -2px;
     right: -4px;
-    width: 9px;
-    height: 9px;
-    border: 2px solid var(--cw-superficie);
+    width: 10px;
+    height: 10px;
+    border: 2px solid var(--cw-navy);
     border-radius: 50%;
     background: var(--cw-vermelho);
 }
@@ -168,6 +294,7 @@ i.ph-fill {
 }
 
 .rail-avatar,
+.topo-avatar,
 .avatar {
     display: flex;
     flex-shrink: 0;
@@ -180,6 +307,16 @@ i.ph-fill {
     color: var(--cw-texto);
     font-size: 13px;
     font-weight: 800;
+}
+
+/* Avatar do protótipo: quadrado arredondado claro com iniciais em azul-marinho (17,7:1). */
+.rail-avatar,
+.topo-avatar {
+    border: 2px solid rgba(255, 255, 255, .3);
+    border-radius: var(--cw-raio-sm);
+    background: linear-gradient(45deg, #E2E8F0, #FFFFFF);
+    color: #0B192C;
+    font-weight: 900;
 }
 
 .rail-sair,
@@ -198,7 +335,15 @@ i.ph-fill {
     cursor: pointer;
 }
 
-.rail-sair:hover,
+.rail-sair {
+    color: var(--cw-navy-apagado);
+}
+
+.rail-sair:hover {
+    background: rgba(255, 255, 255, .08);
+    color: #FFFFFF;
+}
+
 .botao-icone:hover {
     background: var(--cw-fundo);
     color: var(--cw-texto);
@@ -650,7 +795,6 @@ i.ph-fill {
 }
 
 .chip-categoria,
-.chip-tipo,
 .chip-status {
     display: flex;
     flex-shrink: 0;
@@ -1161,94 +1305,6 @@ i.ph-fill {
     border: 1px solid currentColor;
     background: transparent;
     color: #FFFFFF;
-}
-
-/* ------------------------------------------------------------ Agenda */
-
-.agenda {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.agenda-dia {
-    display: grid;
-    grid-template-columns: 96px minmax(0, 1fr);
-    gap: 16px;
-}
-
-.agenda-data {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    align-self: start;
-    gap: 3px;
-    padding: 9px 0;
-    border: 1px solid var(--cw-borda);
-    border-radius: 14px;
-    background: var(--cw-superficie);
-    color: var(--cw-texto);
-    font-weight: 400;
-}
-
-.agenda-data.hoje {
-    border: 1.5px solid var(--cw-azul);
-    color: var(--cw-link);
-}
-
-.agenda-sem {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 1px;
-}
-
-.agenda-num {
-    font-family: var(--cw-fonte-titulo);
-    font-size: 26px;
-    font-weight: 700;
-    line-height: 1;
-}
-
-.agenda-extra {
-    font-size: 11px;
-}
-
-.agenda-itens {
-    display: flex;
-    flex-direction: column;
-    padding: 4px 18px;
-    border-radius: 14px;
-}
-
-.agenda-item {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    min-height: 48px;
-    padding: 7px 0;
-    border-top: 1px solid var(--cw-borda);
-}
-
-.agenda-item:first-child {
-    border-top: 0;
-}
-
-.chip-tipo {
-    width: 30px;
-    height: 30px;
-    border-radius: 8px;
-    font-size: 16px;
-}
-
-.link-discreto:hover {
-    color: var(--cw-link);
-    text-decoration: underline;
-}
-
-.tipo-prova,
-.tipo-entrega {
-    background: var(--cw-azul-suave);
-    color: var(--cw-link);
 }
 
 /* ------------------------------------------------------------ Atividades */
@@ -2668,42 +2724,6 @@ input[type='file']:focus-visible + .zona-anexo {
         display: none;
     }
 
-    /* Agenda */
-    .agenda-dia {
-        grid-template-columns: minmax(0, 1fr);
-        gap: 8px;
-    }
-
-    .agenda-data {
-        flex-direction: row;
-        align-self: stretch;
-        justify-content: flex-start;
-        gap: 8px;
-        padding: 0 4px;
-        border: 0;
-        background: transparent;
-    }
-
-    .agenda-data.hoje {
-        border: 0;
-    }
-
-    .agenda-num {
-        font-size: 18px;
-    }
-
-    .agenda-itens {
-        padding: 2px 14px;
-    }
-
-    .agenda-item {
-        gap: 10px;
-    }
-
-    .agenda-item .chip-tipo {
-        display: none;
-    }
-
     /* Atividades */
     .cartao-atividade {
         display: grid;
@@ -2902,5 +2922,940 @@ input[type='file']:focus-visible + .zona-anexo {
 
     .mensagens-host .cwm {
         min-height: 0;
+    }
+}
+
+/* ------------------------------------------------------------ Sprint 4: atalhos, horário, pastas */
+
+.atalhos-topo ul {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.cartao-atalho {
+    gap: 8px;
+    height: 100%;
+    padding: 16px 18px;
+}
+
+.atalho-linha {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.atalho-valor {
+    font-family: var(--cw-fonte-titulo);
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -1px;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+.atalho-rotulo {
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.atalho-alerta .icone-quadrado {
+    background: var(--cw-vermelho-suave);
+    color: var(--cw-vermelho-texto);
+}
+
+.atalho-alerta .atalho-valor {
+    color: var(--cw-vermelho-texto);
+}
+
+.coluna-inicio {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+.horario-arquivo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-top: 8px;
+}
+
+.horario-arquivo .botao {
+    flex-shrink: 0;
+}
+
+.cartao-horario .estado-vazio {
+    padding: 12px 0;
+}
+
+.barra-pastas {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 16px;
+}
+
+.filtro-pastas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.pasta-filtro {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 0 14px;
+    border: 1px solid var(--cw-borda);
+    border-radius: 22px;
+    background: var(--cw-superficie);
+    color: var(--cw-texto-2);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.pasta-filtro:hover {
+    border-color: var(--cw-borda-campo);
+}
+
+.pasta-filtro.ativo {
+    border-color: var(--cw-azul);
+    background: var(--cw-azul-suave);
+    color: var(--cw-link);
+}
+
+.pasta-contador {
+    min-width: 20px;
+    padding: 1px 6px;
+    border-radius: 10px;
+    background: var(--cw-chip);
+    color: var(--cw-texto-2);
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+}
+
+.pasta-filtro.ativo .pasta-contador {
+    background: var(--cw-superficie);
+    color: var(--cw-link);
+}
+
+.barra-pastas .link-botao {
+    margin-left: auto;
+}
+
+.salvo-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.salvo-acoes {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    padding: 0 4px;
+}
+
+.salvo-pasta-rotulo {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.salvo-acoes .campo-select,
+.campo-pasta .campo-select {
+    width: auto;
+    min-width: 180px;
+    max-width: 100%;
+    height: 44px;
+    font-size: 14px;
+}
+
+.campo-pasta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+}
+
+.campo-pasta .campo-rotulo {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+@media (max-width: 899.98px) {
+    .atalhos-topo ul {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .cartao-atalho {
+        padding: 14px;
+    }
+
+    .atalho-valor {
+        font-size: 24px;
+    }
+
+    .atalho-rotulo {
+        font-size: 13px;
+    }
+
+    .barra-pastas .link-botao {
+        margin-left: 0;
+    }
+
+    .salvo-acoes .campo-select {
+        flex: 1;
+        min-width: 0;
+    }
+}
+
+/* ============================================================ Visual C-Warning (protótipo da equipe)
+   Camada final: aplica a linguagem do protótipo ("Códigos Interface") sobre os componentes
+   existentes. Só cores via var(--cw-*); brancos fixos apenas sobre --cw-navy/--cw-vermelho. */
+
+body.portal-aluno {
+    font-size: 15px;
+}
+
+/* Topo (web): claro, título forte; marca, nome e avatar só aparecem no celular. */
+.topo-marca,
+.topo-nome,
+.topo-avatar {
+    display: none;
+}
+
+.topo-titulo {
+    font-weight: 800;
+    letter-spacing: -.3px;
+}
+
+/* O título recebe foco por script a cada troca de rota (leitor de tela): sem anel visual. */
+.topo-titulo:focus,
+.conteudo:focus {
+    box-shadow: none;
+}
+
+.topo-botao {
+    border-radius: var(--cw-raio-sm);
+}
+
+.busca {
+    border-radius: var(--cw-raio-sm);
+    background: var(--cw-superficie);
+}
+
+.sino-contador {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 9px;
+    background: var(--cw-vermelho);
+    box-shadow: 0 0 0 2px var(--cw-superficie);
+    color: #FFFFFF;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 18px;
+    text-align: center;
+}
+
+.rail .badge-contador {
+    border-color: var(--cw-navy);
+    background: var(--cw-vermelho);
+}
+
+.badge-contador {
+    background: var(--cw-vermelho);
+}
+
+/* Subnavegação: item ativo em azul-marinho suave com filete vermelho. */
+.subnav-titulo {
+    color: var(--cw-texto-marca);
+    font-weight: 800;
+}
+
+.subnav-item {
+    position: relative;
+    border-radius: var(--cw-raio-sm);
+}
+
+.subnav-item.ativo {
+    background: var(--cw-azul-suave);
+    color: var(--cw-texto-marca);
+    font-weight: 800;
+}
+
+.subnav-item.ativo i {
+    color: var(--cw-texto-marca);
+}
+
+.subnav-item.ativo::before {
+    content: "";
+    position: absolute;
+    top: 10px;
+    bottom: 10px;
+    left: 0;
+    width: 3px;
+    border-radius: 3px;
+    background: var(--cw-vermelho);
+}
+
+/* Conteúdo em coluna central larga (web). */
+.conteudo {
+    padding-right: max(32px, calc((100% - 1080px) / 2));
+    padding-left: max(32px, calc((100% - 1080px) / 2));
+}
+
+/* Cartões: cantos de 16px, borda clara e sombra leve; sobem a sombra no hover. */
+.cartao,
+.cartao-aviso,
+.estado-vazio,
+.estado-erro {
+    border-color: var(--cw-borda);
+    border-radius: var(--cw-raio);
+    box-shadow: var(--cw-sombra-sm);
+}
+
+.cartao .estado-vazio,
+.cartao .estado-erro {
+    box-shadow: none;
+}
+
+.cartao-link,
+.cartao-aviso,
+.linha-aviso,
+.atalho {
+    transition: box-shadow .15s, border-color .15s, background-color .15s;
+}
+
+.cartao-link:hover,
+.cartao-aviso:hover {
+    border-color: var(--cw-borda);
+    box-shadow: var(--cw-sombra);
+}
+
+.cartao-titulo {
+    color: var(--cw-texto-marca);
+    font-size: 15px;
+    font-weight: 800;
+}
+
+.sobretitulo,
+.subnav-grupo-titulo {
+    letter-spacing: .08em;
+}
+
+.icone-quadrado {
+    border-radius: var(--cw-raio-sm);
+    background: var(--cw-azul-suave);
+    color: var(--cw-texto-marca);
+}
+
+.kpi-valor,
+.atalho-valor,
+.entrega-titulo,
+.aviso-aberto-titulo,
+.perfil-nome {
+    font-weight: 800;
+    letter-spacing: -.5px;
+}
+
+.botao {
+    border-radius: var(--cw-raio-sm);
+}
+
+.botao-primario {
+    box-shadow: var(--cw-sombra-sm);
+}
+
+.botao-perigo-cheio:hover:not(:disabled) {
+    background: var(--cw-vermelho-hover);
+}
+
+.link-seta {
+    color: var(--cw-vermelho-texto);
+}
+
+.selo {
+    border-radius: 999px;
+}
+
+.barra-minimo {
+    border-left-color: var(--cw-texto-marca);
+}
+
+.etiqueta {
+    border-radius: 6px;
+    background: var(--cw-azul-suave);
+    color: var(--cw-texto-marca);
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: .06em;
+}
+
+.chip-categoria,
+.chip-status {
+    border-radius: var(--cw-raio-sm);
+    background: var(--cw-azul-suave);
+    color: var(--cw-texto-marca);
+}
+
+.ponto-novo {
+    background: var(--cw-vermelho);
+}
+
+.pasta-filtro,
+.chip {
+    border-radius: var(--cw-raio-sm);
+}
+
+.pasta-filtro.ativo {
+    border-color: var(--cw-indigo);
+    background: var(--cw-indigo);
+    color: #FFFFFF;
+}
+
+.pasta-filtro.ativo .pasta-contador {
+    background: rgba(255, 255, 255, .2);
+    color: #FFFFFF;
+}
+
+.anexo {
+    border-radius: var(--cw-raio-sm);
+}
+
+.dialogo {
+    border-radius: var(--cw-raio-lg);
+}
+
+/* ------------------------------------------------------------ Início (protótipo) */
+
+/* Cartão de destaque: turma, data e saudação sobre gradiente azul-marinho. */
+.saudacao {
+    position: relative;
+    flex-shrink: 0; /* .conteudo é flex em coluna com rolagem: sem isso o cartão é espremido */
+    gap: 6px;
+    padding: 22px 24px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, .06);
+    border-radius: var(--cw-raio-lg);
+    background: linear-gradient(135deg, var(--cw-navy) 0%, var(--cw-navy-2) 55%, var(--cw-navy) 100%);
+    box-shadow: var(--cw-sombra-destaque);
+    color: #FFFFFF;
+}
+
+.saudacao::after {
+    content: "";
+    position: absolute;
+    right: -40px;
+    bottom: -48px;
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(220, 38, 38, .35) 0%, rgba(220, 38, 38, 0) 70%);
+    pointer-events: none;
+}
+
+.saudacao > * {
+    position: relative;
+    z-index: 1;
+}
+
+.saudacao-topo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px 12px;
+}
+
+.saudacao-turma {
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: var(--cw-vermelho);
+    color: #FFFFFF;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.saudacao-data {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #CBD5E1;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.saudacao-titulo {
+    margin-top: 4px;
+    font-family: var(--cw-fonte);
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -.5px;
+    line-height: 1.2;
+}
+
+.saudacao-resumo {
+    color: #E2E8F0;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.saudacao-resumo strong {
+    color: #FFFFFF;
+    font-weight: 800;
+    text-decoration: underline;
+    text-decoration-color: var(--cw-vermelho);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+}
+
+/* Atalhos com ícone em quadrado arredondado (grade de 4). */
+.cartao-atalho {
+    border-radius: var(--cw-raio);
+}
+
+.atalho-rotulo {
+    color: var(--cw-texto-2);
+    font-weight: 700;
+}
+
+.atalho-alerta .icone-quadrado {
+    background: var(--cw-vermelho-suave);
+    color: var(--cw-vermelho-texto);
+}
+
+/* Faixa de AVISO URGENTE: bloco vermelho, texto branco (4,8:1; 6,5:1 no hover). */
+.faixa-urgente {
+    align-items: flex-start;
+    padding: 16px;
+    border: 0;
+    border-radius: var(--cw-raio);
+    background: var(--cw-vermelho);
+    box-shadow: var(--cw-sombra-vermelha);
+    color: #FFFFFF;
+}
+
+.faixa-urgente:hover {
+    background: var(--cw-vermelho-hover);
+}
+
+.faixa-icone {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--cw-raio-sm);
+    background: rgba(0, 0, 0, .18);
+    color: #FFFFFF;
+}
+
+.rotulo-urgente {
+    flex-shrink: 0;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, .18); /* branco sobre o tom resultante (#b41f1f): 6,6:1 */
+    color: #FFFFFF;
+    font-weight: 800;
+}
+
+.faixa-urgente .meta,
+.faixa-urgente .link-seta {
+    color: #FFFFFF;
+}
+
+.faixa-titulo {
+    color: #FFFFFF;
+    font-weight: 800;
+}
+
+.faixa-urgente .link-seta {
+    align-self: center;
+}
+
+/* Últimos comunicados: cada aviso vira um cartão com barra colorida por área. */
+.cartao-comunicados {
+    gap: 8px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.cartao-comunicados > .linha-entre {
+    padding: 0 4px;
+}
+
+.cartao-comunicados .cartao-titulo {
+    font-size: 12px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.cartao-comunicados .lista-simples {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.cartao-comunicados .linha-aviso {
+    margin: 0;
+    padding: 14px;
+    border: 1px solid var(--cw-borda);
+    border-radius: var(--cw-raio);
+    background: var(--cw-superficie);
+    box-shadow: var(--cw-sombra-sm);
+}
+
+.cartao-comunicados .linha-aviso:hover {
+    background: var(--cw-superficie);
+    box-shadow: var(--cw-sombra);
+}
+
+.cartao-comunicados .chip-categoria {
+    align-self: stretch;
+    width: 6px;
+    height: auto;
+    min-height: 40px;
+    border-radius: 999px;
+    background: var(--cw-texto-marca);
+    font-size: 0;
+}
+
+.cartao-comunicados .chip-categoria i {
+    display: none;
+}
+
+.cartao-comunicados .chip-categoria.cat-urgente {
+    background: var(--cw-vermelho);
+}
+
+.cartao-comunicados .chip-categoria.cat-coordenacao {
+    background: var(--cw-azul);
+}
+
+.cartao-comunicados .chip-categoria.cat-eventos {
+    background: var(--cw-borda-campo);
+}
+
+.cartao-comunicados .estado-vazio,
+.cartao-comunicados .estado-erro {
+    border: 1px dashed var(--cw-borda-campo);
+    border-radius: var(--cw-raio);
+    background: var(--cw-superficie);
+}
+
+.linha-categoria {
+    color: var(--cw-texto-suave);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+
+.linha-categoria.cat-urgente {
+    color: var(--cw-vermelho-texto);
+}
+
+.linha-seta {
+    flex-shrink: 0;
+    color: var(--cw-texto-suave);
+    font-size: 14px;
+}
+
+/* ------------------------------------------------------------ Avisos (protótipo) */
+
+.cartao-aviso.cat-urgente {
+    border-left: 4px solid var(--cw-vermelho);
+}
+
+.etiqueta.cat-urgente {
+    background: var(--cw-vermelho-suave);
+    color: var(--cw-vermelho-texto);
+}
+
+.aviso-titulo {
+    color: var(--cw-texto);
+}
+
+.marcador.salvo {
+    color: var(--cw-vermelho-texto);
+}
+
+/* Prévias de tema (Aparência) com as cores do protótipo. */
+.previa-escuro {
+    background: #0E1B2E;
+}
+
+.previa-auto {
+    background: linear-gradient(90deg, #FFFFFF 50%, #0E1B2E 50%);
+}
+
+.previa-claro span {
+    background: #0B192C;
+}
+
+.previa-auto span {
+    background: #DC2626;
+}
+
+/* ------------------------------------------------------------ celular (protótipo) */
+
+@media (max-width: 899.98px) {
+    /* Topo azul-marinho: marca, nome do app, título da página, sino com contador e avatar. */
+    .topo {
+        gap: 10px;
+        border-bottom: 0;
+        background: var(--cw-navy);
+        box-shadow: 0 4px 12px -4px rgba(3, 7, 18, .45);
+        color: #FFFFFF;
+    }
+
+    .topo-marca {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        border-radius: var(--cw-raio-sm);
+    }
+
+    .topo-marca .logo-c {
+        width: 36px;
+        height: 36px;
+        font-size: 17px;
+    }
+
+    .topo-titulos {
+        flex: 1;
+        gap: 0;
+    }
+
+    .topo-nome {
+        display: block;
+        color: #CBD5E1; /* 11,9:1 sobre o azul-marinho */
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+    }
+
+    .topo-titulo {
+        color: #FFFFFF;
+        font-size: 16px;
+        font-weight: 800;
+        letter-spacing: -.2px;
+    }
+
+    .topo-voltar {
+        color: #FFFFFF;
+    }
+
+    #botao-busca {
+        margin-left: 0;
+    }
+
+    .topo-botao {
+        background: rgba(255, 255, 255, .1);
+        color: #FFFFFF;
+        font-size: 20px;
+    }
+
+    .topo-botao:hover {
+        background: rgba(255, 255, 255, .2);
+    }
+
+    .sino-contador {
+        top: -3px;
+        right: -3px;
+        box-shadow: 0 0 0 2px var(--cw-navy);
+    }
+
+    .topo-avatar {
+        display: flex;
+    }
+
+    .busca {
+        border-color: transparent;
+    }
+
+    .detalhe-aberto .topo-marca,
+    .detalhe-aberto .topo-avatar {
+        display: none;
+    }
+
+    /* Abas inferiores com o botão central (Avisos) em vermelho, elevado. */
+    .abas {
+        grid-template-columns: 1fr 1.1fr 1fr 1.1fr 1.3fr;
+        align-items: end;
+        padding: 4px 4px calc(6px + env(safe-area-inset-bottom));
+        box-shadow: 0 -6px 18px -10px rgba(15, 23, 42, .25);
+    }
+
+    .aba {
+        min-height: 56px;
+        color: var(--cw-texto-suave);
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .aba.ativo {
+        color: var(--cw-texto-marca);
+        font-weight: 800;
+    }
+
+    .aba.ativo .aba-icone {
+        background: transparent;
+        color: var(--cw-texto-marca);
+    }
+
+    .abas .ponto-alerta,
+    .abas .badge-contador {
+        border-color: var(--cw-superficie);
+    }
+
+    .aba-central .aba-icone,
+    .aba-central.ativo .aba-icone {
+        width: 52px;
+        height: 52px;
+        margin-top: -22px;
+        margin-bottom: 2px;
+        border: 3px solid var(--cw-superficie);
+        border-radius: var(--cw-raio);
+        background: var(--cw-vermelho);
+        box-shadow: var(--cw-sombra-vermelha);
+        color: #FFFFFF;
+        font-size: 24px;
+    }
+
+    .aba-central.ativo .aba-icone {
+        background: var(--cw-vermelho-hover);
+    }
+
+    .aba-central .ponto-alerta {
+        top: -4px;
+        right: -4px;
+        width: 14px;
+        height: 14px;
+        background: var(--cw-texto-marca);
+    }
+
+    /* Chips de subseção no formato do protótipo (cantos de 12px, ativo azul-marinho). */
+    .chip {
+        border-color: var(--cw-borda);
+        box-shadow: var(--cw-sombra-sm);
+    }
+
+    .chip.ativo {
+        border-color: var(--cw-indigo);
+        background: var(--cw-indigo);
+        font-weight: 800;
+    }
+
+    /* Início */
+    .saudacao {
+        padding: 20px;
+    }
+
+    .saudacao-titulo {
+        font-size: 21px;
+    }
+
+    .saudacao-resumo {
+        font-size: 13.5px;
+    }
+
+    .atalhos-topo ul {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .cartao-atalho {
+        align-items: center;
+        gap: 4px;
+        padding: 12px 4px 10px;
+        text-align: center;
+    }
+
+    .cartao-atalho .atalho-linha {
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .cartao-atalho .icone-quadrado {
+        width: 36px;
+        height: 36px;
+    }
+
+    .cartao-atalho .atalho-valor {
+        font-size: 18px;
+        letter-spacing: -.3px;
+    }
+
+    .cartao-atalho .atalho-rotulo {
+        font-size: 11.5px;
+        line-height: 1.2;
+    }
+
+    .cartao-atalho .meta {
+        display: none;
+    }
+
+    .atalho {
+        border-radius: var(--cw-raio);
+        box-shadow: var(--cw-sombra-sm);
+    }
+
+    .atalho .icone-quadrado {
+        background: var(--cw-azul-suave);
+        color: var(--cw-texto-marca);
+    }
+
+    .faixa-urgente {
+        flex-wrap: nowrap;
+        padding: 14px;
+    }
+
+    .faixa-icone {
+        width: 40px;
+        height: 40px;
+        font-size: 20px;
+    }
+
+    .faixa-titulo {
+        font-size: 14px;
+    }
+
+    /* Avisos: não lido com contorno azul-marinho; urgente mantém o filete vermelho. */
+    .cartao-aviso.nao-lido {
+        border: 1.5px solid var(--cw-texto-marca);
+    }
+
+    .cartao-aviso.cat-urgente {
+        border-left: 4px solid var(--cw-vermelho);
+    }
+}
+
+@media (max-width: 359.98px) {
+    .cartao-atalho .atalho-rotulo {
+        font-size: 10.5px;
+    }
+
+    .topo-avatar {
+        display: none;
     }
 }

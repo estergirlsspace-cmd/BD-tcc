@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#312782">
+    <meta name="theme-color" content="#0B192C">
     <title>Portal do Aluno · C·Warning</title>
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="icon" href="/assets/icones/favicon.svg" type="image/svg+xml">
@@ -25,26 +25,25 @@
     <script src="/componentes/formulario.js" defer></script>
     <script src="/aluno.js" defer></script>
 </head>
-<body>
+<body class="portal-aluno">
     <a class="pular-conteudo" href="#conteudo">Pular para o conteúdo</a>
 
     <div class="app" id="app">
         <!-- Rail (web): seções principais -->
         <nav class="rail" aria-label="Seções do portal">
             <a class="rail-marca" href="#/inicio" aria-label="C·Warning, início">
-                <span class="cw-marca" aria-hidden="true">C<span class="cw-marca__ponto"></span></span>
+                <span class="logo-c" aria-hidden="true">C</span>
             </a>
             <ul class="rail-lista">
                 <li><a class="rail-item" href="#/inicio" data-secao="inicio"><span class="rail-icone"><i class="ph ph-house" aria-hidden="true"></i></span><span class="rail-rotulo">Início</span></a></li>
                 <li><a class="rail-item" href="#/avisos/todos" data-secao="avisos"><span class="rail-icone"><i class="ph ph-megaphone-simple" aria-hidden="true"></i><span class="ponto-alerta" data-ponto-naolidos hidden></span></span><span class="rail-rotulo">Avisos</span><span class="visually-hidden" data-sr-naolidos></span></a></li>
-                <li><a class="rail-item" href="#/agenda/hoje" data-secao="agenda"><span class="rail-icone"><i class="ph ph-calendar-dots" aria-hidden="true"></i></span><span class="rail-rotulo">Agenda</span></a></li>
                 <li><a class="rail-item" href="#/atividades/pendentes" data-secao="atividades"><span class="rail-icone"><i class="ph ph-clipboard-text" aria-hidden="true"></i></span><span class="rail-rotulo">Atividades</span></a></li>
                 <li><a class="rail-item" href="#/frequencia/resumo" data-secao="frequencia"><span class="rail-icone"><i class="ph ph-list-checks" aria-hidden="true"></i></span><span class="rail-rotulo">Frequência</span></a></li>
                 <li><a class="rail-item" href="#/mensagens" data-secao="mensagens"><span class="rail-icone"><i class="ph ph-chat-circle-dots" aria-hidden="true"></i><span class="badge-contador" data-badge-mensagens aria-hidden="true" hidden></span></span><span class="rail-rotulo">Mensagens</span><span class="visually-hidden" data-sr-mensagens></span></a></li>
             </ul>
             <div class="rail-rodape">
                 <a class="rail-item" href="#/ajustes/perfil" data-secao="ajustes"><span class="rail-icone"><i class="ph ph-gear-six" aria-hidden="true"></i></span><span class="rail-rotulo">Configurações</span></a>
-                <a class="rail-avatar" href="#/ajustes/perfil" id="rail-avatar" aria-label="Meu perfil">··</a>
+                <a class="rail-avatar" href="#/ajustes/perfil" id="rail-avatar" data-avatar aria-label="Meu perfil">··</a>
                 <button class="rail-sair" type="button" data-sair aria-label="Sair da conta" title="Sair da conta"><i class="ph ph-sign-out" aria-hidden="true"></i></button>
             </div>
         </nav>
@@ -58,7 +57,9 @@
         <div class="coluna">
             <header class="topo">
                 <a class="topo-voltar" id="topo-voltar" href="#/avisos/todos" hidden><i class="ph ph-arrow-left" aria-hidden="true"></i>Avisos</a>
+                <a class="topo-marca" href="#/inicio" aria-label="C·Warning, início"><span class="logo-c" aria-hidden="true">C</span></a>
                 <div class="topo-titulos">
+                    <p class="topo-nome" aria-hidden="true">C-Warning</p>
                     <p class="topo-trilha" id="topo-trilha"></p>
                     <h1 class="topo-titulo" id="titulo-pagina" tabindex="-1">Carregando…</h1>
                 </div>
@@ -69,7 +70,8 @@
                         <input id="busca-campo" type="search" placeholder="Buscar avisos" autocomplete="off" maxlength="100">
                     </form>
                     <button class="topo-botao" type="button" id="botao-busca" aria-label="Buscar avisos" aria-expanded="false" aria-controls="busca"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>
-                    <a class="topo-botao" href="#/avisos/naolidos" id="sino" aria-label="Avisos não lidos"><i class="ph ph-bell-simple" aria-hidden="true"></i><span class="ponto-alerta ponto-sino" data-ponto-naolidos hidden></span></a>
+                    <a class="topo-botao" href="#/avisos/naolidos" id="sino" aria-label="Avisos não lidos"><i class="ph ph-bell-simple" aria-hidden="true"></i><span class="sino-contador" data-contador-naolidos aria-hidden="true" hidden></span></a>
+                    <a class="topo-avatar" href="#/ajustes/perfil" data-avatar aria-label="Meu perfil">··</a>
                 </div>
             </header>
 
@@ -84,9 +86,9 @@
 
         <!-- Abas inferiores (celular) -->
         <nav class="abas" aria-label="Seções do portal">
-            <a class="aba" href="#/inicio" data-secao="inicio" data-inclui="atividades frequencia"><span class="aba-icone"><i class="ph ph-house" aria-hidden="true"></i></span><span>Início</span></a>
-            <a class="aba" href="#/avisos/todos" data-secao="avisos"><span class="aba-icone"><i class="ph ph-megaphone-simple" aria-hidden="true"></i><span class="ponto-alerta" data-ponto-naolidos hidden></span></span><span>Avisos</span><span class="visually-hidden" data-sr-naolidos></span></a>
-            <a class="aba" href="#/agenda/hoje" data-secao="agenda"><span class="aba-icone"><i class="ph ph-calendar-dots" aria-hidden="true"></i></span><span>Agenda</span></a>
+            <a class="aba" href="#/inicio" data-secao="inicio" data-inclui="frequencia"><span class="aba-icone"><i class="ph ph-house" aria-hidden="true"></i></span><span>Início</span></a>
+            <a class="aba" href="#/atividades/pendentes" data-secao="atividades"><span class="aba-icone"><i class="ph ph-clipboard-text" aria-hidden="true"></i></span><span>Atividades</span></a>
+            <a class="aba aba-central" href="#/avisos/todos" data-secao="avisos"><span class="aba-icone"><i class="ph-fill ph-megaphone-simple" aria-hidden="true"></i><span class="ponto-alerta" data-ponto-naolidos hidden></span></span><span>Avisos</span><span class="visually-hidden" data-sr-naolidos></span></a>
             <a class="aba" href="#/mensagens" data-secao="mensagens"><span class="aba-icone"><i class="ph ph-chat-circle-dots" aria-hidden="true"></i><span class="badge-contador" data-badge-mensagens aria-hidden="true" hidden></span></span><span>Mensagens</span><span class="visually-hidden" data-sr-mensagens></span></a>
             <a class="aba" href="#/ajustes/perfil" data-secao="ajustes"><span class="aba-icone"><i class="ph ph-gear-six" aria-hidden="true"></i></span><span>Configurações</span></a>
         </nav>

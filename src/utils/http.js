@@ -31,6 +31,30 @@ async function readBody(request) {
     return body;
 }
 
+// Corpo de texto (ex.: CSV) com limite em bytes: 413 acima do limite, 400 se não for UTF-8
+// válido. O BOM inicial (Excel) é removido.
+async function readTextBody(request, maxBytes, label = 'O arquivo') {
+    const declaredLength = Number(request.headers['content-length']);
+    const limitLabel = maxBytes >= 1024 * 1024 ? `${maxBytes / (1024 * 1024)} MB` : `${maxBytes} bytes`;
+    if (declaredLength > maxBytes) {
+        throw new ApiError(413, `${label} excede o limite de ${limitLabel}.`);
+    }
+    const chunks = [];
+    let size = 0;
+    for await (const chunk of request) {
+        size += chunk.length;
+        if (size > maxBytes) throw new ApiError(413, `${label} excede o limite de ${limitLabel}.`);
+        chunks.push(chunk);
+    }
+    let text;
+    try {
+        text = new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks, size));
+    } catch {
+        throw new ApiError(400, `${label} deve estar em UTF-8 (no Excel: "CSV UTF-8").`);
+    }
+    return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+}
+
 function sendJson(response, statusCode, data) {
     response.writeHead(statusCode, {
         'Content-Type': 'application/json; charset=utf-8',
@@ -41,4 +65,4 @@ function sendJson(response, statusCode, data) {
     response.end(JSON.stringify(data));
 }
 
-module.exports = { readBody, sendJson, GLOBAL_HEADERS };
+module.exports = { readBody, readTextBody, sendJson, GLOBAL_HEADERS };

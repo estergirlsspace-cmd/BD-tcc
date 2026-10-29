@@ -18,20 +18,11 @@ const UPLOAD_TYPES = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/j
 
 const COURSE_NAMES = { informatica: 'Técnico em Informática', redes: 'Técnico em Redes de Computadores' };
 const SERIES_NAMES = { 1: '1ª série', 2: '2ª série', 3: '3ª série' };
-const WEEKDAY_SHORT = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
-
 const CATEGORIES = {
     urgente: { label: 'Urgente', icon: 'warning' },
     turma: { label: 'Minha turma', icon: 'users-three' },
     coordenacao: { label: 'Coordenação', icon: 'buildings' },
     eventos: { label: 'Evento', icon: 'confetti' }
-};
-
-const AGENDA_TYPES = {
-    aula: { label: 'Aula', icon: 'chalkboard-teacher' },
-    evento: { label: 'Evento', icon: 'flag' },
-    entrega: { label: 'Entrega', icon: 'upload-simple' },
-    prova: { label: 'Prova', icon: 'exam' }
 };
 
 const ACTIVITY_STATUS = {
@@ -43,7 +34,6 @@ const ACTIVITY_STATUS = {
 const SECTIONS = {
     inicio: { title: 'Início', defaultSub: null },
     avisos: { title: 'Avisos', defaultSub: 'todos' },
-    agenda: { title: 'Agenda', defaultSub: 'hoje' },
     atividades: { title: 'Atividades', defaultSub: 'pendentes' },
     frequencia: { title: 'Frequência', defaultSub: 'resumo' },
     mensagens: { title: 'Mensagens', defaultSub: null },
@@ -73,7 +63,9 @@ const FAQ = [
     ['Como confirmo que li um aviso?',
         'Abra o aviso e toque em "Confirmar leitura". Ele sai da lista de não lidos. Se confirmou por engano, toque de novo para desfazer.'],
     ['Onde encontro os avisos que salvei?',
-        'Em Avisos › Salvos. Use o botão "Salvar aviso" dentro do aviso para guardar os mais importantes.'],
+        'Em Avisos › Salvos. Use o botão "Salvar aviso" dentro do aviso para guardar os mais importantes. Em Salvos você cria pastas e escolhe a pasta de cada aviso.'],
+    ['Onde vejo o horário da minha turma?',
+        'No Início, no cartão "Meu horário". Toque em "Baixar" para abrir o PDF publicado pela escola.'],
     ['Como envio uma atividade?',
         'Em Atividades › Pendentes, toque em "Enviar", escreva sua resposta e confirme antes do prazo. Até o prazo terminar você pode reenviar.'],
     ['Como justifico uma falta?',
@@ -98,8 +90,13 @@ const state = {
         horarios: { status: 'loading', data: null, error: null },
         frequencias: { status: 'loading', data: null, error: null },
         ocorrencias: { status: 'loading', data: null, error: null },
-        justificativas: { status: 'loading', data: null, error: null }
+        justificativas: { status: 'loading', data: null, error: null },
+        pastas: { status: 'loading', data: null, error: null },
+        salvos: { status: 'loading', data: null, error: null },
+        horariosPdf: { status: 'loading', data: null, error: null }
     },
+    // Filtro da tela Salvos: 'todas', 'sem' (sem pasta) ou o id_pasta.
+    savedFolder: 'todas',
     lastUnreadAnnounced: null,
     unreadMessages: null,
     messagesPanel: null,
@@ -114,8 +111,15 @@ const SOURCE_PATHS = {
     horarios: '/api/horarios',
     frequencias: '/api/frequencias',
     ocorrencias: '/api/ocorrencias',
-    justificativas: '/api/justificativas'
+    justificativas: '/api/justificativas',
+    pastas: '/api/pastas',
+    salvos: '/api/salvos',
+    horariosPdf: '/api/horarios-pdf'
 };
+
+// Fontes da sprint 4: enquanto a rota não existir no servidor, mostram um erro amigável.
+const NEW_SOURCES = new Set(['pastas', 'salvos', 'horariosPdf']);
+const MAX_FOLDER_NAME = 40;
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -254,7 +258,8 @@ function loadSource(name) {
             source.status = 'ok';
         } catch (error) {
             source.status = 'error';
-            source.error = error.message;
+            source.error = error.status === 404 && NEW_SOURCES.has(name)
+                ? 'Este recurso ainda não está disponível. Tente de novo mais tarde.' : error.message;
         }
         render();
         return source;
@@ -291,6 +296,7 @@ function setUnreadMessages(total) {
     document.querySelectorAll('[data-sr-mensagens]').forEach((span) => {
         span.textContent = total ? `, ${plural(total, 'mensagem não lida', 'mensagens não lidas')}` : '';
     });
+    if (previous !== total && state.route.section === 'inicio') render();
     if (previous !== null && total !== null && total > previous) {
         $('#status-contadores').textContent = `${plural(total, 'mensagem não lida', 'mensagens não lidas')}.`;
         if (state.messagesPanel && state.route.section === 'mensagens') state.messagesPanel.atualizar();
@@ -451,14 +457,6 @@ function todayLongLabel() {
     return text.replace('-feira', '').toUpperCase();
 }
 
-function greeting() {
-    const hour = schoolParts().hour;
-    if (hour < 5) return 'Boa noite';
-    if (hour < 12) return 'Bom dia';
-    if (hour < 18) return 'Boa tarde';
-    return 'Boa noite';
-}
-
 function timeAgo(utcValue) {
     const date = parseSchoolDate(utcValue, { utc: true });
     if (!date) return '';
@@ -560,7 +558,7 @@ function activities() {
         .filter((activity) => activity.tipo !== 'evento' && activity.tipo !== 'comunicado');
 }
 
-// Só atividades recebem envio pelo portal; avaliações são provas presenciais (aparecem na Agenda).
+// Só atividades recebem envio pelo portal; avaliações são provas presenciais.
 function deliverables() {
     return activities().filter((activity) => activity.tipo === 'atividade');
 }
@@ -670,62 +668,6 @@ function isOpenOccurrence(item) {
     return (item.situacao || 'aberta') === 'aberta';
 }
 
-// Itens da agenda dos próximos 7 dias: aulas semanais, prazos e eventos.
-function agendaDays() {
-    const today = schoolParts();
-    const days = [];
-    const base = parseSchoolDate(today.ymd);
-    for (let offset = 0; offset < 7; offset += 1) {
-        const date = new Date(base.getTime() + offset * 86400000 + 12 * 3600000);
-        const parts = schoolParts(date);
-        days.push({ ymd: parts.ymd, weekday: parts.weekday, day: parts.day, month: parts.month, isToday: offset === 0, items: [] });
-    }
-    const byDate = new Map(days.map((day) => [day.ymd, day]));
-
-    for (const day of days) {
-        for (const lesson of state.sources.horarios.data || []) {
-            if (lesson.dia_semana !== isoWeekday(day.weekday)) continue;
-            day.items.push({
-                kind: 'aula',
-                time: lesson.hora_inicio,
-                title: lesson.nome_disciplina || 'Aula',
-                detail: [lesson.sala, lesson.professor, lesson.hora_fim ? `até ${lesson.hora_fim}` : null].filter(Boolean).join(' · ')
-            });
-        }
-    }
-
-    for (const activity of state.sources.atividades.data || []) {
-        if (!activity.prazo) continue;
-        const day = byDate.get(activity.prazo.slice(0, 10));
-        if (!day) continue;
-        const kind = activity.tipo === 'avaliacao' ? 'prova' : activity.tipo === 'evento' ? 'evento' : 'entrega';
-        const status = activityStatus(activity);
-        const detail = [activity.nome_disciplina,
-            kind === 'entrega' ? (status === 'pendentes' ? 'envio pela aba Atividades' : 'enviada') : null]
-            .filter(Boolean).join(' · ');
-        day.items.push({ kind, time: timeOf(activity.prazo) || '23:59', title: activity.titulo, detail, href: kind === 'evento' ? null : `#/atividades/${status}` });
-    }
-
-    for (const notice of notices()) {
-        if (!notice.data_evento) continue;
-        const day = byDate.get(notice.data_evento.slice(0, 10));
-        if (!day) continue;
-        day.items.push({ kind: 'evento', time: timeOf(notice.data_evento) || '—', title: notice.titulo, detail: notice.autor?.nome || '', href: `#/avisos/${notice.id_post}` });
-    }
-
-    for (const day of days) {
-        day.items.sort((a, b) => (a.time === '—' ? '' : a.time).localeCompare(b.time === '—' ? '' : b.time));
-    }
-    return days;
-}
-
-const AGENDA_FILTERS = {
-    hoje: { day: (day) => day.isToday, item: () => true },
-    semana: { day: () => true, item: () => true },
-    provas: { day: () => true, item: (item) => item.kind === 'prova' || item.kind === 'entrega' },
-    eventos: { day: () => true, item: (item) => item.kind === 'evento' }
-};
-
 // ---------------------------------------------------------------- subnavegação
 
 function countIf(ready, value) {
@@ -735,9 +677,6 @@ function countIf(ready, value) {
 function subnavGroups(section) {
     const muralReady = state.sources.mural.status === 'ok';
     const all = notices();
-    const agendaReady = ['horarios', 'atividades', 'mural'].every((name) => state.sources[name].status === 'ok');
-    const days = agendaReady ? agendaDays() : [];
-    const agendaCount = (filter) => days.filter(filter.day).reduce((sum, day) => sum + day.items.filter(filter.item).length, 0);
     const activitiesReady = state.sources.atividades.status === 'ok';
     const countStatus = (status) => deliverables().filter((activity) => activityStatus(activity) === status).length;
     const absencesReady = state.sources.frequencias.status === 'ok';
@@ -747,23 +686,13 @@ function subnavGroups(section) {
             ['Caixa', [
                 ['todos', 'Todos', 'tray', countIf(muralReady, all.length)],
                 ['naolidos', 'Não lidos', 'envelope-simple', countIf(muralReady, all.filter(isUnread).length)],
-                ['salvos', 'Salvos', 'bookmark-simple', countIf(muralReady, all.filter((n) => n.salvo).length)]
+                ['salvos', 'Salvos', 'bookmark-simple', savedCount()]
             ]],
             ['Categorias', [
                 ['urgente', 'Urgentes', 'warning-circle', countIf(muralReady, all.filter(NOTICE_FILTERS.urgente).length)],
                 ['turma', 'Minha turma', 'users-three', countIf(muralReady, all.filter(NOTICE_FILTERS.turma).length)],
                 ['coordenacao', 'Coordenação', 'buildings', countIf(muralReady, all.filter(NOTICE_FILTERS.coordenacao).length)],
                 ['eventos', 'Eventos', 'confetti', countIf(muralReady, all.filter(NOTICE_FILTERS.eventos).length)]
-            ]]
-        ],
-        agenda: [
-            ['Visualizar', [
-                ['hoje', 'Hoje', 'sun', countIf(agendaReady, agendaCount(AGENDA_FILTERS.hoje))],
-                ['semana', 'Esta semana', 'calendar-blank', null]
-            ]],
-            ['Filtrar', [
-                ['provas', 'Provas e entregas', 'exam', countIf(agendaReady, agendaCount(AGENDA_FILTERS.provas))],
-                ['eventos', 'Eventos da escola', 'flag', countIf(agendaReady, agendaCount(AGENDA_FILTERS.eventos))]
             ]]
         ],
         atividades: [
@@ -874,6 +803,9 @@ function parseHash() {
 }
 
 function applyRoute(route, { focus }) {
+    // Rotas que não existem mais (como a antiga #/agenda) caem no Início sem erro.
+    const first = window.location.hash.replace(/^#\/?/, '').split('/')[0];
+    if (first && !SECTIONS[first]) window.history.replaceState(null, '', '#/inicio');
     if (route.section !== 'mensagens' && state.messagesPanel) {
         state.messagesPanel.desmontar();
         state.messagesPanel = null;
@@ -897,8 +829,10 @@ function navigate(hash) {
 
 function setupShell() {
     const user = state.user;
-    $('#rail-avatar').textContent = initials(user.nome);
-    $('#rail-avatar').setAttribute('aria-label', `Meu perfil: ${user.nome || 'Aluno(a)'}`);
+    document.querySelectorAll('[data-avatar]').forEach((avatar) => {
+        avatar.textContent = initials(user.nome);
+        avatar.setAttribute('aria-label', `Meu perfil: ${user.nome || 'Aluno(a)'}`);
+    });
     document.querySelectorAll('[data-sair]').forEach((button) => button.addEventListener('click', logout));
 
     const searchField = $('#busca-campo');
@@ -937,6 +871,10 @@ function renderShell(pageTitle, trail) {
     const muralReady = state.sources.mural.status === 'ok';
     document.querySelectorAll('[data-ponto-naolidos]').forEach((dot) => {
         dot.hidden = !(muralReady && unread > 0);
+    });
+    document.querySelectorAll('[data-contador-naolidos]').forEach((badge) => {
+        badge.hidden = !(muralReady && unread > 0);
+        badge.textContent = unread > 99 ? '99+' : String(unread);
     });
     document.querySelectorAll('[data-sr-naolidos]').forEach((span) => {
         span.textContent = muralReady && unread > 0 ? `, ${plural(unread, 'não lido', 'não lidos')}` : '';
@@ -998,7 +936,6 @@ function render({ force = false } = {}) {
         trail = [SECTIONS[section].title, label];
         const renderers = {
             avisos: renderNoticeList,
-            agenda: renderAgenda,
             atividades: renderActivities,
             frequencia: { faltas: renderAbsences, justificar: renderJustify }[sub] || renderAttendanceSummary,
             ajustes: {
@@ -1033,10 +970,7 @@ function render({ force = false } = {}) {
 // ---------------------------------------------------------------- Início
 
 function renderHome() {
-    const nodes = [];
-    nodes.push(el('div', { class: 'saudacao' },
-        el('p', { class: 'sobretitulo', text: todayLongLabel() }),
-        el('h2', { class: 'saudacao-titulo', text: `${greeting()}, ${firstName(state.user.nome)}` })));
+    const nodes = [homeGreeting(), homeQuickLinks()];
 
     if (state.sources.mural.status === 'ok') {
         const urgent = notices().filter((notice) => notice.urgente && isUnread(notice)).sort(byNewest)[0];
@@ -1056,8 +990,33 @@ function renderHome() {
     nodes.push(el('div', { class: 'grade-cartoes' },
         homeAttendanceCard(), homeOccurrencesCard(), homeDeliveryCard()));
 
-    nodes.push(el('div', { class: 'grade-inicio' }, homeRecentNotices(), homeLessonsToday()));
+    nodes.push(el('div', { class: 'grade-inicio' }, homeRecentNotices(),
+        el('div', { class: 'coluna-inicio' }, homeLessonsToday(), homeScheduleCard())));
     return nodes;
+}
+
+// Cartão de destaque do Início: turma, data, saudação e um resumo do que está pendente.
+function homeGreeting() {
+    const user = state.user;
+    const group = user.nome_turma || SERIES_NAMES[user.serie] || null;
+    const summary = [];
+    if (state.sources.mural.status === 'ok') {
+        const unread = unreadCount();
+        summary.push(unread ? el('strong', { text: plural(unread, 'aviso não lido', 'avisos não lidos') }) : 'nenhum aviso não lido');
+    }
+    if (state.sources.atividades.status === 'ok') {
+        const pending = deliverables().filter((activity) => activityStatus(activity) === 'pendentes').length;
+        summary.push(pending ? el('strong', { text: plural(pending, 'atividade pendente', 'atividades pendentes') }) : 'nenhuma atividade pendente');
+    }
+    const text = summary.length
+        ? ['Você tem ', summary[0], ...(summary[1] ? [' e ', summary[1]] : []), '.']
+        : ['Confira seus avisos, atividades e frequência.'];
+    return el('section', { class: 'saudacao', 'aria-labelledby': 'saudacao-titulo' },
+        el('div', { class: 'saudacao-topo' },
+            group ? el('span', { class: 'saudacao-turma', text: group }) : null,
+            el('span', { class: 'saudacao-data' }, icon('calendar-blank'), todayLongLabel())),
+        el('h2', { class: 'saudacao-titulo', id: 'saudacao-titulo', text: `Olá, ${firstName(user.nome)}!` }),
+        el('p', { class: 'saudacao-resumo' }, ...text));
 }
 
 function cardHeader(iconName, title) {
@@ -1090,8 +1049,41 @@ function attendanceBar(percent) {
     return setBarValue(bar, percent);
 }
 
-// Atalhos do celular: Atividades e Frequência não têm aba própria (as abas são Início, Avisos,
-// Agenda, Mensagens e Ajustes). No web ficam escondidos, porque o rail já mostra as duas seções.
+// Atalhos do topo do Início: contadores que levam direto à lista (web e celular; 2×2 no celular).
+function homeQuickLinks() {
+    const muralReady = state.sources.mural.status === 'ok';
+    const all = notices();
+    const unreadUrgent = muralReady ? all.filter((notice) => NOTICE_FILTERS.urgente(notice) && isUnread(notice)).length : 0;
+    const items = [
+        ['naolidos', '#/avisos/naolidos', 'envelope-simple', 'Avisos não lidos',
+            muralReady ? all.filter(isUnread).length : null, (n) => (n ? 'Toque para ler' : 'Tudo em dia')],
+        ['urgentes', '#/avisos/urgente', 'warning-circle', 'Urgentes',
+            muralReady ? all.filter(NOTICE_FILTERS.urgente).length : null,
+            () => (unreadUrgent ? plural(unreadUrgent, 'não lido', 'não lidos') : 'Nenhum pendente')],
+        ['salvos', '#/avisos/salvos', 'bookmark-simple', 'Salvos', savedCount(),
+            () => { const total = folders().length; return total ? plural(total, 'pasta', 'pastas') : 'Avisos guardados'; }],
+        ['mensagens', '#/mensagens', 'chat-circle-dots', 'Mensagens', state.unreadMessages,
+            (n) => (n ? (n === 1 ? 'não lida' : 'não lidas') : 'Nenhuma nova')]
+    ];
+    return el('nav', { class: 'atalhos-topo', 'aria-label': 'Atalhos' },
+        el('ul', {}, items.map(([key, href, iconName, label, count, detail]) => {
+            const known = count !== null && count !== undefined;
+            const highlight = key === 'urgentes' && unreadUrgent > 0;
+            return el('li', {},
+                el('a', {
+                    class: `cartao cartao-link cartao-atalho${highlight ? ' atalho-alerta' : ''}`, href, id: `atalho-${key}`,
+                    'aria-label': known ? `${label}: ${count}${key === 'mensagens' ? ` ${detail(count)}` : ''}` : `${label}: carregando`
+                },
+                el('span', { class: 'atalho-linha', 'aria-hidden': 'true' },
+                    el('span', { class: 'icone-quadrado' }, icon(iconName)),
+                    el('span', { class: 'atalho-valor', text: known ? String(count) : '—' })),
+                el('span', { class: 'atalho-rotulo', 'aria-hidden': 'true', text: label }),
+                el('span', { class: 'meta', 'aria-hidden': 'true', text: known ? detail(count) : 'Carregando…' })));
+        })));
+}
+
+// Atalhos do celular: Frequência não tem aba própria (as abas são Início, Avisos, Atividades,
+// Mensagens e Ajustes). No web ficam escondidos, porque o rail já mostra as duas seções.
 function homeShortcuts() {
     const pending = state.sources.atividades.status === 'ok'
         ? deliverables().filter((activity) => activityStatus(activity) === 'pendentes').length : null;
@@ -1151,9 +1143,9 @@ function categoryChip(notice, size = 'md') {
 }
 
 function homeRecentNotices() {
-    const section = card('cartao-lista',
+    const section = card('cartao-lista cartao-comunicados',
         el('div', { class: 'linha-entre' },
-            el('h2', { class: 'cartao-titulo', text: 'Avisos recentes' }),
+            el('h2', { class: 'cartao-titulo', text: 'Últimos comunicados' }),
             el('a', { class: 'link-seta', href: '#/avisos/todos' }, 'Ver todos', icon('caret-right'))));
     const guard = sourceGuard('mural', 3);
     if (guard) {
@@ -1169,17 +1161,18 @@ function homeRecentNotices() {
         el('a', { class: 'linha-aviso', href: `#/avisos/${notice.id_post}` },
             categoryChip(notice, 'sm'),
             el('span', { class: 'linha-texto' },
+                el('span', { class: `linha-categoria cat-${notice.categoria}`, text: (CATEGORIES[notice.categoria] || CATEGORIES.turma).label }),
                 el('span', { class: 'linha-titulo', text: notice.titulo }),
                 el('span', { class: 'meta', text: `${notice.autor?.nome || 'Escola'} · ${timeAgo(notice.criado_em)}` })),
-            isUnread(notice) ? el('span', { class: 'ponto-novo' }, srText('Não lido')) : null)))));
+            isUnread(notice) ? el('span', { class: 'ponto-novo' }, srText('Não lido')) : null,
+            el('i', { class: 'ph ph-caret-right linha-seta', 'aria-hidden': 'true' }))))));
     return section;
 }
 
 function homeLessonsToday() {
     const section = card('cartao-lista',
         el('div', { class: 'linha-entre' },
-            el('h2', { class: 'cartao-titulo', text: 'Aulas de hoje' }),
-            el('a', { class: 'link-seta', href: '#/agenda/hoje' }, 'Agenda', icon('caret-right'))));
+            el('h2', { class: 'cartao-titulo', text: 'Aulas de hoje' })));
     const guard = sourceGuard('horarios', 3);
     if (guard) {
         section.append(guard);
@@ -1199,9 +1192,40 @@ function homeLessonsToday() {
     return section;
 }
 
+// "Meu horário": PDF do horário da turma publicado pela gestão (download autenticado → blob).
+function homeScheduleCard() {
+    const section = card('cartao-lista cartao-horario',
+        el('h2', { class: 'cartao-titulo', text: 'Meu horário' }));
+    const guard = sourceGuard('horariosPdf', 1);
+    if (guard) {
+        section.append(guard);
+        return section;
+    }
+    const schedule = state.sources.horariosPdf.data?.turma;
+    if (!schedule?.arquivo) {
+        section.append(emptyState('A escola ainda não publicou o horário da sua turma.', 'calendar-blank'));
+        return section;
+    }
+    const file = { ...schedule.arquivo, nome: schedule.arquivo.nome || 'horario.pdf' };
+    const updated = schedule.atualizado_em ? `Atualizado em ${fullDateTime(schedule.atualizado_em)}` : null;
+    const button = el('button', {
+        class: 'botao botao-contorno botao-pequeno', type: 'button', id: 'baixar-horario',
+        'aria-label': `Baixar horário${schedule.nome_turma ? ` da turma ${schedule.nome_turma}` : ''} (PDF, ${formatSize(file.tamanho)})`,
+        on: { click: () => downloadFile(file, button) }
+    }, icon('download-simple'), 'Baixar');
+    section.append(el('div', { class: 'horario-arquivo' },
+        el('span', { class: 'icone-quadrado' }, icon('file-pdf')),
+        el('span', { class: 'anexo-texto' },
+            el('span', { class: 'anexo-nome', text: schedule.nome_turma ? `Horário · ${schedule.nome_turma}` : file.nome }),
+            el('span', { class: 'meta', text: ['PDF', formatSize(file.tamanho), updated].filter(Boolean).join(' · ') })),
+        button));
+    return section;
+}
+
 // ---------------------------------------------------------------- Avisos
 
 function renderNoticeList() {
+    if (state.route.sub === 'salvos') return renderSaved();
     const nodes = [];
     const guard = sourceGuard('mural', 4);
     if (guard) return guard;
@@ -1241,7 +1265,7 @@ function clearSearch() {
 function noticeCard(notice) {
     const category = CATEGORIES[notice.categoria] || CATEGORIES.turma;
     const unread = isUnread(notice);
-    return el('a', { class: `cartao-aviso${unread ? ' nao-lido' : ''}`, href: `#/avisos/${notice.id_post}` },
+    return el('a', { class: `cartao-aviso cat-${notice.categoria}${unread ? ' nao-lido' : ''}`, href: `#/avisos/${notice.id_post}` },
         categoryChip(notice),
         el('span', { class: 'aviso-texto' },
             el('span', { class: 'aviso-meta' },
@@ -1282,6 +1306,7 @@ function renderNoticeDetail(id) {
                 'aria-pressed': String(Boolean(notice.salvo)), on: { click: () => toggleSaved(notice) }
             }, icon('bookmark-simple', notice.salvo), 'Salvar aviso',
             notice.salvo ? el('span', { class: 'estado-botao', 'aria-hidden': 'true', text: 'Salvo' }) : null)),
+        notice.salvo ? noticeFolderField(notice) : null,
         el('div', {}, el('span', { class: `etiqueta cat-${notice.categoria}`, text: category.label })),
         el('h2', { class: 'aviso-aberto-titulo', id: 'aviso-titulo', text: notice.titulo }),
         el('div', { class: 'autor' },
@@ -1354,11 +1379,336 @@ function toggleSaved(notice) {
                 method: 'PUT', body: JSON.stringify({ salvo: !previous })
             });
             if (result && 'salvo' in result) notice.salvo = Boolean(result.salvo);
+            syncSaved(notice, notice.salvo);
             render();
             notify(notice.salvo ? 'Aviso salvo.' : 'Aviso removido dos salvos.', 'sucesso');
         },
         () => { notice.salvo = previous; },
         'Não foi possível salvar o aviso.');
+}
+
+// ---------------------------------------------------------------- Salvos e pastas
+
+function folders() {
+    const data = state.sources.pastas.data;
+    return Array.isArray(data) ? data : data?.pastas || [];
+}
+
+function savedList() {
+    const data = state.sources.salvos.data;
+    return Array.isArray(data) ? data : data?.salvos || [];
+}
+
+function folderOf(item) {
+    return item.id_pasta === null || item.id_pasta === undefined ? null : Number(item.id_pasta);
+}
+
+function folderName(id) {
+    return folders().find((folder) => Number(folder.id_pasta) === id)?.nome || null;
+}
+
+// Total de salvos: da lista de salvos quando ela carregou; senão, do mural.
+function savedCount() {
+    if (state.sources.salvos.status === 'ok') return savedList().length;
+    if (state.sources.mural.status === 'ok') return notices().filter((notice) => notice.salvo).length;
+    return null;
+}
+
+// Aviso do mural correspondente ao salvo (tem conteúdo e categoria); sem ele, monta o básico.
+function noticeForSaved(item) {
+    const notice = notices().find((entry) => entry.id_post === item.id_post);
+    if (notice) return notice;
+    return {
+        id_post: item.id_post, titulo: item.titulo, conteudo: '', criado_em: item.criado_em,
+        categoria: item.urgente ? 'urgente' : 'turma', salvo: true, lido_em: true,
+        autor: typeof item.autor === 'string' ? { nome: item.autor } : item.autor
+    };
+}
+
+// Mantém a lista de salvos igual ao mural depois de salvar/remover pelo botão do aviso.
+function syncSaved(notice, saved) {
+    const source = state.sources.salvos;
+    if (source.status !== 'ok') return;
+    const list = savedList().filter((item) => item.id_post !== notice.id_post);
+    if (saved) {
+        notice.id_pasta = notice.id_pasta ?? null;
+        list.unshift({
+            id_post: notice.id_post, titulo: notice.titulo, tipo: notice.tipo, urgente: notice.urgente,
+            criado_em: notice.criado_em, autor: notice.autor, id_pasta: notice.id_pasta,
+            salvo_em: new Date().toISOString().slice(0, 19).replace('T', ' ')
+        });
+    }
+    source.data = list;
+}
+
+function setNoticeFolder(idPost, idFolder) {
+    const item = savedList().find((entry) => entry.id_post === idPost);
+    if (item) item.id_pasta = idFolder;
+    const notice = notices().find((entry) => entry.id_post === idPost);
+    if (notice) notice.id_pasta = idFolder;
+}
+
+function moveToFolder(idPost, idFolder) {
+    const item = savedList().find((entry) => entry.id_post === idPost);
+    const notice = notices().find((entry) => entry.id_post === idPost);
+    const previous = folderOf(item || notice || {});
+    if (previous === idFolder) return undefined;
+    return optimistic(
+        () => setNoticeFolder(idPost, idFolder),
+        async () => {
+            await api(`/api/salvos/${idPost}`, { method: 'PUT', body: JSON.stringify({ id_pasta: idFolder }) });
+            if (notice) notice.salvo = true;
+            const name = idFolder === null ? null : folderName(idFolder);
+            notify(name ? `Aviso movido para "${name}".` : 'Aviso movido para "Sem pasta".', 'sucesso');
+        },
+        () => setNoticeFolder(idPost, previous),
+        'Não foi possível mover o aviso.');
+}
+
+async function removeSaved(item) {
+    const list = savedList();
+    const index = list.indexOf(item);
+    const notice = notices().find((entry) => entry.id_post === item.id_post);
+    const previous = notice ? { salvo: notice.salvo, id_pasta: notice.id_pasta } : null;
+    // O foco vai para o próximo salvo da lista (ou para o título, se era o último).
+    const next = list.slice(index + 1).concat(list.slice(0, index).reverse())
+        .find((entry) => savedVisible(entry));
+    // optimistic() aplica e redesenha antes do primeiro await: o foco é ajustado logo depois.
+    const pending = optimistic(
+        () => {
+            list.splice(list.indexOf(item), 1);
+            if (notice) Object.assign(notice, { salvo: false, id_pasta: null });
+        },
+        async () => {
+            await api(`/api/salvos/${item.id_post}`, { method: 'DELETE' });
+            notify('Aviso removido dos salvos.', 'sucesso');
+        },
+        () => {
+            list.splice(Math.min(index, list.length), 0, item);
+            if (notice && previous) Object.assign(notice, previous);
+        },
+        'Não foi possível remover o aviso dos salvos.');
+    const target = next ? document.getElementById(`remover-salvo-${next.id_post}`) : null;
+    (target || $('#titulo-pagina')).focus({ preventScroll: true });
+    await pending;
+}
+
+function savedVisible(item) {
+    const current = state.savedFolder;
+    if (current === 'todas') return true;
+    if (current === 'sem') return folderOf(item) === null;
+    return folderOf(item) === current;
+}
+
+// Seletor de pasta (card do salvo e aviso aberto). A última opção cria uma pasta nova.
+function folderSelect(id, idPost, current) {
+    const select = el('select', { class: 'campo-select', id, name: 'pasta' },
+        el('option', { value: '', text: 'Sem pasta' }),
+        folders().map((folder) => el('option', { value: String(folder.id_pasta), text: folder.nome })),
+        el('option', { value: 'nova', text: 'Nova pasta…' }));
+    select.value = current === null ? '' : String(current);
+    select.addEventListener('change', () => {
+        if (select.value === 'nova') {
+            select.value = current === null ? '' : String(current);
+            openFolderDialog(null, { onCreated: (folder) => moveToFolder(idPost, Number(folder.id_pasta)) });
+            return;
+        }
+        moveToFolder(idPost, select.value === '' ? null : Number(select.value));
+        // Num filtro de pasta, o aviso movido sai da lista: o foco não pode cair no <body>.
+        if (!document.getElementById(id)) $('#titulo-pagina').focus({ preventScroll: true });
+    });
+    return select;
+}
+
+function noticeFolderField(notice) {
+    if (state.sources.pastas.status !== 'ok') return null;
+    return el('div', { class: 'campo-pasta' },
+        el('label', { class: 'campo-rotulo', for: 'pasta-aviso' }, icon('folder-simple'), 'Pasta'),
+        folderSelect('pasta-aviso', notice.id_post, folderOf(notice)));
+}
+
+function renderSaved() {
+    const guard = sourceGuard(['salvos', 'pastas', 'mural'], 3);
+    if (guard) return guard;
+    const list = savedList();
+    const all = folders();
+    let current = state.savedFolder;
+    if (typeof current === 'number' && !all.some((folder) => Number(folder.id_pasta) === current)) {
+        current = 'todas';
+        state.savedFolder = current;
+    }
+    const countFor = (filter) => list.filter(filter).length;
+    const filters = [
+        ['todas', 'Todas', countFor(() => true)],
+        ['sem', 'Sem pasta', countFor((item) => folderOf(item) === null)],
+        ...all.map((folder) => [Number(folder.id_pasta), folder.nome,
+            countFor((item) => folderOf(item) === Number(folder.id_pasta))])
+    ];
+    const shown = list.filter(savedVisible).filter((item) => matchesSearch(noticeForSaved(item)))
+        .sort((a, b) => String(b.salvo_em || b.criado_em || '').localeCompare(String(a.salvo_em || a.criado_em || '')));
+
+    const nodes = [];
+    nodes.push(el('div', { class: 'barra-pastas' },
+        el('ul', { class: 'filtro-pastas', 'aria-label': 'Filtrar salvos por pasta' }, filters.map(([key, label, count]) => {
+            const active = key === current;
+            return el('li', {}, el('button', {
+                class: `pasta-filtro${active ? ' ativo' : ''}`, type: 'button', id: `filtro-pasta-${key}`,
+                'aria-pressed': String(active),
+                on: { click: () => { state.savedFolder = key; render(); } }
+            }, key === 'todas' ? icon('bookmarks-simple') : key === 'sem' ? icon('tray') : icon('folder-simple', active),
+            el('span', { text: label }),
+            el('span', { class: 'pasta-contador', 'aria-hidden': 'true', text: String(count) }),
+            srText(`, ${plural(count, 'aviso', 'avisos')}`)));
+        })),
+        el('button', {
+            class: 'link-botao', type: 'button', id: 'nova-pasta',
+            on: { click: () => openFolderDialog(null, { select: true }) }
+        }, icon('folder-simple-plus'), 'Nova pasta')));
+
+    if (typeof current === 'number') {
+        const folder = all.find((entry) => Number(entry.id_pasta) === current);
+        nodes.push(el('div', { class: 'barra-lista' },
+            el('p', { class: 'meta' }, icon('folder-simple'), ` ${folder.nome} · ${plural(shown.length, 'aviso', 'avisos')}`),
+            el('button', { class: 'link-botao', type: 'button', id: 'renomear-pasta', on: { click: () => openFolderDialog(folder) } },
+                icon('pencil-simple'), 'Renomear'),
+            el('button', { class: 'link-botao link-perigo', type: 'button', id: 'excluir-pasta', on: { click: () => confirmDeleteFolder(folder) } },
+                icon('trash'), 'Excluir pasta')));
+    } else {
+        nodes.push(el('div', { class: 'barra-lista' },
+            el('p', { class: 'meta', text: state.search
+                ? `${plural(shown.length, 'resultado', 'resultados')} para "${truncate(state.search, 40)}"`
+                : plural(shown.length, 'aviso salvo', 'avisos salvos') }),
+            state.search ? el('button', { class: 'link-botao', type: 'button', on: { click: clearSearch } }, icon('x'), 'Limpar busca') : null));
+    }
+
+    if (!shown.length) {
+        const empty = state.search ? 'Nenhum aviso salvo encontrado para essa busca.'
+            : !list.length ? 'Você ainda não salvou nenhum aviso. Abra um aviso e toque em "Salvar aviso".'
+                : current === 'sem' ? 'Todos os seus salvos estão em pastas.' : 'Nenhum aviso nesta pasta.';
+        nodes.push(emptyState(empty, 'bookmark-simple'));
+        return nodes;
+    }
+
+    nodes.push(el('ul', { class: 'lista-avisos' }, shown.map((item) => {
+        const notice = noticeForSaved(item);
+        const selectId = `pasta-salvo-${item.id_post}`;
+        return el('li', { class: 'salvo-item' },
+            noticeCard(notice),
+            el('div', { class: 'salvo-acoes' },
+                el('label', { class: 'visually-hidden', for: selectId, text: `Pasta do aviso ${notice.titulo}` }),
+                el('span', { class: 'meta salvo-pasta-rotulo', 'aria-hidden': 'true' }, icon('folder-simple'), 'Pasta'),
+                folderSelect(selectId, item.id_post, folderOf(item)),
+                el('button', {
+                    class: 'link-botao', type: 'button', id: `remover-salvo-${item.id_post}`,
+                    'aria-label': `Remover dos salvos: ${notice.titulo}`, on: { click: () => removeSaved(item) }
+                }, icon('bookmark-simple'), 'Remover')));
+    })));
+    return nodes;
+}
+
+// Criar (folder = null) ou renomear uma pasta. Erros aparecem junto do campo.
+function openFolderDialog(folder, { select = false, onCreated = null } = {}) {
+    const input = el('input', {
+        id: 'pasta-nome', name: 'nome', type: 'text', maxlength: String(MAX_FOLDER_NAME), required: true,
+        autocomplete: 'off', 'aria-describedby': 'pasta-nome-ajuda'
+    });
+    input.value = folder?.nome || '';
+    const submit = el('button', { class: 'botao botao-primario', type: 'submit' }, icon(folder ? 'check' : 'folder-simple-plus'),
+        folder ? 'Salvar nome' : 'Criar pasta');
+    const form = el('form', { class: 'formulario', novalidate: true },
+        el('div', { class: 'campo' },
+            el('label', { class: 'campo-rotulo', for: 'pasta-nome', text: 'Nome da pasta' }),
+            el('div', { class: 'linha-campo', 'data-campo-erro-apos': true }, input),
+            el('p', { class: 'meta', id: 'pasta-nome-ajuda', text: `Até ${MAX_FOLDER_NAME} caracteres. Ex.: Provas, Passeios, Documentos.` })),
+        el('div', { class: 'acoes' },
+            el('button', { class: 'botao botao-contorno', type: 'button', on: { click: () => $('#dialogo').close() } }, 'Cancelar'),
+            submit));
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        CwFormulario.limparTudo(form);
+        const name = input.value.replace(/\s+/g, ' ').trim();
+        if (!name) return fieldError(input, 'Dê um nome para a pasta.');
+        if (name.length > MAX_FOLDER_NAME) return fieldError(input, `Use até ${MAX_FOLDER_NAME} caracteres.`);
+        const taken = folders().some((entry) => entry.id_pasta !== folder?.id_pasta && normalize(entry.nome) === normalize(name));
+        if (taken) return fieldError(input, 'Você já tem uma pasta com esse nome.');
+        if (folder && name === folder.nome) {
+            $('#dialogo').close();
+            return undefined;
+        }
+        submit.disabled = true;
+        try {
+            const result = await api(folder ? `/api/pastas/${folder.id_pasta}` : '/api/pastas', {
+                method: folder ? 'PATCH' : 'POST', body: JSON.stringify({ nome: name })
+            });
+            const list = folders();
+            let focusId = null;
+            if (folder) {
+                folder.nome = result?.nome || name;
+                focusId = 'renomear-pasta';
+                notify('Pasta renomeada.', 'sucesso');
+            } else {
+                const created = { id_pasta: Number(result?.id_pasta), nome: result?.nome || name, total: 0 };
+                if (Number.isFinite(created.id_pasta)) {
+                    list.push(created);
+                    list.sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR'));
+                    state.sources.pastas.data = list;
+                    if (select) {
+                        state.savedFolder = created.id_pasta;
+                        focusId = `filtro-pasta-${created.id_pasta}`;
+                    }
+                    if (onCreated) onCreated(created);
+                } else {
+                    loadSource('pastas');
+                }
+                notify(`Pasta "${created.nome}" criada.`, 'sucesso');
+            }
+            clearErrorNotifications();
+            $('#dialogo').close();
+            render();
+            const target = focusId ? document.getElementById(focusId) : null;
+            if (target) target.focus({ preventScroll: true });
+        } catch (error) {
+            CwFormulario.mostrar(form, error, input);
+            submit.disabled = false;
+        }
+        return undefined;
+    });
+    openDialog(folder ? 'Renomear pasta' : 'Nova pasta', form);
+    window.setTimeout(() => {
+        input.focus();
+        input.select();
+    }, 0);
+}
+
+function confirmDeleteFolder(folder) {
+    const cancel = el('button', { class: 'botao botao-contorno', type: 'button', on: { click: () => $('#dialogo').close() } }, 'Cancelar');
+    const confirm = el('button', { class: 'botao botao-primario botao-perigo-cheio', type: 'button' }, icon('trash'), 'Excluir pasta');
+    const id = Number(folder.id_pasta);
+    const inside = savedList().filter((item) => folderOf(item) === id).length;
+    confirm.addEventListener('click', async () => {
+        confirm.disabled = true;
+        try {
+            await api(`/api/pastas/${id}`, { method: 'DELETE' });
+            state.sources.pastas.data = folders().filter((entry) => Number(entry.id_pasta) !== id);
+            savedList().filter((item) => folderOf(item) === id).forEach((item) => setNoticeFolder(item.id_post, null));
+            notices().filter((notice) => folderOf(notice) === id).forEach((notice) => { notice.id_pasta = null; });
+            state.savedFolder = 'todas';
+            $('#dialogo').close();
+            notify(`Pasta "${folder.nome}" excluída.`, 'sucesso');
+            render();
+            document.getElementById('filtro-pasta-todas')?.focus({ preventScroll: true });
+        } catch (error) {
+            notify(error.message || 'Não foi possível excluir a pasta.', 'erro');
+            confirm.disabled = false;
+        }
+    });
+    openDialog(`Excluir a pasta "${folder.nome}"?`,
+        el('p', { class: 'dialogo-descricao', text: inside
+            ? `${plural(inside, 'aviso continua salvo', 'avisos continuam salvos')}, em "Sem pasta". Só a pasta é apagada.`
+            : 'A pasta está vazia. Nenhum aviso salvo é afetado.' }),
+        el('div', { class: 'acoes' }, cancel, confirm));
+    // Ação destrutiva: o foco começa em Cancelar.
+    window.setTimeout(() => cancel.focus(), 0);
 }
 
 function markAllRead() {
@@ -1373,46 +1723,6 @@ function markAllRead() {
         },
         () => unread.forEach((notice) => { notice.lido_em = null; }),
         'Não foi possível marcar os avisos como lidos.');
-}
-
-// ---------------------------------------------------------------- Agenda
-
-function renderAgenda() {
-    const guard = sourceGuard(['horarios', 'atividades', 'mural'], 3);
-    if (guard) return guard;
-    const filter = AGENDA_FILTERS[state.route.sub] || AGENDA_FILTERS.semana;
-    const days = agendaDays()
-        .filter(filter.day)
-        .map((day) => ({ ...day, items: day.items.filter(filter.item) }))
-        .filter((day) => day.items.length);
-
-    if (!days.length) {
-        const messages = {
-            hoje: 'Nada marcado para hoje.',
-            provas: 'Nenhuma prova ou entrega nos próximos 7 dias.',
-            eventos: 'Nenhum evento da escola nos próximos 7 dias.'
-        };
-        return emptyState(messages[state.route.sub] || 'Nada marcado para os próximos 7 dias.', 'calendar-blank');
-    }
-
-    const monthShort = (month) => new Intl.DateTimeFormat('pt-BR', { month: 'short', timeZone: 'UTC' })
-        .format(new Date(Date.UTC(2000, month - 1, 15))).replace('.', '');
-
-    return el('ol', { class: 'agenda' }, days.map((day) => el('li', { class: 'agenda-dia' },
-        el('h2', { class: `agenda-data${day.isToday ? ' hoje' : ''}` },
-            el('span', { class: 'agenda-sem', text: WEEKDAY_SHORT[day.weekday] }),
-            el('span', { class: 'agenda-num', text: day.day }),
-            el('span', { class: 'agenda-extra', text: day.isToday ? 'Hoje' : monthShort(day.month) })),
-        el('ul', { class: 'cartao agenda-itens' }, day.items.map((item) => {
-            const type = AGENDA_TYPES[item.kind];
-            const title = item.href ? el('a', { class: 'linha-titulo link-discreto', href: item.href, text: item.title })
-                : el('span', { class: 'linha-titulo', text: item.title });
-            return el('li', { class: 'agenda-item' },
-                el('span', { class: 'hora', text: item.time }),
-                el('span', { class: 'chip-tipo' }, icon(type.icon)),
-                el('span', { class: 'linha-texto' }, title, item.detail ? el('span', { class: 'meta', text: item.detail }) : null),
-                el('span', { class: `selo tipo-${item.kind}`, text: type.label }));
-        })))));
 }
 
 // ---------------------------------------------------------------- Atividades

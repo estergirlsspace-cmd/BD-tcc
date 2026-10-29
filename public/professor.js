@@ -27,9 +27,11 @@ const COURSE_NAMES = { informatica: 'Informática', redes: 'Redes de Computadore
 const SECTIONS = {
     inicio: { title: 'Início', icon: 'house' },
     turmas: { title: 'Turmas', icon: 'users-three' },
+    horario: { title: 'Horário', icon: 'calendar-dots' },
     chamada: { title: 'Chamada', icon: 'list-checks' },
     atividades: { title: 'Atividades', icon: 'clipboard-text' },
     avisos: { title: 'Avisos', icon: 'megaphone-simple' },
+    salvos: { title: 'Salvos', icon: 'bookmark-simple' },
     ocorrencias: { title: 'Ocorrências', icon: 'warning-octagon' },
     mensagens: { title: 'Mensagens', icon: 'chats-circle' },
     configuracoes: { title: 'Configurações', icon: 'gear-six' },
@@ -75,6 +77,9 @@ const SOURCE_PATHS = {
     frequencias: '/api/frequencias',
     atividades: '/api/atividades',
     avisos: '/api/avisos',
+    pastas: '/api/pastas',
+    salvos: '/api/salvos',
+    horariosPdf: '/api/horarios-pdf',
     ocorrencias: '/api/ocorrencias',
     conversas: '/api/mensagens',
     conta: '/api/conta',
@@ -711,6 +716,20 @@ function myNotices() {
         .sort((a, b) => String(b.criado_em).localeCompare(String(a.criado_em)));
 }
 
+// Avisos que o professor vê sem ser o autor: da gestão (escola, curso, série) e de outros
+// professores para as turmas dele.
+function receivedNotices() {
+    return (source('avisos').data || [])
+        .filter((notice) => notice.id_usuario_autor !== state.user.id_usuario)
+        .sort((a, b) => String(b.criado_em).localeCompare(String(a.criado_em)));
+}
+
+function noticeAudienceLabel(notice) {
+    if (notice.id_turma) return className(notice.id_turma);
+    const parts = [notice.curso ? COURSE_NAMES[notice.curso] || notice.curso : null, notice.serie ? `${notice.serie}ª série` : null].filter(Boolean);
+    return parts.length ? parts.join(' · ') : 'Escola toda';
+}
+
 function className(classId) {
     return myClasses().find((item) => item.id_turma === classId)?.nome_turma || 'Turma';
 }
@@ -757,7 +776,7 @@ function updateNavigation() {
     const current = state.route.section;
     document.querySelectorAll('[data-secao]').forEach((link) => {
         const active = link.dataset.secao === current
-            || (link.dataset.secao === 'mais' && ['turmas', 'atividades', 'ocorrencias', 'configuracoes'].includes(current)
+            || (link.dataset.secao === 'mais' && ['turmas', 'horario', 'atividades', 'salvos', 'ocorrencias', 'configuracoes'].includes(current)
                 && MOBILE_QUERY.matches);
         link.classList.toggle('ativo', active);
         if (active) link.setAttribute('aria-current', 'page');
@@ -803,9 +822,11 @@ function startUnreadPolling() {
 const RENDERERS = {
     inicio: renderHome,
     turmas: renderClasses,
+    horario: renderSchedulePdfs,
     chamada: renderAttendance,
     atividades: renderActivities,
     avisos: renderNotices,
+    salvos: renderSaved,
     ocorrencias: renderIncidents,
     mensagens: renderMessages,
     configuracoes: renderSettings,
@@ -1664,12 +1685,13 @@ function gradeForm(submission, done) {
 function renderNotices() {
     const blocked = guard(['disciplinas', 'turmas']);
     if (blocked) return { title: 'Avisos', content: blocked };
-    ensure('avisos');
+    ensure('avisos', 'salvos', 'pastas');
     const form = persistentNode('form-aviso', noticeForm);
     syncNoticeForm(form);
 
     const notices = source('avisos');
     let list;
+    let receivedList;
     if (notices.status === 'error') list = errorState(notices.error, () => reload('avisos'));
     else if (notices.status !== 'ok') list = skeleton(3);
     else {
@@ -1677,6 +1699,10 @@ function renderNotices() {
         list = mine.length
             ? el('ul', { class: 'lista-cartoes' }, mine.map(noticeCard))
             : emptyState('Você ainda não publicou avisos.', 'megaphone-simple');
+        const received = receivedNotices();
+        receivedList = received.length
+            ? el('ul', { class: 'lista-cartoes' }, received.map(receivedNoticeCard))
+            : emptyState('Nenhum aviso da escola ou de outros professores para as suas turmas.', 'tray');
     }
     return {
         title: 'Avisos',
@@ -1685,7 +1711,9 @@ function renderNotices() {
                 form.editing ? 'pencil-simple' : 'megaphone-simple'), form),
             el('section', { class: 'coluna-avisos', 'aria-labelledby': 'meus-avisos-titulo' },
                 el('h2', { class: 'grupo-titulo', id: 'meus-avisos-titulo', text: 'Meus avisos' }),
-                list))
+                list,
+                receivedList ? el('h2', { class: 'grupo-titulo grupo-titulo-espaco', id: 'avisos-recebidos-titulo', text: 'Recebidos' }) : null,
+                receivedList || null))
     };
 }
 
@@ -1922,7 +1950,7 @@ function noticeCard(notice) {
                     el('span', { class: 'chip', text: NOTICE_TYPES[notice.tipo] || 'Aviso' }),
                     el('span', { class: 'chip', text: className(notice.id_turma) })),
                 el('span', { class: 'empurra' }),
-                el('span', { class: 'aviso-acoes' }, editButton, removeButton)),
+                el('span', { class: 'aviso-acoes' }, saveButton(notice), editButton, removeButton)),
             el('h3', { class: 'aviso-titulo', text: notice.titulo }),
             el('p', { class: 'aviso-resumo', text: truncate(notice.conteudo, 220) }),
             el('p', { class: 'meta' },
@@ -1936,6 +1964,364 @@ function noticeCard(notice) {
                         el('strong', { text: `${confirmed}/${total}` })),
                     progressBar(total ? (confirmed / total) * 100 : 0, { label: `${confirmed} de ${total} alunos confirmaram a leitura` }))
                 : el('p', { class: 'meta' }, icon('eye'), ' Contagem de leituras indisponível.')));
+}
+
+// ---------------------------------------------------------------- Salvos e pastas
+
+// Atualiza fontes sem passar pelo estado "carregando" (a tela não pisca depois de salvar/mover).
+async function refreshQuiet(...names) {
+    await Promise.all(names.flat().map(async (name) => {
+        const item = source(name);
+        try {
+            item.data = await api(SOURCE_PATHS[name]);
+            item.status = 'ok';
+            item.error = null;
+            item.code = null;
+        } catch (error) {
+            item.status = 'error';
+            item.error = error.message;
+            item.code = error.status || null;
+        }
+    }));
+    render();
+}
+
+function folderList() {
+    if (source('pastas').status !== 'ok') return [];
+    const data = source('pastas').data;
+    return (Array.isArray(data) ? data : (data?.pastas || []))
+        .slice()
+        .sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR', { sensitivity: 'base' }));
+}
+
+function savedList() {
+    const data = source('salvos').data;
+    return Array.isArray(data) ? data : (data?.salvos || []);
+}
+
+// Salvos prontos para uso (se o servidor ainda não tiver a função, o botão Salvar não aparece).
+function savesReady() {
+    return source('salvos').data !== null && source('salvos').status !== 'error';
+}
+
+function savedEntry(postId) {
+    return savesReady() ? savedList().find((item) => item.id_post === postId) || null : null;
+}
+
+function folderName(folderId) {
+    return folderList().find((item) => item.id_pasta === folderId)?.nome || null;
+}
+
+function authorName(item) {
+    const author = item.autor;
+    return (author && typeof author === 'object' ? author.nome : author) || null;
+}
+
+function saveButton(notice) {
+    if (!savesReady()) return null;
+    const entry = savedEntry(notice.id_post);
+    const folder = entry?.id_pasta ? folderName(entry.id_pasta) : null;
+    return el('button', {
+        class: `botao-icone${entry ? ' botao-icone-ativo' : ''}`,
+        type: 'button',
+        'aria-haspopup': 'dialog',
+        'aria-label': entry
+            ? `Aviso "${notice.titulo}" salvo${folder ? ` na pasta ${folder}` : ''}. Mover ou deixar de salvar`
+            : `Salvar o aviso "${notice.titulo}"`,
+        title: entry ? 'Salvo' : 'Salvar',
+        on: { click: () => openSaveDialog(notice) }
+    }, icon('bookmark-simple', Boolean(entry)));
+}
+
+async function unsaveNotice(postId) {
+    try {
+        await api(`/api/salvos/${postId}`, { method: 'DELETE' });
+        notify('Aviso removido dos salvos.');
+        await refreshQuiet('salvos', 'pastas');
+        return true;
+    } catch (error) {
+        notify(error.message, 'erro');
+        return false;
+    }
+}
+
+// Salvar (com pasta opcional) ou mover um aviso já salvo.
+function openSaveDialog(notice) {
+    const entry = savedEntry(notice.id_post);
+    const folders = folderList();
+    const select = el('select', { name: 'pasta' },
+        el('option', { value: '', text: 'Sem pasta' }),
+        folders.map((item) => el('option', { value: String(item.id_pasta), text: item.nome })));
+    select.value = entry?.id_pasta ? String(entry.id_pasta) : '';
+    const submit = el('button', { class: 'botao botao-primario', type: 'submit' },
+        icon(entry ? 'folder-simple' : 'bookmark-simple'), entry ? 'Mover' : 'Salvar');
+    const unsave = entry
+        ? el('button', { class: 'botao botao-contorno', type: 'button' }, icon('bookmark-simple'), 'Deixar de salvar')
+        : null;
+    const form = el('form', { class: 'formulario', novalidate: true },
+        el('p', { class: 'dialogo-texto', text: notice.titulo }),
+        field(entry ? 'Pasta' : 'Pasta (opcional)', select, {
+            hint: folders.length
+                ? 'Escolha uma pasta ou deixe o aviso sem pasta.'
+                : 'Você ainda não tem pastas. Crie pastas na seção Salvos.'
+        }),
+        el('div', { class: 'dialogo-acoes' },
+            el('button', { class: 'botao botao-contorno', type: 'button', on: { click: closeDialog } }, 'Cancelar'),
+            unsave,
+            submit));
+
+    unsave?.addEventListener('click', () => withBusy(unsave, async () => {
+        if (await unsaveNotice(notice.id_post)) closeDialog();
+    }));
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        CwFormulario.limparTudo(form);
+        const folderId = select.value ? Number(select.value) : null;
+        await withBusy(submit, async () => {
+            try {
+                await api(`/api/salvos/${notice.id_post}`, json('PUT', { id_pasta: folderId }));
+                closeDialog();
+                const folder = folderId ? folderName(folderId) : null;
+                notify(entry
+                    ? (folder ? `Aviso movido para "${folder}".` : 'Aviso movido para "Sem pasta".')
+                    : (folder ? `Aviso salvo em "${folder}".` : 'Aviso salvo.'));
+                await refreshQuiet('salvos', 'pastas');
+            } catch (error) {
+                showFormError(form, error, [[/pasta/i, select]]);
+            }
+        });
+    });
+    openDialog(entry ? 'Aviso salvo' : 'Salvar aviso', form);
+    select.focus();
+}
+
+// Criar (folder vazio) ou renomear pasta.
+function openFolderForm(folder) {
+    const input = el('input', { type: 'text', name: 'nome', maxlength: 40, required: true, autocomplete: 'off', value: folder?.nome || '' });
+    const submit = el('button', { class: 'botao botao-primario', type: 'submit' }, icon('check'), folder ? 'Renomear' : 'Criar pasta');
+    const form = el('form', { class: 'formulario', novalidate: true },
+        field('Nome da pasta', input, { hint: 'De 1 a 40 caracteres. Ex.: Reuniões, Provas, Eventos.' }),
+        el('div', { class: 'dialogo-acoes' },
+            el('button', { class: 'botao botao-contorno', type: 'button', on: { click: closeDialog } }, 'Cancelar'),
+            submit));
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        CwFormulario.limparTudo(form);
+        const name = input.value.trim();
+        if (!name) { CwFormulario.erro(input, 'Dê um nome à pasta.', { focar: true }); return; }
+        if (name.length > 40) { CwFormulario.erro(input, 'Use no máximo 40 caracteres.', { focar: true }); return; }
+        const clash = folderList().find((item) => item.id_pasta !== folder?.id_pasta
+            && String(item.nome).localeCompare(name, 'pt-BR', { sensitivity: 'base' }) === 0);
+        if (clash) { CwFormulario.erro(input, 'Você já tem uma pasta com esse nome.', { focar: true }); return; }
+        if (folder && name === folder.nome) { closeDialog(); return; }
+        await withBusy(submit, async () => {
+            try {
+                const result = folder
+                    ? await api(`/api/pastas/${folder.id_pasta}`, json('PATCH', { nome: name }))
+                    : await api('/api/pastas', json('POST', { nome: name }));
+                closeDialog();
+                notify(folder ? `Pasta renomeada para "${name}".` : `Pasta "${name}" criada.`);
+                await refreshQuiet('pastas');
+                if (!folder && result?.id_pasta) window.location.hash = `#/salvos/${result.id_pasta}`;
+            } catch (error) {
+                showFormError(form, error, [[/nome|pasta/i, input]]);
+            }
+        });
+    });
+    openDialog(folder ? 'Renomear pasta' : 'Nova pasta', form);
+    input.focus();
+    input.select();
+}
+
+function confirmFolderRemoval(folder, count) {
+    confirmDialog({
+        title: 'Excluir pasta?',
+        message: count
+            ? `A pasta "${folder.nome}" será excluída. ${count === 1 ? 'O aviso dela continua salvo' : `Os ${count} avisos dela continuam salvos`}, sem pasta.`
+            : `A pasta "${folder.nome}" está vazia e será excluída.`,
+        confirmLabel: 'Excluir pasta',
+        danger: true,
+        onConfirm: async () => {
+            try {
+                await api(`/api/pastas/${folder.id_pasta}`, { method: 'DELETE' });
+                notify(`Pasta "${folder.nome}" excluída.`);
+                window.location.hash = '#/salvos';
+                await refreshQuiet('pastas', 'salvos');
+            } catch (error) {
+                notify(error.message, 'erro');
+            }
+        }
+    });
+}
+
+function savedCard(item) {
+    const folder = item.id_pasta ? folderName(item.id_pasta) : null;
+    const moveButton = el('button', {
+        class: 'botao-icone', type: 'button', 'aria-haspopup': 'dialog',
+        'aria-label': `Mover "${item.titulo}" de pasta`, title: 'Mover de pasta'
+    }, icon('folder-simple'));
+    moveButton.addEventListener('click', () => openSaveDialog(item));
+    const unsaveButton = el('button', {
+        class: 'botao-icone botao-icone-perigo', type: 'button',
+        'aria-label': `Deixar de salvar "${item.titulo}"`, title: 'Deixar de salvar'
+    }, icon('bookmark-simple', true));
+    unsaveButton.addEventListener('click', () => withBusy(unsaveButton, () => unsaveNotice(item.id_post)));
+    return el('li', {},
+        el('article', { class: `cartao cartao-aviso${item.urgente ? ' urgente' : ''}` },
+            el('div', { class: 'aviso-topo' },
+                el('span', { class: 'chips' },
+                    item.urgente ? el('span', { class: 'chip chip-urgente' }, icon('warning', true), 'Urgente') : null,
+                    el('span', { class: 'chip', text: NOTICE_TYPES[item.tipo] || 'Aviso' }),
+                    el('span', { class: 'chip' }, icon('folder-simple'), folder || 'Sem pasta')),
+                el('span', { class: 'empurra' }),
+                el('span', { class: 'aviso-acoes' }, moveButton, unsaveButton)),
+            el('h3', { class: 'aviso-titulo', text: item.titulo }),
+            el('p', { class: 'meta', text: [
+                authorName(item),
+                item.criado_em ? `Publicado ${timeAgo(item.criado_em)}` : null,
+                item.salvo_em ? `salvo ${timeAgo(item.salvo_em)}` : null
+            ].filter(Boolean).join(' · ') })));
+}
+
+function renderSaved() {
+    const [filterKey = 'todas'] = state.route.parts;
+    ensure('pastas');
+    const blocked = guard(['salvos'], { soon: 'Os avisos salvos chegam em breve.' });
+    if (blocked) return { title: 'Salvos', content: blocked };
+
+    const foldersSource = source('pastas');
+    const foldersReady = foldersSource.status === 'ok';
+    const folders = folderList();
+    const items = savedList().slice()
+        .sort((a, b) => String(b.salvo_em || b.criado_em).localeCompare(String(a.salvo_em || a.criado_em)));
+    const folder = /^\d+$/.test(filterKey) ? folders.find((item) => item.id_pasta === Number(filterKey)) : null;
+    if (/^\d+$/.test(filterKey) && !folder && !foldersReady && foldersSource.status !== 'error') {
+        return { title: 'Salvos', content: skeleton(3) };
+    }
+    const key = folder ? String(folder.id_pasta) : (filterKey === 'sem-pasta' ? 'sem-pasta' : 'todas');
+    const countIn = (folderId) => items.filter((item) => (item.id_pasta || null) === folderId).length;
+    const visible = key === 'todas' ? items
+        : key === 'sem-pasta' ? items.filter((item) => !item.id_pasta)
+            : items.filter((item) => item.id_pasta === folder.id_pasta);
+
+    const segment = (href, label, count, active) => el('a', {
+        class: `segmento${active ? ' ativo' : ''}`,
+        href,
+        'aria-current': active ? 'true' : null
+    }, label, el('span', { class: 'segmento-contador', text: String(count) }));
+    const tabs = el('nav', { class: 'segmentado', 'aria-label': 'Filtrar por pasta' },
+        segment('#/salvos', 'Todas', items.length, key === 'todas'),
+        segment('#/salvos/sem-pasta', 'Sem pasta', countIn(null), key === 'sem-pasta'),
+        folders.map((item) => segment(`#/salvos/${item.id_pasta}`, item.nome, countIn(item.id_pasta), key === String(item.id_pasta))));
+
+    const foldersNote = foldersSource.status === 'error' && !isUnavailable(foldersSource)
+        ? el('p', { class: 'nota-discreta', role: 'note' }, icon('info'), `Não foi possível carregar as pastas (${foldersSource.error}).`,
+            el('button', { class: 'link-botao', type: 'button', on: { click: () => reload('pastas') } }, 'Tentar de novo'))
+        : null;
+
+    const folderBar = folder
+        ? el('div', { class: 'barra-pasta' },
+            el('h2', { class: 'grupo-titulo' }, icon('folder-open'), ` ${folder.nome}`),
+            el('span', { class: 'empurra' }),
+            el('button', { class: 'botao botao-contorno', type: 'button', 'aria-haspopup': 'dialog', on: { click: () => openFolderForm(folder) } },
+                icon('pencil-simple'), 'Renomear'),
+            el('button', { class: 'botao botao-contorno botao-contorno-perigo', type: 'button', on: { click: () => confirmFolderRemoval(folder, countIn(folder.id_pasta)) } },
+                icon('trash'), 'Excluir pasta'))
+        : null;
+
+    const emptyText = !items.length
+        ? 'Nenhum aviso salvo ainda. Em Avisos, use o botão Salvar de um aviso para guardá-lo aqui.'
+        : key === 'sem-pasta' ? 'Nenhum aviso salvo sem pasta.' : 'Esta pasta está vazia. Use "Mover de pasta" em um aviso salvo.';
+
+    return {
+        title: 'Salvos',
+        trail: folder ? `Salvos · ${folder.nome}` : null,
+        actions: foldersReady
+            ? [el('button', { class: 'botao botao-primario', type: 'button', 'aria-haspopup': 'dialog', on: { click: () => openFolderForm(null) } }, icon('folder-plus'), 'Nova pasta')]
+            : [],
+        content: [
+            el('p', { class: 'introducao', text: 'Avisos que você guardou para consultar depois, organizados em pastas.' }),
+            foldersNote,
+            tabs,
+            folderBar,
+            visible.length ? el('ul', { class: 'lista-cartoes' }, visible.map(savedCard)) : emptyState(emptyText, 'bookmark-simple')
+        ]
+    };
+}
+
+// ---------------------------------------------------------------- Horário (PDFs publicados pela gestão)
+
+function scheduleRow(label, item) {
+    const file = item?.arquivo;
+    if (!file?.id_arquivo) {
+        return el('li', { class: 'linha-dispositivo' },
+            el('span', { class: 'icone-quadrado icone-neutro' }, icon('file-pdf')),
+            el('span', { class: 'linha-texto' },
+                el('strong', { text: label }),
+                el('span', { class: 'meta', text: 'A gestão ainda não publicou este horário.' })));
+    }
+    const button = el('button', { class: 'botao botao-contorno', type: 'button', 'aria-label': `Baixar ${label} (PDF)` },
+        icon('download-simple'), 'Baixar');
+    button.addEventListener('click', () => downloadFile(file.id_arquivo, file.nome || `${label}.pdf`, button));
+    return el('li', { class: 'linha-dispositivo' },
+        el('span', { class: 'icone-quadrado' }, icon('file-pdf')),
+        el('span', { class: 'linha-texto' },
+            el('strong', { text: label }),
+            el('span', { class: 'meta', text: [
+                item.atualizado_em ? `Atualizado em ${formatSchoolDate(item.atualizado_em, { utc: true })}` : null,
+                Number(file.tamanho) ? formatSize(Number(file.tamanho)) : null
+            ].filter(Boolean).join(' · ') })),
+        button);
+}
+
+function renderSchedulePdfs() {
+    const blocked = guard(['disciplinas', 'turmas', 'horariosPdf'], { soon: 'Os horários em PDF chegam em breve.' });
+    if (blocked) return { title: 'Horário', content: blocked };
+    const data = source('horariosPdf').data || {};
+    const published = Array.isArray(data.turmas) ? data.turmas : [];
+    const classes = myClasses();
+    const rows = classes.map((item) => scheduleRow(`Horário da ${item.nome_turma}`,
+        published.find((pdf) => pdf.id_turma === item.id_turma)));
+    for (const pdf of published) {
+        if (!classes.some((item) => item.id_turma === pdf.id_turma)) {
+            rows.push(scheduleRow(`Horário da ${pdf.nome_turma || 'turma'}`, pdf));
+        }
+    }
+    return {
+        title: 'Horário',
+        content: [
+            el('p', { class: 'introducao', text: 'Horários em PDF publicados pela gestão. Baixe para consultar ou imprimir.' }),
+            card('', cardHeader('Horário dos professores', 'chalkboard-teacher'),
+                el('ul', { class: 'lista-dispositivos' }, scheduleRow('Horário dos professores', data.professores))),
+            card('', cardHeader('Horários das minhas turmas', 'users-three'),
+                rows.length
+                    ? el('ul', { class: 'lista-dispositivos' }, rows)
+                    : emptyState('Nenhuma turma vinculada ao seu perfil.', 'users-three'))
+        ]
+    };
+}
+
+function receivedNoticeCard(notice) {
+    const attachment = notice.anexo || (notice.id_arquivo ? { id_arquivo: notice.id_arquivo, nome: 'Anexo PDF' } : null);
+    const downloadButton = attachment
+        ? el('button', { class: 'link-botao', type: 'button' }, icon('file-pdf'), attachment.nome || 'Anexo PDF')
+        : null;
+    downloadButton?.addEventListener('click', () => downloadFile(attachment.id_arquivo, attachment.nome, downloadButton));
+    return el('li', {},
+        el('article', { class: `cartao cartao-aviso${notice.urgente ? ' urgente' : ''}` },
+            el('div', { class: 'aviso-topo' },
+                el('span', { class: 'chips' },
+                    notice.urgente ? el('span', { class: 'chip chip-urgente' }, icon('warning', true), 'Urgente') : null,
+                    el('span', { class: 'chip', text: NOTICE_TYPES[notice.tipo] || 'Aviso' }),
+                    el('span', { class: 'chip', text: noticeAudienceLabel(notice) })),
+                el('span', { class: 'empurra' }),
+                el('span', { class: 'aviso-acoes' }, saveButton(notice))),
+            el('h3', { class: 'aviso-titulo', text: notice.titulo }),
+            el('p', { class: 'aviso-resumo', text: truncate(notice.conteudo, 220) }),
+            el('p', { class: 'meta' },
+                `Publicado ${timeAgo(notice.criado_em)}`,
+                notice.data_evento ? ` · Evento em ${formatSchoolDate(notice.data_evento)}` : ''),
+            downloadButton));
 }
 
 // ---------------------------------------------------------------- Ocorrências
@@ -2095,7 +2481,9 @@ function renderMessages() {
 function renderMore() {
     const links = [
         ['#/turmas', 'Turmas', 'users-three'],
+        ['#/horario', 'Horário', 'calendar-dots'],
         ['#/atividades', 'Atividades', 'clipboard-text'],
+        ['#/salvos', 'Salvos', 'bookmark-simple'],
         ['#/ocorrencias', 'Ocorrências', 'warning-octagon'],
         ['#/configuracoes/perfil', 'Configurações', 'gear-six']
     ];

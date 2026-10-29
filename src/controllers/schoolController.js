@@ -117,19 +117,44 @@ async function initialPasswordHash(cpfStart) {
     return hashPassword(`ceep@${cpfStart}`);
 }
 
+const STUDENT_NAME_MAX = 150;
+
+// Matrícula aceita (só dígitos, 3 a 20), já sem espaços nas pontas; null se inválida.
+function parseMatricula(value) {
+    if (typeof value !== 'string') return null;
+    const matricula = value.trim();
+    return MATRICULA_PATTERN.test(matricula) ? matricula : null;
+}
+
+// Grava conta + matrícula de um aluno já validado. Deve rodar dentro de uma transação aberta
+// (BEGIN IMMEDIATE) — usado pela matrícula individual e pela importação por planilha. O envio do
+// e-mail de confirmação fica para depois do COMMIT, com o token devolvido aqui.
+function insertStudent({ matricula, passwordHash, nome, schoolClass, email }) {
+    const userId = Number(database.prepare(`
+        INSERT INTO usuarios (login, senha, tipo_usuario, curso, serie, ativo, deve_trocar_senha)
+        VALUES (?, ?, 'aluno', ?, ?, 1, 1)
+    `).run(matricula, passwordHash, schoolClass.curso, schoolClass.serie).lastInsertRowid);
+    const studentId = Number(database.prepare(`
+        INSERT INTO alunos (id_usuario, nome, id_turma)
+        VALUES (?, ?, ?)
+    `).run(userId, nome, schoolClass.id_turma).lastInsertRowid);
+    const confirmationToken = email ? issueEmailConfirmation(userId, email) : null;
+    return { userId, studentId, confirmationToken };
+}
+
 async function enrollStudent(request, response, user) {
     requireRole(user, ['gestao']);
     const body = await readBody(request);
     rejectUnknownFields(body, ['matricula', 'nome', 'id_turma', 'cpf_inicio', 'email']);
     requireFields(body, ['matricula', 'nome', 'id_turma', 'cpf_inicio']);
     const email = optionalAccountEmail(body.email);
-    if (typeof body.matricula !== 'string' || !MATRICULA_PATTERN.test(body.matricula.trim())) {
+    const matricula = parseMatricula(body.matricula);
+    if (!matricula) {
         throw new ApiError(400, 'A matrícula deve conter apenas números (3 a 20 dígitos).');
     }
-    if (typeof body.nome !== 'string' || !body.nome.trim() || body.nome.length > 150) {
-        throw new ApiError(400, 'Informe o nome do aluno com até 150 caracteres.');
+    if (typeof body.nome !== 'string' || !body.nome.trim() || body.nome.length > STUDENT_NAME_MAX) {
+        throw new ApiError(400, `Informe o nome do aluno com até ${STUDENT_NAME_MAX} caracteres.`);
     }
-    const matricula = body.matricula.trim();
     const passwordHash = await initialPasswordHash(body.cpf_inicio);
     const classId = positiveId(body.id_turma, 'id_turma');
     const schoolClass = database.prepare(
@@ -142,21 +167,14 @@ async function enrollStudent(request, response, user) {
 
     database.exec('BEGIN IMMEDIATE');
     try {
-        const result = database.prepare(`
-            INSERT INTO usuarios (login, senha, tipo_usuario, curso, serie, ativo, deve_trocar_senha)
-            VALUES (?, ?, 'aluno', ?, ?, 1, 1)
-        `).run(matricula, passwordHash, schoolClass.curso, schoolClass.serie);
-        const userId = Number(result.lastInsertRowid);
-        const studentResult = database.prepare(`
-            INSERT INTO alunos (id_usuario, nome, id_turma)
-            VALUES (?, ?, ?)
-        `).run(userId, body.nome.trim(), classId);
-        const confirmationToken = email && issueEmailConfirmation(userId, email);
+        const { userId, studentId, confirmationToken } = insertStudent({
+            matricula, passwordHash, nome: body.nome.trim(), schoolClass, email
+        });
         database.exec('COMMIT');
         if (email) notificacoes.sendEmailConfirmation(userId, email, confirmationToken);
-        registrar(user, 'aluno.matricular', `aluno:${Number(studentResult.lastInsertRowid)}`);
+        registrar(user, 'aluno.matricular', `aluno:${studentId}`);
         sendJson(response, 201, {
-            id_aluno: Number(studentResult.lastInsertRowid),
+            id_aluno: studentId,
             id_usuario: userId,
             matricula,
             nome: body.nome.trim(),
@@ -1085,5 +1103,10 @@ module.exports = {
     requiredText,
     optionalText,
     canAccessClass,
-    isTeacherAssignedToClass
+    isTeacherAssignedToClass,
+    CPF_INICIO_PATTERN,
+    STUDENT_NAME_MAX,
+    parseMatricula,
+    initialPasswordHash,
+    insertStudent
 };

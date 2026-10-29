@@ -41,6 +41,7 @@ function toMuralItem(notice) {
         publico: noticeAudience(notice),
         lido_em: notice.lido_em,
         salvo: notice.salvo_em !== null,
+        id_pasta: notice.id_pasta ?? null,
         anexo: attachmentFrom(notice)
     };
 }
@@ -52,7 +53,7 @@ function getMural(user) {
         SELECT p.id_post, p.titulo, p.conteudo, p.tipo, p.urgente, p.data_evento, p.criado_em,
                p.id_turma, p.curso, p.serie,
                u.tipo_usuario AS autor_perfil, COALESCE(pr.nome, u.nome) AS autor_nome,
-               au.lido_em, au.salvo_em, ${attachmentColumns('arq')}
+               au.lido_em, au.salvo_em, au.id_pasta, ${attachmentColumns('arq')}
         FROM posts_avisos p
         JOIN usuarios u ON u.id_usuario = p.id_usuario_autor
         LEFT JOIN professores pr ON pr.id_usuario = u.id_usuario
@@ -92,7 +93,8 @@ function setState(user, postId, column) {
     ).get(postId, user.id_usuario).valor;
 }
 
-// Desfaz um estado; se o outro também estiver vazio, a linha inteira é apagada.
+// Desfaz um estado; se o outro também estiver vazio, a linha inteira é apagada. Deixar de salvar
+// também tira o aviso da pasta (salvar de novo começa sem pasta).
 function clearState(user, postId, column) {
     const other = STATE_COLUMNS[column];
     if (!other) throw new Error(`Coluna de estado inválida: ${column}`);
@@ -103,7 +105,7 @@ function clearState(user, postId, column) {
             WHERE id_post = ? AND id_usuario = ? AND ${other} IS NULL
         `).run(postId, user.id_usuario);
         database.prepare(`
-            UPDATE avisos_usuarios SET ${column} = NULL
+            UPDATE avisos_usuarios SET ${column} = NULL${column === 'salvo_em' ? ', id_pasta = NULL' : ''}
             WHERE id_post = ? AND id_usuario = ?
         `).run(postId, user.id_usuario);
         database.exec('COMMIT');
@@ -176,4 +178,4 @@ async function handleMuralRequest(request, response, user, parts) {
     }
 }
 
-module.exports = { handleMuralRequest };
+module.exports = { handleMuralRequest, clearState, noticeCategory, AUTHOR_FALLBACK };

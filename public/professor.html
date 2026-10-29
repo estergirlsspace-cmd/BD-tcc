@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#312782">
+    <meta name="theme-color" content="#2b2921">
     <title>Portal do Professor · C·Warning</title>
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="icon" href="/assets/icones/favicon.svg" type="image/svg+xml">
@@ -25,23 +25,29 @@
     <script src="/componentes/formulario.js" defer></script>
     <script src="/professor.js" defer></script>
 </head>
-<body>
+<body class="portal-professor">
     <a class="pular-conteudo" href="#conteudo">Pular para o conteúdo</a>
 
     <div class="app">
         <!-- Barra lateral (web) -->
         <aside class="lateral" aria-label="Menu do portal">
             <a class="lateral-marca" href="#/inicio" aria-label="C·Warning, início do Portal do Professor">
-                <span class="cw-marca cw-marca--clara" aria-hidden="true">C<span class="cw-marca__ponto"></span>Warning</span>
-                <span class="lateral-subtitulo" aria-hidden="true">Portal do Professor</span>
+                <span class="marca-logo" aria-hidden="true">C</span>
+                <span class="lateral-marca-texto">
+                    <span class="cw-marca cw-marca--clara" aria-hidden="true">C<span class="cw-marca__ponto"></span>Warning</span>
+                    <span class="lateral-subtitulo" aria-hidden="true">Portal do Professor</span>
+                </span>
             </a>
+            <p class="lateral-rotulo" aria-hidden="true">Menu principal</p>
             <nav class="lateral-nav" aria-label="Seções do portal">
                 <ul class="lateral-lista">
                     <li><a class="lateral-item" href="#/inicio" data-secao="inicio"><i class="ph ph-house" aria-hidden="true"></i><span>Início</span></a></li>
                     <li><a class="lateral-item" href="#/turmas" data-secao="turmas"><i class="ph ph-users-three" aria-hidden="true"></i><span>Turmas</span></a></li>
+                    <li><a class="lateral-item" href="#/horario" data-secao="horario"><i class="ph ph-calendar-dots" aria-hidden="true"></i><span>Horário</span></a></li>
                     <li><a class="lateral-item" href="#/chamada" data-secao="chamada"><i class="ph ph-list-checks" aria-hidden="true"></i><span>Chamada</span></a></li>
                     <li><a class="lateral-item" href="#/atividades" data-secao="atividades"><i class="ph ph-clipboard-text" aria-hidden="true"></i><span>Atividades</span></a></li>
                     <li><a class="lateral-item" href="#/avisos" data-secao="avisos"><i class="ph ph-megaphone-simple" aria-hidden="true"></i><span>Avisos</span></a></li>
+                    <li><a class="lateral-item" href="#/salvos" data-secao="salvos"><i class="ph ph-bookmark-simple" aria-hidden="true"></i><span>Salvos</span></a></li>
                     <li><a class="lateral-item" href="#/ocorrencias" data-secao="ocorrencias"><i class="ph ph-warning-octagon" aria-hidden="true"></i><span>Ocorrências</span></a></li>
                     <li><a class="lateral-item" href="#/mensagens" data-secao="mensagens"><i class="ph ph-chats-circle" aria-hidden="true"></i><span>Mensagens</span><span class="lateral-contador" data-contador-mensagens hidden></span></a></li>
                 </ul>
@@ -62,6 +68,7 @@
         <div class="coluna">
             <header class="topo">
                 <a class="topo-marca" href="#/inicio" aria-label="C·Warning, início">
+                    <span class="marca-logo marca-logo--pequena" aria-hidden="true">C</span>
                     <span class="cw-marca" aria-hidden="true">C<span class="cw-marca__ponto"></span>Warning</span>
                 </a>
                 <div class="topo-titulos">

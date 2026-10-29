@@ -14,6 +14,9 @@ const { handleMensagensRequest } = require('../controllers/mensagensController')
 const { handleContaRequest, handlePublicAccountRequest } = require('../controllers/contaController');
 const { handlePrivacidadeRequest } = require('../controllers/privacidadeController');
 const { handleAuditoriaRequest } = require('../controllers/auditoriaController');
+const { handleHorariosPdfRequest } = require('../controllers/horariosPdfController');
+const { handlePastasRequest, handleSalvosRequest } = require('../controllers/salvosController');
+const { handleImportacaoRequest } = require('../controllers/importacaoController');
 const database = require('../database');
 
 // Módulos por prefixo: /api/<prefixo>/... → handler(request, response, user, parts, searchParams).
@@ -27,7 +30,10 @@ const MODULE_ROUTES = {
     mensagens: handleMensagensRequest,
     conta: handleContaRequest,
     privacidade: handlePrivacidadeRequest,
-    auditoria: handleAuditoriaRequest
+    auditoria: handleAuditoriaRequest,
+    'horarios-pdf': handleHorariosPdfRequest,
+    pastas: handlePastasRequest,
+    salvos: handleSalvosRequest
 };
 const { handleMuralRequest } = require('../controllers/muralController');
 
@@ -77,7 +83,10 @@ async function handleApiRequest(request, response) {
                 '/api/atividades',
                 '/api/frequencias',
                 '/api/desempenho',
-                '/api/carga-horaria'
+                '/api/carga-horaria',
+                '/api/horarios-pdf',
+                '/api/pastas',
+                '/api/salvos'
             ]
         });
         return;
@@ -130,6 +139,11 @@ async function handleApiRequest(request, response) {
 
     if (parts[1] === 'mural') {
         await handleMuralRequest(request, response, user, parts);
+        return;
+    }
+
+    if (parts[1] === 'matriculas' && parts[2] === 'importar') {
+        await handleImportacaoRequest(request, response, user, parts, url.searchParams);
         return;
     }
 

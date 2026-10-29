@@ -334,6 +334,32 @@ database.exec(`
     CREATE INDEX IF NOT EXISTS auditoria_data_idx ON auditoria (criado_em);
 `);
 
+// ---- Sprint 4: horários em PDF e pastas de avisos salvos ----
+database.exec(`
+    -- Horário publicado pela gestão: um PDF por turma (alunos) e um geral para os professores.
+    CREATE TABLE IF NOT EXISTS horarios_pdf (
+        id_horario_pdf INTEGER PRIMARY KEY AUTOINCREMENT,
+        publico TEXT NOT NULL CHECK (publico IN ('turma', 'professores')),
+        id_turma INTEGER REFERENCES turmas(id_turma) ON DELETE CASCADE,
+        id_arquivo INTEGER NOT NULL REFERENCES arquivos(id_arquivo),
+        id_usuario INTEGER REFERENCES usuarios(id_usuario) ON DELETE SET NULL,
+        atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CHECK ((publico = 'turma') = (id_turma IS NOT NULL))
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS horarios_pdf_alvo_unique
+        ON horarios_pdf (publico, COALESCE(id_turma, 0));
+
+    -- Pastas pessoais para organizar avisos salvos.
+    CREATE TABLE IF NOT EXISTS pastas (
+        id_pasta INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_usuario INTEGER NOT NULL REFERENCES usuarios(id_usuario) ON DELETE CASCADE,
+        nome TEXT NOT NULL,
+        criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (id_usuario, nome)
+    );
+`);
+ensureColumn('avisos_usuarios', 'id_pasta', 'INTEGER REFERENCES pastas(id_pasta) ON DELETE SET NULL');
+
 // Instalação nova (banco vazio): cria a primeira conta da gestão a partir de variáveis de
 // ambiente. A senha é provisória e precisa ser trocada no primeiro acesso.
 const hasManager = database.prepare(

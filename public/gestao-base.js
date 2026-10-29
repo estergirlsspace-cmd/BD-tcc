@@ -79,10 +79,12 @@ function leaveToLogin({ expirou = false } = {}) {
 const OFFLINE_MESSAGE = 'Sem conexão. Confira a internet e tente de novo.';
 const INVALID_RESPONSE_MESSAGE = 'O servidor respondeu de um jeito inesperado. Tente de novo em instantes.';
 
+// data: corpo JSON da resposta de erro (ex.: relatório da importação devolvido com 400).
 class ApiFailure extends Error {
-    constructor(message, status) {
+    constructor(message, status, data = null) {
         super(message);
         this.status = status;
+        this.data = data;
     }
 }
 
@@ -117,7 +119,7 @@ async function api(path, options = {}) {
         throw new ApiFailure('Esta função ainda está sendo preparada. Tente de novo mais tarde.', 501);
     }
     if (!response.ok) {
-        throw new ApiFailure(result?.erro || 'Não foi possível concluir a solicitação.', response.status);
+        throw new ApiFailure(result?.erro || 'Não foi possível concluir a solicitação.', response.status, result);
     }
     return result;
 }

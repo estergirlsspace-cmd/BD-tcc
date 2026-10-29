@@ -5,7 +5,7 @@
 // - Respostas com Cache-Control no-store/private nunca são guardadas.
 // Ao mudar a casca (ou esta lista), suba a versão de CACHE para descartar o cache antigo.
 
-const CACHE = 'cw-v2';
+const CACHE = 'cw-v3';
 const OFFLINE_URL = '/offline.html';
 
 // Obrigatórios: sem eles a página offline não funciona, então a instalação falha.
@@ -51,6 +51,8 @@ const CASCA = [
     '/gestao-avisos.js',
     '/gestao-conta.js',
     '/gestao-pessoas.js',
+    '/gestao-horarios.js',
+    '/gestao-importacao.js',
     '/redefinir.js',
     '/datas.js',
     '/notificacoes.js',

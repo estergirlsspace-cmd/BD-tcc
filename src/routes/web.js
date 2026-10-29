@@ -23,7 +23,8 @@ const contentTypes = new Map([
     ['.svg', 'image/svg+xml'],
     ['.woff2', 'font/woff2'],
     ['.png', 'image/png'],
-    ['.ico', 'image/x-icon']
+    ['.ico', 'image/x-icon'],
+    ['.csv', 'text/csv; charset=utf-8'] // modelos de planilha (public/modelos/)
 ]);
 
 const immutablePrefixes = ['vendor/', 'assets/'];

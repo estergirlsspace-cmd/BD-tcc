@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#312782">
+    <meta name="theme-color" content="#2b2921">
     <title>Portal da Gestão · C·Warning</title>
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="icon" href="/assets/icones/favicon.svg" type="image/svg+xml">
@@ -26,22 +26,28 @@
     <script src="/gestao-base.js" defer></script>
     <script src="/gestao-avisos.js" defer></script>
     <script src="/gestao-pessoas.js" defer></script>
+    <script src="/gestao-horarios.js" defer></script>
+    <script src="/gestao-importacao.js" defer></script>
     <script src="/gestao-acompanhamento.js" defer></script>
     <script src="/gestao-conta.js" defer></script>
     <script src="/gestao.js" defer></script>
 </head>
-<body>
+<body class="portal-gestao">
     <a class="pular-conteudo" href="#conteudo">Pular para o conteúdo</a>
 
     <div class="app">
-        <!-- Sidebar índigo (web) -->
+        <!-- Barra lateral escura com marca dourada (web) -->
         <aside class="sidebar" aria-label="Menu do portal">
-            <a class="sidebar-marca" href="#/visao-geral" aria-label="C·Warning, visão geral">
-                <span class="cw-marca cw-marca--clara" aria-hidden="true">C<span class="cw-marca__ponto"></span>Warning</span>
-                <span class="sidebar-portal">Portal da Gestão</span>
+            <a class="sidebar-marca" href="#/visao-geral" aria-label="C-Warning, Gestão escolar: visão geral">
+                <span class="marca-logo" aria-hidden="true">C</span>
+                <span class="marca-textos" aria-hidden="true">
+                    <span class="marca-nome">C-Warning</span>
+                    <span class="marca-sub">Gestão escolar</span>
+                </span>
             </a>
 
-            <nav aria-label="Seções do portal">
+            <p class="menu-rotulo" id="rotulo-menu">Painel administrativo</p>
+            <nav aria-labelledby="rotulo-menu">
                 <ul class="menu">
                     <li><a class="menu-item" href="#/visao-geral" data-secao="visao-geral"><i class="ph ph-squares-four" aria-hidden="true"></i><span>Visão geral</span></a></li>
                     <li><a class="menu-item" href="#/turmas" data-secao="turmas"><i class="ph ph-users-three" aria-hidden="true"></i><span>Turmas</span></a></li>
@@ -67,9 +73,9 @@
 
         <div class="coluna">
             <header class="topo">
-                <span class="topo-marca cw-marca" aria-hidden="true">C<span class="cw-marca__ponto"></span>Warning</span>
+                <span class="topo-marca" aria-hidden="true"><span class="marca-logo">C</span>C-Warning</span>
                 <div class="topo-titulos">
-                    <p class="topo-escola">CEEP Lourdinha Guerra</p>
+                    <p class="topo-escola">Painel institucional · CEEP Lourdinha Guerra</p>
                     <h1 class="topo-titulo" id="titulo-pagina" tabindex="-1">Carregando…</h1>
                     <p class="topo-descricao" id="descricao-pagina"></p>
                 </div>
@@ -117,6 +123,15 @@
                             </div>
                         </form>
                     </details>
+                    <details class="cartao cartao-recolhivel" id="cartao-horarios">
+                        <summary><i class="ph ph-calendar-blank" aria-hidden="true"></i>Horários em PDF</summary>
+                        <p class="texto-apoio">
+                            Publique o horário de cada turma e o dos professores (PDF de até 5 MB). Os alunos veem o
+                            da própria turma; os professores veem o deles e o das turmas em que dão aula. Enviar um
+                            novo PDF substitui o anterior.
+                        </p>
+                        <div id="lista-horarios"></div>
+                    </details>
                     <div id="lista-turmas"></div>
                 </section>
 
@@ -155,6 +170,37 @@
                                 <button class="botao botao-primario" type="submit">Matricular</button>
                             </div>
                         </form>
+                    </details>
+
+                    <details class="cartao cartao-recolhivel" id="cartao-importacao">
+                        <summary><i class="ph ph-file-csv" aria-hidden="true"></i>Importar planilha</summary>
+                        <div class="importacao-instrucoes">
+                            <p class="texto-apoio">
+                                Matricule vários alunos de uma vez com uma planilha em CSV. Use o modelo: uma linha por
+                                aluno, com as colunas <strong>matricula</strong>, <strong>nome</strong>, <strong>turma</strong>
+                                (nome igual ao cadastrado), <strong>cpf</strong> e <strong>email</strong> (opcional).
+                                O CPF só é usado para gerar a senha inicial (ceep@ + 4 primeiros números) e não é guardado.
+                            </p>
+                            <details class="ajuda-csv">
+                                <summary>Como salvar a planilha em CSV UTF-8</summary>
+                                <ul>
+                                    <li><strong>Excel:</strong> Arquivo → Salvar como → tipo “CSV UTF-8 (delimitado por vírgulas)”.</li>
+                                    <li><strong>Google Planilhas:</strong> Arquivo → Fazer download → “Valores separados por vírgula (.csv)”.</li>
+                                    <li><strong>LibreOffice:</strong> Arquivo → Salvar como → “Texto CSV”, com conjunto de caracteres Unicode (UTF-8).</li>
+                                </ul>
+                            </details>
+                            <a class="botao botao-secundario" href="/modelos/alunos.csv" download="modelo-alunos.csv"><i class="ph ph-download-simple" aria-hidden="true"></i>Baixar modelo</a>
+                        </div>
+                        <form class="formulario" id="form-importacao" novalidate>
+                            <div class="campo">
+                                <label for="importacao-arquivo">Planilha em CSV <small class="opcional">(até 1 MB)</small></label>
+                                <input id="importacao-arquivo" type="file" accept=".csv,text/csv" required>
+                            </div>
+                            <div class="linha-botoes">
+                                <button class="botao botao-primario" type="submit"><i class="ph ph-magnifying-glass" aria-hidden="true"></i>Verificar planilha</button>
+                            </div>
+                        </form>
+                        <div class="importacao-resultado" id="importacao-resultado"></div>
                     </details>
 
                     <section class="cartao">

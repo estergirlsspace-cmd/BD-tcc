@@ -27,9 +27,10 @@ const FILE_TYPES = {
     }
 };
 
-// Arquivo sem vínculo: não é anexo de aviso nem atestado de justificativa.
+// Arquivo sem vínculo: não é anexo de aviso, atestado de justificativa nem horário publicado.
 const UNLINKED = `NOT EXISTS (SELECT 1 FROM posts_avisos WHERE id_arquivo = arq.id_arquivo)
-    AND NOT EXISTS (SELECT 1 FROM justificativas WHERE id_arquivo = arq.id_arquivo)`;
+    AND NOT EXISTS (SELECT 1 FROM justificativas WHERE id_arquivo = arq.id_arquivo)
+    AND NOT EXISTS (SELECT 1 FROM horarios_pdf WHERE id_arquivo = arq.id_arquivo)`;
 
 function ensureDirectory() {
     mkdirSync(FILES_DIRECTORY, { recursive: true, mode: 0o700 });
@@ -155,10 +156,35 @@ function assertOwnFile(user, fileId, currentId = null) {
     }
 }
 
-// Quem pode baixar: quem enviou; a gestão; quem pode ver o aviso do qual é anexo; e, se for
-// atestado de justificativa, só o aluno dono (além da gestão) — o professor não vê atestados.
+// Horário em PDF: o da turma vale para os alunos dela (conta compartilhada: turmas do mesmo
+// curso e série) e para quem leciona nela; o dos professores, para todo professor.
+function canReadSchedulePdf(user, fileId) {
+    if (user.tipo_usuario === 'professor') {
+        return Boolean(database.prepare(`
+            SELECT 1 FROM horarios_pdf h
+            WHERE h.id_arquivo = ? AND (h.publico = 'professores' OR EXISTS (
+                SELECT 1 FROM disciplinas d WHERE d.id_turma = h.id_turma AND d.id_professor = ?
+            ))
+        `).get(fileId, user.id_professor || -1));
+    }
+    if (user.tipo_usuario !== 'aluno') return false;
+    if (user.conta_compartilhada) {
+        return Boolean(database.prepare(`
+            SELECT 1 FROM horarios_pdf h JOIN turmas t ON t.id_turma = h.id_turma
+            WHERE h.id_arquivo = ? AND h.publico = 'turma' AND t.curso = ? AND t.serie = ?
+        `).get(fileId, user.curso, user.serie));
+    }
+    return Boolean(user.id_turma && database.prepare(
+        "SELECT 1 FROM horarios_pdf WHERE id_arquivo = ? AND publico = 'turma' AND id_turma = ?"
+    ).get(fileId, user.id_turma));
+}
+
+// Quem pode baixar: quem enviou; a gestão; quem pode ver o aviso do qual é anexo; quem é público
+// do horário publicado; e, se for atestado de justificativa, só o aluno dono (além da gestão) —
+// o professor não vê atestados.
 function canReadFile(user, file) {
     if (file.id_usuario === user.id_usuario || user.tipo_usuario === 'gestao') return true;
+    if (canReadSchedulePdf(user, file.id_arquivo)) return true;
 
     const noticeScope = user.tipo_usuario === 'aluno'
         ? studentNoticeScope(user, 'p')
