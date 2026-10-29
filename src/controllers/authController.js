@@ -18,8 +18,15 @@ function hashToken(token) {
     return createHash('sha256').update(token).digest('hex');
 }
 
+// Atrás da Cloudflare, o IP real do visitante vem no cabeçalho CF-Connecting-IP.
+function clientAddress(request) {
+    const forwarded = request.headers['cf-connecting-ip']
+        || String(request.headers['x-forwarded-for'] || '').split(',')[0].trim();
+    return forwarded || request.socket.remoteAddress;
+}
+
 function attemptKey(request, login) {
-    return `${request.socket.remoteAddress}|${login.toLowerCase()}`;
+    return `${clientAddress(request)}|${login.toLowerCase()}`;
 }
 
 function assertNotLocked(key) {
