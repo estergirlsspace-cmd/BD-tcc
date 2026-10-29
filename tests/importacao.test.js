@@ -5,7 +5,7 @@ const path = require('node:path');
 const { usarServidor, ROOT } = require('./helpers/servidor');
 
 const s = usarServidor();
-const TURMA = '1ª Série — Informática';
+const TURMA = '1ª Série — Informática A';
 const CPF_COMPLETO = '987.654.321-00';
 
 function importar(token, csv, { simular = false, tipo = 'text/csv; charset=utf-8' } = {}) {

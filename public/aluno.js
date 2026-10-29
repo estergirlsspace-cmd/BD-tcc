@@ -2,7 +2,7 @@
 // Aplicação de página única: navegação por hash (#/secao/sub), dados reais da API,
 // renderização só com createElement/textContent (nada de innerHTML com dados).
 // Depende de /datas.js (datas no horário de Brasília), /notificacoes.js (notify),
-// /preferencias.js (cwAparencia) e /componentes/mensagens.js (CwMensagens).
+// /preferencias.js (cwAparencia). O chat (Mensagens) não faz parte do portal do aluno.
 
 'use strict';
 
@@ -11,7 +11,6 @@ const token = sessionStorage.getItem(TOKEN_KEY);
 const FUSO_ESCOLA = 'America/Sao_Paulo';
 const FREQUENCIA_MINIMA = 75;
 const MOBILE_QUERY = window.matchMedia('(max-width: 899.98px)');
-const UNREAD_POLL_MS = 30000;
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const JUSTIFY_BUSINESS_DAYS = 5;
 const UPLOAD_TYPES = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png' };
@@ -36,7 +35,6 @@ const SECTIONS = {
     avisos: { title: 'Avisos', defaultSub: 'todos' },
     atividades: { title: 'Atividades', defaultSub: 'pendentes' },
     frequencia: { title: 'Frequência', defaultSub: 'resumo' },
-    mensagens: { title: 'Mensagens', defaultSub: null },
     ajustes: { title: 'Configurações', defaultSub: 'perfil' }
 };
 
@@ -52,8 +50,7 @@ const NOTIFICATION_TYPES = [
     ['urgente', 'Avisos urgentes', 'Fechamentos, mudanças de sala e emergências', 'warning-circle'],
     ['turma', 'Avisos da turma', 'Comunicados dos seus professores', 'users-three'],
     ['prazos', 'Prazos de atividades', 'Lembrete às 18h do dia anterior ao prazo', 'clipboard-text'],
-    ['eventos', 'Eventos da escola', 'Feira, reuniões e datas do calendário', 'calendar-dots'],
-    ['mensagens', 'Mensagens', 'Respostas de professores e coordenação', 'chat-circle-dots']
+    ['eventos', 'Eventos da escola', 'Feira, reuniões e datas do calendário', 'calendar-dots']
 ];
 
 const THEMES = [['claro', 'Claro'], ['escuro', 'Escuro'], ['auto', 'Automático']];
@@ -75,6 +72,13 @@ const FAQ = [
     ['Esqueci minha senha. O que faço?',
         'Na tela de entrada, toque em "Esqueci minha senha". Se você tiver um e-mail cadastrado em Configurações › Perfil, enviamos um link para criar uma senha nova. Sem e-mail, procure a secretaria.']
 ];
+
+// Perguntas que valem para a conta da turma (sem entregas, faltas nem senha própria).
+const CLASS_ACCOUNT_FAQ = new Set([
+    'Como confirmo que li um aviso?',
+    'Onde encontro os avisos que salvei?',
+    'Onde vejo o horário da minha turma?'
+]);
 
 // ---------------------------------------------------------------- estado
 
@@ -98,8 +102,6 @@ const state = {
     // Filtro da tela Salvos: 'todas', 'sem' (sem pasta) ou o id_pasta.
     savedFolder: 'todas',
     lastUnreadAnnounced: null,
-    unreadMessages: null,
-    messagesPanel: null,
     pendingEmail: null,
     focusEmailField: false
 };
@@ -122,6 +124,14 @@ const NEW_SOURCES = new Set(['pastas', 'salvos', 'horariosPdf']);
 const MAX_FOLDER_NAME = 40;
 
 const $ = (selector) => document.querySelector(selector);
+
+// Conta da turma (login "turma-<id>", compartilhada pelos alunos): sem dados pessoais. A API
+// recusa frequência, justificativas, entregas, e-mail, "meus dados" e troca de senha.
+const PERSONAL_SOURCES = new Set(['desempenho', 'frequencias', 'justificativas', 'ocorrencias']);
+
+function isClassAccount() {
+    return Boolean(state.user?.conta_turma);
+}
 
 // ---------------------------------------------------------------- API e sessão
 
@@ -251,7 +261,8 @@ function loadSource(name) {
     const source = state.sources[name];
     source.status = 'loading';
     source.error = null;
-    render();
+    // A promessa existe antes do render(): um cartão que chama whenSource() durante o render
+    // reaproveita esta carga em vez de disparar outra (antes, isso entrava em recursão infinita).
     source.promise = (async () => {
         try {
             source.data = await api(SOURCE_PATHS[name]);
@@ -264,6 +275,7 @@ function loadSource(name) {
         render();
         return source;
     })();
+    render();
     return source.promise;
 }
 
@@ -272,35 +284,6 @@ function whenSource(name) {
     const source = state.sources[name];
     if (source.status === 'ok' || source.status === 'error') return Promise.resolve(source);
     return source.promise || loadSource(name);
-}
-
-// ---------------------------------------------------------------- mensagens não lidas (badge)
-
-async function refreshUnreadMessages() {
-    if (document.hidden) return;
-    try {
-        const result = await api('/api/mensagens/nao-lidas');
-        setUnreadMessages(Number(result?.total) || 0);
-    } catch {
-        setUnreadMessages(null);
-    }
-}
-
-function setUnreadMessages(total) {
-    const previous = state.unreadMessages;
-    state.unreadMessages = total;
-    document.querySelectorAll('[data-badge-mensagens]').forEach((badge) => {
-        badge.hidden = !total;
-        badge.textContent = total > 99 ? '99+' : String(total || '');
-    });
-    document.querySelectorAll('[data-sr-mensagens]').forEach((span) => {
-        span.textContent = total ? `, ${plural(total, 'mensagem não lida', 'mensagens não lidas')}` : '';
-    });
-    if (previous !== total && state.route.section === 'inicio') render();
-    if (previous !== null && total !== null && total > previous) {
-        $('#status-contadores').textContent = `${plural(total, 'mensagem não lida', 'mensagens não lidas')}.`;
-        if (state.messagesPanel && state.route.section === 'mensagens') state.messagesPanel.atualizar();
-    }
 }
 
 async function initialize() {
@@ -328,10 +311,8 @@ async function initialize() {
     applyRoute(parseHash(), { focus: false });
     window.addEventListener('hashchange', () => applyRoute(parseHash(), { focus: true }));
     MOBILE_QUERY.addEventListener('change', () => render({ force: true }));
-    refreshUnreadMessages();
-    window.setInterval(refreshUnreadMessages, UNREAD_POLL_MS);
-    document.addEventListener('visibilitychange', refreshUnreadMessages);
-    await Promise.all(Object.keys(SOURCE_PATHS).map(loadSource));
+    const names = Object.keys(SOURCE_PATHS).filter((name) => !isClassAccount() || !PERSONAL_SOURCES.has(name));
+    await Promise.all(names.map(loadSource));
 }
 
 function showFatalError(message) {
@@ -454,7 +435,8 @@ function todayLongLabel() {
     const text = new Intl.DateTimeFormat('pt-BR', {
         timeZone: FUSO_ESCOLA, weekday: 'long', day: 'numeric', month: 'long'
     }).format(new Date());
-    return text.replace('-feira', '').toUpperCase();
+    const short = text.replace('-feira', '');
+    return short.charAt(0).toUpperCase() + short.slice(1);
 }
 
 function timeAgo(utcValue) {
@@ -726,6 +708,16 @@ function subnavGroups(section) {
             ]]
         ]
     };
+    if (isClassAccount()) {
+        groups.atividades = [['Status', [
+            ['pendentes', 'Pendentes', 'hourglass-medium', countIf(activitiesReady, countStatus('pendentes'))]]]];
+        groups.ajustes = [
+            ['Conta', [['perfil', 'Perfil', 'user-circle', null], ['privacidade', 'Privacidade', 'shield-check', null]]],
+            ['Preferências', [['aparencia', 'Aparência', 'paint-brush', null]]],
+            ['Suporte', [['ajuda', 'Ajuda', 'question', null]]]
+        ];
+        delete groups.frequencia;
+    }
     return groups[section] || null;
 }
 
@@ -789,11 +781,14 @@ function parseHash() {
         id = Number(sub);
         sub = null;
     }
+    if (isClassAccount()) {
+        // Seções pessoais não existem para a conta da turma: volta para o Início / Perfil / Pendentes.
+        if (section === 'frequencia') return { section: 'inicio', sub: null, id: null };
+        if (section === 'ajustes' && (sub === 'seguranca' || sub === 'notificacoes')) return { section, sub: 'perfil', id: null };
+        if (section === 'atividades' && sub !== 'pendentes') return { section, sub: 'pendentes', id: null };
+    }
     if (section === 'frequencia' && sub === 'justificar' && /^\d+_\d{4}-\d{2}-\d{2}$/.test(parts[2] || '')) {
         id = parts[2];
-    }
-    if (section === 'mensagens') {
-        return { section, sub: sub === 'nova' ? 'nova' : null, id: null };
     }
     const groups = subnavGroups(section);
     if (groups && !id && !groups.some(([, items]) => items.some(([key]) => key === sub))) {
@@ -803,13 +798,9 @@ function parseHash() {
 }
 
 function applyRoute(route, { focus }) {
-    // Rotas que não existem mais (como a antiga #/agenda) caem no Início sem erro.
+    // Rotas que não existem mais (a antiga #/agenda e o chat #/mensagens) caem no Início sem erro.
     const first = window.location.hash.replace(/^#\/?/, '').split('/')[0];
     if (first && !SECTIONS[first]) window.history.replaceState(null, '', '#/inicio');
-    if (route.section !== 'mensagens' && state.messagesPanel) {
-        state.messagesPanel.desmontar();
-        state.messagesPanel = null;
-    }
     state.route = route;
     if (route.section === 'avisos' && route.sub) state.lastNoticeSub = route.sub;
     render();
@@ -834,6 +825,20 @@ function setupShell() {
         avatar.setAttribute('aria-label', `Meu perfil: ${user.nome || 'Aluno(a)'}`);
     });
     document.querySelectorAll('[data-sair]').forEach((button) => button.addEventListener('click', logout));
+    if (isClassAccount()) {
+        document.querySelectorAll('.rail-item[data-secao="frequencia"]').forEach((link) => { link.closest('li').hidden = true; });
+        // No celular a aba de Frequência vira "Salvos", para o botão central de Avisos continuar no meio.
+        const tab = document.querySelector('.aba[data-secao="frequencia"]');
+        if (tab) {
+            tab.href = '#/avisos/salvos';
+            tab.dataset.secao = '';
+            tab.dataset.rota = 'avisos/salvos';
+            tab.replaceChildren(el('span', { class: 'aba-icone' }, icon('bookmark-simple', true)), el('span', { text: 'Salvos' }));
+        }
+        document.querySelectorAll('[data-avatar]').forEach((avatar) => {
+            avatar.setAttribute('aria-label', `Perfil da turma: ${user.nome || 'Turma'}`);
+        });
+    }
 
     const searchField = $('#busca-campo');
     $('#busca').addEventListener('submit', (event) => event.preventDefault());
@@ -857,9 +862,13 @@ function setupShell() {
 }
 
 function renderShell(pageTitle, trail) {
-    const { section, id } = state.route;
+    const { section, sub, id } = state.route;
+    const routeKey = `${section}/${sub}`;
+    const routeTab = [...document.querySelectorAll('.aba[data-rota]')].some((link) => link.dataset.rota === routeKey);
     document.querySelectorAll('.rail-item, .aba').forEach((link) => {
-        const active = link.dataset.secao === section;
+        const active = link.dataset.rota
+            ? link.dataset.rota === routeKey
+            : link.dataset.secao === section && !(routeTab && link.classList.contains('aba'));
         // No celular, Atividades e Frequência ficam "dentro" do Início (atalhos no painel).
         const parent = (link.dataset.inclui || '').split(' ').includes(section);
         link.classList.toggle('ativo', active || parent);
@@ -907,7 +916,7 @@ function renderShell(pageTitle, trail) {
 // (não apagam o que o aluno digita quando uma fonte termina de carregar).
 function isStableRoute() {
     const { section, sub } = state.route;
-    if (section === 'ajustes' || section === 'mensagens') return true;
+    if (section === 'ajustes') return true;
     return section === 'frequencia' && sub === 'justificar' && state.sources.frequencias.status === 'ok';
 }
 
@@ -922,9 +931,6 @@ function render({ force = false } = {}) {
         pageTitle = 'Painel do dia';
         trail = ['Aluno', 'Início'];
         build = renderHome;
-    } else if (section === 'mensagens') {
-        trail = ['Aluno', 'Mensagens'];
-        build = renderMessages;
     } else if (section === 'avisos' && id) {
         const notice = notices().find((item) => item.id_post === id);
         pageTitle = notice ? truncate(notice.titulo, 46) : 'Aviso';
@@ -943,7 +949,8 @@ function render({ force = false } = {}) {
                 aparencia: renderAppearance, ajuda: renderHelp, privacidade: renderPrivacy
             }[sub] || renderProfile
         };
-        build = () => [chipsNav(), renderers[section]()];
+        const search = section === 'avisos' && sub !== 'salvos' ? listSearchBar() : null;
+        build = () => [search, chipsNav(), renderers[section]()];
     }
 
     renderShell(pageTitle, trail);
@@ -951,7 +958,6 @@ function render({ force = false } = {}) {
     const main = $('#conteudo');
     const routeKey = `${section}/${sub}/${id}`;
     if (!force && main.dataset.rota === routeKey && main.dataset.estavel === '1') return;
-    if (force && section === 'mensagens' && main.dataset.rota === routeKey) return;
     const content = build();
     main.dataset.rota = routeKey;
     main.dataset.estavel = isStableRoute() ? '1' : '0';
@@ -962,7 +968,6 @@ function render({ force = false } = {}) {
     const keepAction = keepFocus?.dataset?.acao;
     main.replaceChildren(...[content].flat(Infinity).filter(Boolean));
     main.classList.toggle('conteudo-detalhe', section === 'avisos' && Boolean(id));
-    main.classList.toggle('conteudo-mensagens', section === 'mensagens');
     if (keepId) document.getElementById(keepId)?.focus({ preventScroll: true });
     else if (keepAction) main.querySelector(`[data-acao="${CSS.escape(keepAction)}"]:not(:disabled)`)?.focus({ preventScroll: true });
 }
@@ -975,23 +980,26 @@ function renderHome() {
     if (state.sources.mural.status === 'ok') {
         const urgent = notices().filter((notice) => notice.urgente && isUnread(notice)).sort(byNewest)[0];
         if (urgent) {
+            // Faixa "Aviso urgente" do protótipo: ícone, rótulo + quando, título e começo do texto.
             nodes.push(el('a', { class: 'faixa-urgente', href: `#/avisos/${urgent.id_post}` },
-                el('span', { class: 'faixa-icone' }, icon('warning')),
+                el('span', { class: 'faixa-icone' }, icon('warning', true)),
                 el('span', { class: 'faixa-texto' },
                     el('span', { class: 'faixa-meta' },
-                        el('span', { class: 'rotulo-urgente', text: 'Urgente' }),
-                        el('span', { class: 'meta', text: `${urgent.autor?.nome || 'Escola'} · ${timeAgo(urgent.criado_em)}` })),
-                    el('span', { class: 'faixa-titulo', text: urgent.titulo })),
-                el('span', { class: 'link-seta', 'aria-hidden': 'true' }, 'Ler aviso', icon('caret-right'))));
+                        el('span', { class: 'rotulo-urgente', text: 'Aviso urgente' }),
+                        el('span', { class: 'faixa-quando', text: timeAgo(urgent.criado_em) })),
+                    el('span', { class: 'faixa-titulo', text: urgent.titulo }),
+                    urgent.conteudo ? el('span', { class: 'faixa-resumo', text: truncate(urgent.conteudo, 120) }) : null)));
         }
     }
 
-    nodes.push(homeShortcuts());
-    nodes.push(el('div', { class: 'grade-cartoes' },
-        homeAttendanceCard(), homeOccurrencesCard(), homeDeliveryCard()));
-
+    // Ordem do protótipo: saudação, atalhos, faixa urgente e últimos comunicados; depois o resto.
     nodes.push(el('div', { class: 'grade-inicio' }, homeRecentNotices(),
         el('div', { class: 'coluna-inicio' }, homeLessonsToday(), homeScheduleCard())));
+    nodes.push(homeShortcuts());
+    // Conta da turma: sem frequência nem ocorrências (dados pessoais); fica só o próximo prazo.
+    nodes.push(isClassAccount()
+        ? el('div', { class: 'grade-cartoes' }, homeDeliveryCard())
+        : el('div', { class: 'grade-cartoes' }, homeAttendanceCard(), homeOccurrencesCard(), homeDeliveryCard()));
     return nodes;
 }
 
@@ -1010,12 +1018,12 @@ function homeGreeting() {
     }
     const text = summary.length
         ? ['Você tem ', summary[0], ...(summary[1] ? [' e ', summary[1]] : []), '.']
-        : ['Confira seus avisos, atividades e frequência.'];
+        : [isClassAccount() ? 'Confira os avisos e as atividades da turma.' : 'Confira seus avisos, atividades e frequência.'];
     return el('section', { class: 'saudacao', 'aria-labelledby': 'saudacao-titulo' },
         el('div', { class: 'saudacao-topo' },
             group ? el('span', { class: 'saudacao-turma', text: group }) : null,
             el('span', { class: 'saudacao-data' }, icon('calendar-blank'), todayLongLabel())),
-        el('h2', { class: 'saudacao-titulo', id: 'saudacao-titulo', text: `Olá, ${firstName(user.nome)}!` }),
+        el('h2', { class: 'saudacao-titulo', id: 'saudacao-titulo', text: isClassAccount() ? 'Olá, turma!' : `Olá, ${firstName(user.nome)}!` }),
         el('p', { class: 'saudacao-resumo' }, ...text));
 }
 
@@ -1054,6 +1062,8 @@ function homeQuickLinks() {
     const muralReady = state.sources.mural.status === 'ok';
     const all = notices();
     const unreadUrgent = muralReady ? all.filter((notice) => NOTICE_FILTERS.urgente(notice) && isUnread(notice)).length : 0;
+    const pendingActivities = state.sources.atividades.status === 'ok'
+        ? deliverables().filter((activity) => activityStatus(activity) === 'pendentes').length : null;
     const items = [
         ['naolidos', '#/avisos/naolidos', 'envelope-simple', 'Avisos não lidos',
             muralReady ? all.filter(isUnread).length : null, (n) => (n ? 'Toque para ler' : 'Tudo em dia')],
@@ -1062,28 +1072,32 @@ function homeQuickLinks() {
             () => (unreadUrgent ? plural(unreadUrgent, 'não lido', 'não lidos') : 'Nenhum pendente')],
         ['salvos', '#/avisos/salvos', 'bookmark-simple', 'Salvos', savedCount(),
             () => { const total = folders().length; return total ? plural(total, 'pasta', 'pastas') : 'Avisos guardados'; }],
-        ['mensagens', '#/mensagens', 'chat-circle-dots', 'Mensagens', state.unreadMessages,
-            (n) => (n ? (n === 1 ? 'não lida' : 'não lidas') : 'Nenhuma nova')]
+        ['atividades', '#/atividades/pendentes', 'clipboard-text', 'Atividades pendentes', pendingActivities,
+            (n) => (isClassAccount() ? (n ? 'Com prazo' : 'Nenhuma no momento') : n ? 'Para entregar' : 'Tudo entregue')]
     ];
+    // Visual do protótipo: ícone em quadrado colorido + rótulo; o número vira um selo no canto
+    // (com pulso quando há algo novo para ver). O rótulo acessível continua com a contagem.
+    const pulse = { naolidos: true, urgentes: unreadUrgent > 0, atividades: false, salvos: false };
     return el('nav', { class: 'atalhos-topo', 'aria-label': 'Atalhos' },
         el('ul', {}, items.map(([key, href, iconName, label, count, detail]) => {
             const known = count !== null && count !== undefined;
             const highlight = key === 'urgentes' && unreadUrgent > 0;
             return el('li', {},
                 el('a', {
-                    class: `cartao cartao-link cartao-atalho${highlight ? ' atalho-alerta' : ''}`, href, id: `atalho-${key}`,
-                    'aria-label': known ? `${label}: ${count}${key === 'mensagens' ? ` ${detail(count)}` : ''}` : `${label}: carregando`
+                    class: `cartao cartao-link cartao-atalho atalho-${key}${highlight ? ' atalho-alerta' : ''}`, href, id: `atalho-${key}`,
+                    'aria-label': known ? `${label}: ${count}` : `${label}: carregando`
                 },
+                known && count > 0 ? el('span', { class: `atalho-selo${pulse[key] ? ' pulsa' : ''}`, 'aria-hidden': 'true', text: count > 99 ? '99+' : String(count) }) : null,
                 el('span', { class: 'atalho-linha', 'aria-hidden': 'true' },
-                    el('span', { class: 'icone-quadrado' }, icon(iconName)),
+                    el('span', { class: 'icone-quadrado' }, icon(iconName, true)),
                     el('span', { class: 'atalho-valor', text: known ? String(count) : '—' })),
-                el('span', { class: 'atalho-rotulo', 'aria-hidden': 'true', text: label }),
+                el('span', { class: 'atalho-rotulo', 'aria-hidden': 'true', text: { naolidos: 'Avisos', atividades: 'Atividades' }[key] || label }),
                 el('span', { class: 'meta', 'aria-hidden': 'true', text: known ? detail(count) : 'Carregando…' })));
         })));
 }
 
-// Atalhos do celular: Frequência não tem aba própria (as abas são Início, Avisos, Atividades,
-// Mensagens e Ajustes). No web ficam escondidos, porque o rail já mostra as duas seções.
+// Atalhos do celular para Atividades e Frequência, com o resumo de cada uma. No web ficam
+// escondidos, porque o rail já mostra as duas seções.
 function homeShortcuts() {
     const pending = state.sources.atividades.status === 'ok'
         ? deliverables().filter((activity) => activityStatus(activity) === 'pendentes').length : null;
@@ -1096,6 +1110,12 @@ function homeShortcuts() {
                 el('span', { class: 'atalho-titulo', text: label }),
                 detail ? el('span', { class: 'meta', text: detail }) : null),
             icon('caret-right')));
+    if (isClassAccount()) {
+        return el('nav', { class: 'atalhos', 'aria-label': 'Mais seções' },
+            el('ul', {},
+                shortcut('#/atividades/pendentes', 'clipboard-text', 'Atividades',
+                    pending === null ? null : pending ? plural(pending, 'com prazo', 'com prazo') : 'Nenhuma no momento')));
+    }
     return el('nav', { class: 'atalhos', 'aria-label': 'Mais seções' },
         el('ul', {},
             shortcut('#/atividades/pendentes', 'clipboard-text', 'Atividades',
@@ -1118,6 +1138,7 @@ function homeOccurrencesCard() {
 }
 
 function homeDeliveryCard() {
+    if (isClassAccount()) return homeDeadlineCard();
     const guard = sourceGuard('atividades', 1);
     if (guard) return card('cartao-entrega', el('h3', { class: 'sobretitulo', text: 'Próxima entrega' }), guard);
     const next = nextDelivery();
@@ -1137,6 +1158,27 @@ function homeDeliveryCard() {
         el('span', { class: 'meta empurra', text: `${next.nome_disciplina || 'Atividade'} · ${deadlineLabel(next.prazo)}` }));
 }
 
+// Conta da turma: o mesmo cartão, mas como "próximo prazo" (a entrega é individual, pela matrícula).
+function homeDeadlineCard() {
+    const guard = sourceGuard('atividades', 1);
+    if (guard) return card('cartao-entrega', el('h3', { class: 'sobretitulo', text: 'Próximo prazo' }), guard);
+    const next = nextDelivery();
+    if (!next) {
+        return el('a', { class: 'cartao cartao-link cartao-entrega', href: '#/atividades/pendentes' },
+            el('h3', { class: 'sobretitulo', text: 'Próximo prazo' }),
+            el('span', { class: 'entrega-titulo', text: 'Nenhuma atividade com prazo aberto' }),
+            el('span', { class: 'meta empurra', text: 'Ver atividades' }));
+    }
+    const days = daysUntil(next.prazo);
+    const badge = days === 0 ? 'hoje' : days === 1 ? 'amanhã' : `em ${days} dias`;
+    return el('a', { class: 'cartao cartao-link cartao-entrega', href: '#/atividades/pendentes' },
+        el('div', { class: 'linha-entre' },
+            el('h3', { class: 'sobretitulo', text: 'Próximo prazo' }),
+            el('span', { class: 'selo selo-azul', text: badge })),
+        el('span', { class: 'entrega-titulo', text: next.titulo }),
+        el('span', { class: 'meta empurra', text: `${next.nome_disciplina || 'Atividade'} · ${deadlineLabel(next.prazo)}` }));
+}
+
 function categoryChip(notice, size = 'md') {
     const category = CATEGORIES[notice.categoria] || CATEGORIES.turma;
     return el('span', { class: `chip-categoria chip-${size} cat-${notice.categoria}` }, icon(category.icon));
@@ -1146,7 +1188,8 @@ function homeRecentNotices() {
     const section = card('cartao-lista cartao-comunicados',
         el('div', { class: 'linha-entre' },
             el('h2', { class: 'cartao-titulo', text: 'Últimos comunicados' }),
-            el('a', { class: 'link-seta', href: '#/avisos/todos' }, 'Ver todos', icon('caret-right'))));
+            el('a', { class: 'link-seta', href: '#/avisos/todos' },
+                state.sources.mural.status === 'ok' ? `Ver todos (${notices().length})` : 'Ver todos')));
     const guard = sourceGuard('mural', 3);
     if (guard) {
         section.append(guard);
@@ -1259,26 +1302,55 @@ function renderNoticeList() {
 function clearSearch() {
     state.search = '';
     render();
-    $('#busca-campo').focus();
+    const listField = document.getElementById('busca-lista-campo');
+    (listField && listField.offsetParent ? listField : $('#busca-campo')).focus();
+}
+
+// Busca do feed no celular (protótipo: campo acima dos chips). O mesmo nó é reaproveitado a cada
+// render para o cursor e o foco não se perderem enquanto o aluno digita. No web fica escondida
+// (CSS), porque o topo já tem a busca.
+let listSearchForm = null;
+
+function listSearchBar() {
+    if (!listSearchForm) {
+        const field = el('input', {
+            id: 'busca-lista-campo', type: 'search', placeholder: 'Buscar avisos, textos ou autores...',
+            autocomplete: 'off', maxlength: '100'
+        });
+        field.addEventListener('input', () => {
+            state.search = field.value;
+            render();
+        });
+        listSearchForm = el('form', { class: 'busca-lista', role: 'search', on: { submit: (event) => event.preventDefault() } },
+            el('label', { class: 'visually-hidden', for: 'busca-lista-campo', text: 'Buscar avisos' }),
+            icon('magnifying-glass'), field);
+    }
+    const field = listSearchForm.querySelector('input');
+    if (field.value !== state.search) field.value = state.search;
+    return listSearchForm;
 }
 
 function noticeCard(notice) {
     const category = CATEGORIES[notice.categoria] || CATEGORIES.turma;
     const unread = isUnread(notice);
+    const author = notice.autor?.nome || 'Escola';
+    // Cartão do feed do protótipo: etiqueta + marcador no topo, título, resumo e rodapé com autor e data.
     return el('a', { class: `cartao-aviso cat-${notice.categoria}${unread ? ' nao-lido' : ''}`, href: `#/avisos/${notice.id_post}` },
-        categoryChip(notice),
-        el('span', { class: 'aviso-texto' },
-            el('span', { class: 'aviso-meta' },
-                el('span', { class: `etiqueta cat-${notice.categoria}`, text: category.label }),
-                el('span', { class: 'meta', text: `${notice.autor?.nome || 'Escola'} · ${timeAgo(notice.criado_em)}` })),
-            el('span', { class: 'aviso-titulo', text: notice.titulo }),
-            el('span', { class: 'aviso-resumo', text: truncate(notice.conteudo, 180) }),
-            notice.data_evento ? el('span', { class: 'aviso-evento' }, icon('calendar-blank'),
-                `Data: ${formatSchoolDate(notice.data_evento)}`) : null),
-        el('span', { class: 'aviso-lateral' },
-            unread ? el('span', { class: 'ponto-novo' }, srText('Não lido')) : el('span', { class: 'ponto-vazio' }),
-            el('span', { class: `marcador${notice.salvo ? ' salvo' : ''}` }, icon('bookmark-simple', notice.salvo),
-                notice.salvo ? srText('Salvo') : null)));
+        el('span', { class: 'aviso-cabeca' },
+            el('span', { class: `etiqueta cat-${notice.categoria}` },
+                notice.categoria === 'urgente' ? icon('warning', true) : null, category.label),
+            el('span', { class: 'aviso-lateral' },
+                unread ? el('span', { class: 'ponto-novo' }, srText('Não lido')) : null,
+                el('span', { class: `marcador${notice.salvo ? ' salvo' : ''}` }, icon('bookmark-simple', notice.salvo),
+                    notice.salvo ? srText('Salvo') : null))),
+        el('span', { class: 'aviso-titulo', text: notice.titulo }),
+        el('span', { class: 'aviso-resumo', text: truncate(notice.conteudo, 180) }),
+        notice.data_evento ? el('span', { class: 'aviso-evento' }, icon('calendar-blank', true),
+            `Data: ${formatSchoolDate(notice.data_evento)}`) : null,
+        el('span', { class: 'aviso-pe' },
+            el('span', { class: `avatar-mini cat-${notice.categoria}`, 'aria-hidden': 'true', text: initials(author) }),
+            el('span', { class: 'aviso-autor', text: author }),
+            el('span', { class: 'aviso-data', text: timeAgo(notice.criado_em) })));
 }
 
 function renderNoticeDetail(id) {
@@ -1735,7 +1807,7 @@ function renderActivities() {
     if (status === 'pendentes') list.sort((a, b) => (deadlineDate(a.prazo) || Infinity) - (deadlineDate(b.prazo) || Infinity));
     if (!list.length) {
         const messages = {
-            pendentes: 'Nenhuma atividade pendente. Tudo entregue!',
+            pendentes: isClassAccount() ? 'Nenhuma atividade com prazo no momento.' : 'Nenhuma atividade pendente. Tudo entregue!',
             entregues: 'Nenhuma atividade aguardando correção.',
             corrigidas: 'Nenhuma atividade corrigida ainda.'
         };
@@ -1763,22 +1835,25 @@ function activityCard(activity, status) {
         when = `entregue em ${formatSchoolDate(submission.enviado_em, { utc: true })}`;
     }
     const titleId = `atividade-${activity.id_atividade}`;
-    return el('article', { class: `cartao cartao-atividade status-${status}`, 'aria-labelledby': titleId },
-        el('span', { class: 'chip-status' }, icon(config.icon)),
-        el('div', { class: 'atividade-texto' },
-            el('p', { class: 'atividade-disciplina', text: activity.nome_disciplina || '' }),
-            el('h2', { class: 'atividade-titulo', id: titleId, text: activity.titulo }),
-            info ? el('p', { class: 'atividade-info', text: truncate(info, 200) }) : null),
-        el('div', { class: 'atividade-lateral' },
-            el('span', { class: `selo${overdue ? ' selo-vermelho' : ''}`, text: tag }),
-            el('span', { class: 'meta', text: when })),
-        overdue
-            ? el('span', { class: 'meta atividade-encerrada', text: 'Envio encerrado' })
-            : el('button', {
-                class: `botao ${status === 'pendentes' ? 'botao-primario' : 'botao-contorno'}`, type: 'button',
-                'aria-describedby': titleId,
-                on: { click: () => (status === 'pendentes' ? openSubmitDialog(activity) : openSubmissionDialog(activity, status)) }
-            }, icon(config.buttonIcon), config.button));
+    // Mesmo desenho do cartão de aviso do protótipo: etiqueta + selo no topo, título, texto e
+    // rodapé com o prazo e a ação.
+    return el('article', { class: `cartao cartao-atividade status-${status}${overdue ? ' atrasada' : ''}`, 'aria-labelledby': titleId },
+        el('div', { class: 'atividade-cabeca' },
+            activity.nome_disciplina ? el('p', { class: 'etiqueta atividade-disciplina', text: activity.nome_disciplina }) : el('span'),
+            el('span', { class: `selo${overdue ? ' selo-vermelho' : ''}` }, icon(overdue ? 'warning' : config.icon, true), tag)),
+        el('h2', { class: 'atividade-titulo', id: titleId, text: activity.titulo }),
+        info ? el('p', { class: 'atividade-info', text: truncate(info, 200) }) : null,
+        el('div', { class: 'atividade-rodape' },
+            el('span', { class: 'atividade-quando' }, icon('clock'), when),
+            isClassAccount()
+                ? el('span', { class: 'atividade-encerrada', text: overdue ? 'Prazo encerrado' : 'Entrega pela matrícula' })
+                : overdue
+                ? el('span', { class: 'atividade-encerrada', text: 'Envio encerrado' })
+                : el('button', {
+                    class: `botao botao-pequeno ${status === 'pendentes' ? 'botao-primario' : 'botao-contorno'}`, type: 'button',
+                    'aria-describedby': titleId,
+                    on: { click: () => (status === 'pendentes' ? openSubmitDialog(activity) : openSubmissionDialog(activity, status)) }
+                }, icon(config.buttonIcon), config.button)));
 }
 
 function formatGrade(value) {
@@ -2145,31 +2220,10 @@ function filePicker() {
     };
 }
 
-// ---------------------------------------------------------------- Mensagens
-
-function renderMessages() {
-    if (state.messagesPanel) {
-        state.messagesPanel.desmontar();
-        state.messagesPanel = null;
-    }
-    if (!window.CwMensagens) return errorState('Não foi possível carregar as mensagens.', () => window.location.reload());
-    const host = el('div', { class: 'mensagens-host' });
-    state.messagesPanel = window.CwMensagens.montar(host, {
-        api,
-        usuario: state.user,
-        aoMudarNaoLidas: (total) => setUnreadMessages(total)
-    });
-    if (state.route.sub === 'nova') {
-        const panel = state.messagesPanel;
-        window.setTimeout(() => panel.novaConversa(), 0);
-        window.history.replaceState(null, '', '#/mensagens');
-    }
-    return host;
-}
-
 // ---------------------------------------------------------------- Ajustes
 
 function renderProfile() {
+    if (isClassAccount()) return renderClassProfile();
     const user = state.user;
     const course = COURSE_NAMES[user.curso] || user.curso || '—';
     const series = SERIES_NAMES[user.serie] || (user.serie ? `${user.serie}ª série` : '—');
@@ -2180,19 +2234,51 @@ function renderProfile() {
         ['Série', series],
         ['Turma', user.nome_turma || '—']
     ];
+    // Cartão de perfil do protótipo: faixa azul-marinho, avatar grande, nome, matrícula e selos.
+    // "Ativo" é fato: só contas ativas conseguem entrar no portal.
     return [
         card('perfil-topo',
+            el('span', { class: 'perfil-faixa', 'aria-hidden': 'true' }),
             el('span', { class: 'avatar avatar-grande', 'aria-hidden': 'true', text: initials(user.nome) }),
             el('div', { class: 'perfil-texto' },
                 el('h2', { class: 'perfil-nome', text: user.nome || 'Aluno(a)' }),
-                el('p', { class: 'meta', text: [course, user.nome_turma, user.login ? `Matrícula ${user.login}` : null].filter(Boolean).join(' · ') }))),
+                el('p', { class: 'meta', text: [user.login ? `Matrícula: ${user.login}` : null, user.nome_turma || series].filter(Boolean).join(' • ') }),
+                el('p', { class: 'perfil-selos' },
+                    el('span', { class: 'selo selo-verde', text: 'Ativo' }),
+                    course !== '—' ? el('span', { class: 'selo selo-azul', text: course.replace(/^Técnico em /, '') }) : null))),
         card('cartao-dados',
-            el('h2', { class: 'cartao-titulo', text: 'Dados escolares' }),
+            el('h2', { class: 'cartao-titulo', text: 'Informações da turma' }),
             el('dl', { class: 'dados' }, rows.map(([key, value]) => el('div', { class: 'dado' },
                 el('dt', { text: key }), el('dd', { text: value })))),
             el('p', { class: 'meta', text: 'Algum dado errado? Procure a secretaria da escola.' })),
         emailCard(),
         occurrencesCard(),
+        logoutCard()
+    ];
+}
+
+// Perfil da conta da turma: mostra a turma; sem matrícula, e-mail nem ocorrências (pessoais).
+function renderClassProfile() {
+    const user = state.user;
+    const course = COURSE_NAMES[user.curso] || user.curso || '—';
+    const series = SERIES_NAMES[user.serie] || (user.serie ? `${user.serie}ª série` : '—');
+    const group = user.nome_turma || user.nome || 'Turma';
+    const rows = [['Turma', group], ['Curso', course], ['Série', series]];
+    return [
+        card('perfil-topo',
+            el('span', { class: 'perfil-faixa', 'aria-hidden': 'true' }),
+            el('span', { class: 'avatar avatar-grande', 'aria-hidden': 'true', text: initials(group) }),
+            el('div', { class: 'perfil-texto' },
+                el('h2', { class: 'perfil-nome', text: group }),
+                el('p', { class: 'meta', text: 'Conta da turma, compartilhada pelos alunos' }),
+                el('p', { class: 'perfil-selos' },
+                    el('span', { class: 'selo selo-verde', text: 'Ativo' }),
+                    course !== '—' ? el('span', { class: 'selo selo-azul', text: course.replace(/^Técnico em /, '') }) : null))),
+        card('cartao-dados',
+            el('h2', { class: 'cartao-titulo', text: 'Informações da turma' }),
+            el('dl', { class: 'dados' }, rows.map(([key, value]) => el('div', { class: 'dado' },
+                el('dt', { text: key }), el('dd', { text: value })))),
+            el('p', { class: 'meta', text: 'Frequência, entregas e justificativas ficam na sua conta individual: entre com a sua matrícula. A senha da turma é trocada pela gestão.' })),
         logoutCard()
     ];
 }
@@ -2361,10 +2447,9 @@ function occurrencesCard() {
 }
 
 function logoutCard() {
-    return card('cartao-sair',
-        el('div', {}, el('h2', { class: 'cartao-titulo', text: 'Sair da conta' }),
-            el('p', { class: 'meta', text: 'Encerra a sessão neste aparelho.' })),
-        el('button', { class: 'botao botao-contorno botao-perigo', type: 'button', on: { click: logout } }, icon('sign-out'), 'Sair'));
+    // Botão largo "Sair do Portal" do protótipo (vermelho suave; cheio no hover).
+    return el('button', { class: 'botao-sair-portal', type: 'button', on: { click: logout } },
+        icon('sign-out', true), 'Sair do Portal');
 }
 
 function passwordField(id, label, autocomplete) {
@@ -2532,12 +2617,15 @@ async function downloadMyData(trigger) {
 function renderPrivacy() {
     const download = el('button', { class: 'botao botao-primario', type: 'button' }, icon('download-simple'), 'Baixar meus dados');
     download.addEventListener('click', () => downloadMyData(download));
+    const policy = card('cartao-privacidade',
+        el('h2', { class: 'cartao-titulo', text: 'Privacidade' }),
+        el('p', { class: 'meta', text: 'Seus dados são usados só para a comunicação da escola. Quem vê: você, seus professores e a gestão do CEEP.' }),
+        el('a', { class: 'botao botao-contorno', href: '/privacidade', target: '_blank', rel: 'noopener' },
+            icon('shield-check'), 'Ler a política de privacidade', srText(' (abre em nova aba)')));
+    // Conta da turma não guarda dados pessoais: não há "Baixar meus dados".
+    if (isClassAccount()) return [policy];
     return [
-        card('cartao-privacidade',
-            el('h2', { class: 'cartao-titulo', text: 'Privacidade' }),
-            el('p', { class: 'meta', text: 'Seus dados são usados só para a comunicação da escola. Quem vê: você, seus professores e a gestão do CEEP.' }),
-            el('a', { class: 'botao botao-contorno', href: '/privacidade', target: '_blank', rel: 'noopener' },
-                icon('shield-check'), 'Ler a política de privacidade', srText(' (abre em nova aba)'))),
+        policy,
         card('cartao-privacidade',
             el('h2', { class: 'cartao-titulo', text: 'Seus dados' }),
             el('p', { class: 'meta', text: 'Baixe uma cópia de tudo o que o C·Warning guarda sobre você: perfil, frequência, entregas, justificativas, ocorrências, mensagens e acessos. Para corrigir algum dado, procure a secretaria.' }),
@@ -2632,7 +2720,7 @@ function renderHelp() {
     return el('div', { class: 'grade-ajuda' },
         card('cartao-faq',
             el('h2', { class: 'visually-hidden', text: 'Perguntas frequentes' }),
-            FAQ.map(([question, answer], index) => {
+            FAQ.filter(([question]) => !isClassAccount() || CLASS_ACCOUNT_FAQ.has(question)).map(([question, answer], index) => {
                 const details = el('details', { class: 'faq' },
                     el('summary', {}, el('span', { text: question }), icon('plus')),
                     el('p', { text: answer }));
@@ -2642,8 +2730,7 @@ function renderHelp() {
         card('cartao-contato',
             icon('headset'),
             el('h2', { class: 'cartao-titulo', text: 'Precisa falar com alguém?' }),
-            el('p', { class: 'meta', text: 'Mande uma mensagem para a coordenação ou um professor, ou procure a secretaria do CEEP Lourdinha Guerra, de segunda a sexta, no horário de funcionamento da escola.' }),
-            el('a', { class: 'botao botao-primario', href: '#/mensagens/nova' }, icon('chat-circle-dots'), 'Enviar mensagem')));
+            el('p', { class: 'meta', text: 'Fale com a coordenação ou com seus professores, ou procure a secretaria do CEEP Lourdinha Guerra, de segunda a sexta, no horário de funcionamento da escola.' })));
 }
 
 // ---------------------------------------------------------------- início

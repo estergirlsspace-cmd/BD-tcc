@@ -77,7 +77,7 @@ async function createOccurrence(request, response, user) {
     const student = database.prepare(`
         SELECT a.id_turma FROM alunos a
         JOIN usuarios u ON u.id_usuario = a.id_usuario
-        WHERE a.id_aluno = ? AND u.ativo = 1
+        WHERE a.id_aluno = ? AND u.ativo = 1 AND u.login NOT GLOB 'turma-[0-9]*'
     `).get(studentId);
     // Professor só registra para alunos das turmas em que leciona (404 fora do escopo).
     if (!student || (user.tipo_usuario === 'professor'

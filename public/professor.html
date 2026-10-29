@@ -4,97 +4,96 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#2b2921">
-    <title>Portal do Professor · C·Warning</title>
+    <title>Portal do Professor · C-Warning</title>
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="icon" href="/assets/icones/favicon.svg" type="image/svg+xml">
     <link rel="icon" href="/assets/icones/favicon-32.png" sizes="32x32" type="image/png">
     <link rel="apple-touch-icon" href="/assets/icones/apple-touch-icon.png">
     <script src="/pwa.js" defer></script>
     <script src="/preferencias.js"></script>
-    <link rel="stylesheet" href="/vendor/fontes.css">
     <link rel="stylesheet" href="/vendor/phosphor/regular.css">
     <link rel="stylesheet" href="/vendor/phosphor/fill.css">
     <link rel="stylesheet" href="/tema.css">
     <link rel="stylesheet" href="/notificacoes.css">
-    <link rel="stylesheet" href="/componentes/mensagens.css">
     <link rel="stylesheet" href="/componentes/formulario.css">
     <link rel="stylesheet" href="/professor.css">
     <script src="/datas.js" defer></script>
     <script src="/notificacoes.js" defer></script>
-    <script src="/componentes/mensagens.js" defer></script>
     <script src="/componentes/formulario.js" defer></script>
     <script src="/professor.js" defer></script>
 </head>
 <body class="portal-professor">
     <a class="pular-conteudo" href="#conteudo">Pular para o conteúdo</a>
 
+    <!-- Estrutura do protótipo "Códigos Interface": menu lateral escuro (.sidebar), barra superior
+         com nome e trilha (.topbar) e conteúdo com sobretítulo, título e subtítulo.
+         No celular (até 650px) o menu lateral vira o bloco escuro do topo com as abas na horizontal. -->
     <div class="app">
-        <!-- Barra lateral (web) -->
         <aside class="lateral" aria-label="Menu do portal">
-            <a class="lateral-marca" href="#/inicio" aria-label="C·Warning, início do Portal do Professor">
-                <span class="marca-logo" aria-hidden="true">C</span>
-                <span class="lateral-marca-texto">
-                    <span class="cw-marca cw-marca--clara" aria-hidden="true">C<span class="cw-marca__ponto"></span>Warning</span>
-                    <span class="lateral-subtitulo" aria-hidden="true">Portal do Professor</span>
+            <a class="lateral-marca" href="#/inicio" aria-label="C-Warning, início do Portal do Professor">
+                <span class="marca-logo" aria-hidden="true">CW</span>
+                <span class="lateral-marca-texto" aria-hidden="true">
+                    <span class="marca-nome">C-Warning</span>
+                    <span class="lateral-subtitulo">Portal do Professor</span>
                 </span>
             </a>
             <p class="lateral-rotulo" aria-hidden="true">Menu principal</p>
             <nav class="lateral-nav" aria-label="Seções do portal">
                 <ul class="lateral-lista">
-                    <li><a class="lateral-item" href="#/inicio" data-secao="inicio"><i class="ph ph-house" aria-hidden="true"></i><span>Início</span></a></li>
-                    <li><a class="lateral-item" href="#/turmas" data-secao="turmas"><i class="ph ph-users-three" aria-hidden="true"></i><span>Turmas</span></a></li>
-                    <li><a class="lateral-item" href="#/horario" data-secao="horario"><i class="ph ph-calendar-dots" aria-hidden="true"></i><span>Horário</span></a></li>
-                    <li><a class="lateral-item" href="#/chamada" data-secao="chamada"><i class="ph ph-list-checks" aria-hidden="true"></i><span>Chamada</span></a></li>
-                    <li><a class="lateral-item" href="#/atividades" data-secao="atividades"><i class="ph ph-clipboard-text" aria-hidden="true"></i><span>Atividades</span></a></li>
-                    <li><a class="lateral-item" href="#/avisos" data-secao="avisos"><i class="ph ph-megaphone-simple" aria-hidden="true"></i><span>Avisos</span></a></li>
-                    <li><a class="lateral-item" href="#/salvos" data-secao="salvos"><i class="ph ph-bookmark-simple" aria-hidden="true"></i><span>Salvos</span></a></li>
-                    <li><a class="lateral-item" href="#/ocorrencias" data-secao="ocorrencias"><i class="ph ph-warning-octagon" aria-hidden="true"></i><span>Ocorrências</span></a></li>
-                    <li><a class="lateral-item" href="#/mensagens" data-secao="mensagens"><i class="ph ph-chats-circle" aria-hidden="true"></i><span>Mensagens</span><span class="lateral-contador" data-contador-mensagens hidden></span></a></li>
+                    <li><a class="lateral-item" href="#/inicio" data-secao="inicio"><span class="nav-icone"><i class="ph ph-house" aria-hidden="true"></i></span><span>Início</span></a></li>
+                    <li><a class="lateral-item" href="#/turmas" data-secao="turmas"><span class="nav-icone"><i class="ph ph-users-three" aria-hidden="true"></i></span><span>Turmas</span></a></li>
+                    <li><a class="lateral-item" href="#/horario" data-secao="horario"><span class="nav-icone"><i class="ph ph-calendar-dots" aria-hidden="true"></i></span><span>Horário</span></a></li>
+                    <li><a class="lateral-item" href="#/chamada" data-secao="chamada"><span class="nav-icone"><i class="ph ph-list-checks" aria-hidden="true"></i></span><span>Chamada</span></a></li>
+                    <li><a class="lateral-item" href="#/atividades" data-secao="atividades"><span class="nav-icone"><i class="ph ph-clipboard-text" aria-hidden="true"></i></span><span>Atividades</span></a></li>
+                    <li><a class="lateral-item" href="#/avisos" data-secao="avisos"><span class="nav-icone"><i class="ph ph-megaphone-simple" aria-hidden="true"></i></span><span>Avisos</span></a></li>
+                    <li><a class="lateral-item" href="#/salvos" data-secao="salvos"><span class="nav-icone"><i class="ph ph-bookmark-simple" aria-hidden="true"></i></span><span>Salvos</span></a></li>
+                    <li><a class="lateral-item" href="#/ocorrencias" data-secao="ocorrencias"><span class="nav-icone"><i class="ph ph-warning-octagon" aria-hidden="true"></i></span><span>Ocorrências</span></a></li>
+                    <li><a class="lateral-item" href="#/configuracoes/perfil" data-secao="configuracoes"><span class="nav-icone"><i class="ph ph-gear-six" aria-hidden="true"></i></span><span>Configurações</span></a></li>
                 </ul>
             </nav>
-            <div class="lateral-rodape">
-                <a class="lateral-item" href="#/configuracoes/perfil" data-secao="configuracoes"><i class="ph ph-gear-six" aria-hidden="true"></i><span>Configurações</span></a>
-                <div class="cartao-usuario">
-                    <span class="avatar avatar-claro" id="usuario-avatar" aria-hidden="true">··</span>
-                    <span class="cartao-usuario-texto">
-                        <strong id="usuario-nome">Carregando…</strong>
-                        <small id="usuario-detalhe">Professor(a)</small>
-                    </span>
-                    <button class="botao-sair" type="button" data-sair aria-label="Sair da conta" title="Sair da conta"><i class="ph ph-sign-out" aria-hidden="true"></i></button>
-                </div>
+
+            <!-- Abas do celular: dentro do bloco escuro do topo, como a navegação do protótipo -->
+            <nav class="abas" aria-label="Seções do portal">
+                <a class="aba" href="#/inicio" data-secao="inicio"><i class="ph ph-house" aria-hidden="true"></i><span>Início</span></a>
+                <a class="aba" href="#/chamada" data-secao="chamada"><i class="ph ph-list-checks" aria-hidden="true"></i><span>Chamada</span></a>
+                <a class="aba" href="#/avisos" data-secao="avisos"><i class="ph ph-megaphone-simple" aria-hidden="true"></i><span>Avisos</span></a>
+                <a class="aba" href="#/atividades" data-secao="atividades"><i class="ph ph-clipboard-text" aria-hidden="true"></i><span>Atividades</span></a>
+                <a class="aba" href="#/mais" data-secao="mais"><i class="ph ph-dots-three-outline" aria-hidden="true"></i><span>Mais</span></a>
+            </nav>
+
+            <div class="sidebar-profile">
+                <span class="avatar avatar-lateral" id="usuario-avatar" aria-hidden="true">··</span>
+                <span class="sidebar-profile-texto">
+                    <strong id="usuario-nome">Carregando…</strong>
+                    <small id="usuario-detalhe">Professor(a)</small>
+                </span>
+                <button class="botao-sair" type="button" data-sair aria-label="Sair da conta" title="Sair da conta"><i class="ph ph-sign-out" aria-hidden="true"></i></button>
             </div>
         </aside>
 
         <div class="coluna">
             <header class="topo">
-                <a class="topo-marca" href="#/inicio" aria-label="C·Warning, início">
-                    <span class="marca-logo marca-logo--pequena" aria-hidden="true">C</span>
-                    <span class="cw-marca" aria-hidden="true">C<span class="cw-marca__ponto"></span>Warning</span>
-                </a>
                 <div class="topo-titulos">
-                    <p class="topo-trilha" id="topo-trilha"></p>
-                    <h1 class="topo-titulo" id="titulo-pagina" tabindex="-1">Carregando…</h1>
+                    <strong class="topo-nome" id="topo-nome">Carregando…</strong>
+                    <small class="topo-trilha" id="topo-trilha">Portal do Professor</small>
                 </div>
                 <div class="topo-acoes" id="topo-acoes"></div>
             </header>
 
             <main class="conteudo" id="conteudo" tabindex="-1">
-                <div class="esqueleto-lista" aria-hidden="true">
-                    <div class="esqueleto esqueleto-linha"></div>
-                    <div class="esqueleto esqueleto-bloco"></div>
-                    <div class="esqueleto esqueleto-bloco"></div>
+                <div class="cabecalho-pagina">
+                    <p class="eyebrow" id="pagina-sobretitulo">Área do professor</p>
+                    <h1 class="titulo-pagina" id="titulo-pagina" tabindex="-1">Carregando…</h1>
+                    <p class="subtitulo" id="pagina-subtitulo" hidden></p>
+                </div>
+                <div class="corpo" id="corpo">
+                    <div class="esqueleto-lista" aria-hidden="true">
+                        <div class="esqueleto esqueleto-bloco"></div>
+                        <div class="esqueleto esqueleto-bloco"></div>
+                    </div>
                 </div>
             </main>
         </div>
-
-        <!-- Abas inferiores (celular) -->
-        <nav class="abas" aria-label="Seções do portal">
-            <a class="aba" href="#/inicio" data-secao="inicio"><i class="ph ph-house" aria-hidden="true"></i><span>Início</span></a>
-            <a class="aba" href="#/chamada" data-secao="chamada"><i class="ph ph-list-checks" aria-hidden="true"></i><span>Chamada</span></a>
-            <a class="aba" href="#/avisos" data-secao="avisos"><i class="ph ph-megaphone-simple" aria-hidden="true"></i><span>Avisos</span></a>
-            <a class="aba" href="#/mensagens" data-secao="mensagens"><span class="aba-icone"><i class="ph ph-chats-circle" aria-hidden="true"></i><span class="ponto-alerta" data-ponto-mensagens hidden></span></span><span>Mensagens</span></a>
-            <a class="aba" href="#/mais" data-secao="mais"><i class="ph ph-dots-three-outline" aria-hidden="true"></i><span>Mais</span></a>
-        </nav>
     </div>
 
     <p class="visually-hidden" role="status" id="status-leitor"></p>
@@ -102,7 +101,7 @@
     <dialog class="dialogo" id="dialogo" aria-labelledby="dialogo-titulo">
         <div class="dialogo-cabecalho">
             <h2 id="dialogo-titulo"></h2>
-            <button class="botao-icone" type="button" data-fechar-dialogo aria-label="Fechar"><i class="ph ph-x" aria-hidden="true"></i></button>
+            <button class="botao-icone modal-x" type="button" data-fechar-dialogo aria-label="Fechar"><i class="ph ph-x" aria-hidden="true"></i></button>
         </div>
         <div class="dialogo-corpo" id="dialogo-corpo"></div>
     </dialog>

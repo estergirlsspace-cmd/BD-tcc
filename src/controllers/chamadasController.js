@@ -30,6 +30,7 @@ function rollCall(discipline, date) {
                COUNT(h.id_frequencia) AS aulas, COALESCE(SUM(h.presente), 0) AS presencas
         FROM alunos a
         JOIN usuarios u ON u.id_usuario = a.id_usuario AND u.ativo = 1
+            AND u.login NOT GLOB 'turma-[0-9]*'
         LEFT JOIN frequencias f
             ON f.id_aluno = a.id_aluno AND f.id_disciplina = ? AND f.data_aula = ?
         LEFT JOIN frequencias h ON h.id_aluno = a.id_aluno AND h.id_disciplina = ?
@@ -89,6 +90,7 @@ async function saveRollCall(request, response, user) {
     const enrolled = new Set(database.prepare(`
         SELECT a.id_aluno FROM alunos a
         JOIN usuarios u ON u.id_usuario = a.id_usuario AND u.ativo = 1
+            AND u.login NOT GLOB 'turma-[0-9]*'
         WHERE a.id_turma = ?
     `).all(discipline.id_turma).map((row) => row.id_aluno));
     const outside = entries.filter((entry) => !enrolled.has(entry.studentId)).map((entry) => entry.studentId);

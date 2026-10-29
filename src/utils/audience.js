@@ -46,6 +46,7 @@ function noticeAudienceFrom(alias) {
         JOIN usuarios aud_u ON aud_u.id_usuario = aud_a.id_usuario
         JOIN turmas aud_t ON aud_t.id_turma = aud_a.id_turma
         WHERE aud_u.ativo = 1 AND aud_u.tipo_usuario = 'aluno'
+          AND aud_u.login NOT GLOB 'turma-[0-9]*'
           AND (${alias}.id_turma IS NULL OR aud_a.id_turma = ${alias}.id_turma)
           AND (${alias}.curso IS NULL OR aud_u.curso = ${alias}.curso)
           AND (${alias}.serie IS NULL OR COALESCE(aud_t.serie, aud_u.serie) = ${alias}.serie)`;

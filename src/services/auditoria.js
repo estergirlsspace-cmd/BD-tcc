@@ -15,6 +15,8 @@ const ACOES = {
     'aluno.importar': 'Importou alunos por planilha',
     'horario.publicar': 'Publicou ou substituiu um horário em PDF',
     'horario.remover': 'Removeu um horário em PDF',
+    'turma.senha': 'Definiu ou trocou a senha de acesso da turma',
+    'turma.desativar_acesso': 'Desativou o acesso da turma',
     'conta.criar': 'Criou uma conta',
     'conta.excluir': 'Excluiu uma conta',
     'aluno.criar': 'Vinculou um aluno a uma turma',

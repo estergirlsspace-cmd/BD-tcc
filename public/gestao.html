@@ -16,12 +16,10 @@
     <link rel="stylesheet" href="/vendor/phosphor/fill.css">
     <link rel="stylesheet" href="/tema.css">
     <link rel="stylesheet" href="/notificacoes.css">
-    <link rel="stylesheet" href="/componentes/mensagens.css">
     <link rel="stylesheet" href="/componentes/formulario.css">
     <link rel="stylesheet" href="/gestao.css">
     <script src="/datas.js" defer></script>
     <script src="/notificacoes.js" defer></script>
-    <script src="/componentes/mensagens.js" defer></script>
     <script src="/componentes/formulario.js" defer></script>
     <script src="/gestao-base.js" defer></script>
     <script src="/gestao-avisos.js" defer></script>
@@ -38,13 +36,16 @@
     <div class="app">
         <!-- Barra lateral escura com marca dourada (web) -->
         <aside class="sidebar" aria-label="Menu do portal">
-            <a class="sidebar-marca" href="#/visao-geral" aria-label="C-Warning, Gestão escolar: visão geral">
-                <span class="marca-logo" aria-hidden="true">C</span>
-                <span class="marca-textos" aria-hidden="true">
-                    <span class="marca-nome">C-Warning</span>
-                    <span class="marca-sub">Gestão escolar</span>
-                </span>
-            </a>
+            <div class="sidebar-topo">
+                <a class="sidebar-marca" href="#/visao-geral" aria-label="C-Warning, Gestão escolar: visão geral">
+                    <span class="marca-logo" aria-hidden="true">C</span>
+                    <span class="marca-textos" aria-hidden="true">
+                        <span class="marca-nome">C-Warning</span>
+                        <span class="marca-sub">Gestão escolar</span>
+                    </span>
+                </a>
+                <button class="sidebar-sair sidebar-sair-topo" type="button" data-sair aria-label="Sair do portal" title="Sair do portal"><i class="ph ph-sign-out" aria-hidden="true"></i></button>
+            </div>
 
             <p class="menu-rotulo" id="rotulo-menu">Painel administrativo</p>
             <nav aria-labelledby="rotulo-menu">
@@ -57,7 +58,7 @@
                     <li><a class="menu-item" href="#/justificativas" data-secao="justificativas"><i class="ph ph-file-text" aria-hidden="true"></i><span>Justificativas</span><span class="menu-contador" data-contador="justificativas" hidden></span></a></li>
                     <li><a class="menu-item" href="#/relatorios" data-secao="relatorios"><i class="ph ph-chart-bar" aria-hidden="true"></i><span>Relatórios</span></a></li>
                     <li><a class="menu-item" href="#/equipe" data-secao="equipe"><i class="ph ph-identification-badge" aria-hidden="true"></i><span>Equipe</span></a></li>
-                    <li><a class="menu-item" href="#/mensagens" data-secao="mensagens"><i class="ph ph-chat-circle-dots" aria-hidden="true"></i><span>Mensagens</span><span class="menu-contador" data-contador="mensagens" hidden></span></a></li>
+                    <li class="menu-so-celular"><a class="menu-item" href="#/configuracoes/perfil" data-secao="configuracoes"><i class="ph ph-gear-six" aria-hidden="true"></i><span>Configurações</span></a></li>
                 </ul>
             </nav>
 
@@ -73,9 +74,8 @@
 
         <div class="coluna">
             <header class="topo">
-                <span class="topo-marca" aria-hidden="true"><span class="marca-logo">C</span>C-Warning</span>
                 <div class="topo-titulos">
-                    <p class="topo-escola">Painel institucional · CEEP Lourdinha Guerra</p>
+                    <p class="topo-escola" id="sobretitulo-pagina">Painel institucional</p>
                     <h1 class="topo-titulo" id="titulo-pagina" tabindex="-1">Carregando…</h1>
                     <p class="topo-descricao" id="descricao-pagina"></p>
                 </div>
@@ -207,6 +207,7 @@
                         <div class="cartao-cabecalho">
                             <h2>Alunos matriculados</h2>
                             <p class="texto-suave" id="contagem-alunos"></p>
+                            <span class="icone-cabecalho" aria-hidden="true"><i class="ph ph-student"></i></span>
                         </div>
                         <div class="filtros">
                             <label class="campo-busca">
@@ -233,6 +234,7 @@
                         <div class="cartao-cabecalho">
                             <h2 id="titulo-form-aviso" tabindex="-1">Novo aviso</h2>
                             <p class="texto-suave">Escolha quem deve receber. O aviso aparece para os alunos assim que é publicado.</p>
+                            <span class="icone-cabecalho" aria-hidden="true"><i class="ph ph-pencil-simple-line"></i></span>
                         </div>
                         <form class="formulario" id="form-aviso">
                             <div class="linha-campos">
@@ -299,17 +301,14 @@
                                 <span>Marcar como urgente</span>
                             </label>
                             <div class="linha-botoes">
-                                <button class="botao botao-primario" id="aviso-enviar" type="submit">Publicar aviso</button>
                                 <button class="botao botao-secundario" id="aviso-cancelar" type="button">Cancelar</button>
+                                <button class="botao botao-primario" id="aviso-enviar" type="submit">Publicar aviso</button>
                             </div>
                         </form>
                     </section>
 
-                    <section class="cartao">
-                        <div class="cartao-cabecalho">
-                            <h2>Avisos publicados</h2>
-                            <p class="texto-suave">Todos os avisos do sistema, do mais recente para o mais antigo.</p>
-                        </div>
+                    <section class="lista-secao" aria-labelledby="titulo-avisos-publicados">
+                        <h2 class="titulo-secao" id="titulo-avisos-publicados">Avisos publicados</h2>
                         <div class="filtros">
                             <label class="campo-busca">
                                 <span class="visually-hidden">Buscar aviso</span>
@@ -441,28 +440,16 @@
                         </form>
                     </details>
 
-                    <section class="cartao senha-revelada" id="senha-revelada" hidden aria-live="polite">
-                        <h2><i class="ph ph-key" aria-hidden="true"></i>Senha provisória</h2>
-                        <p id="senha-revelada-texto"></p>
-                        <p class="senha-revelada-valor"><code id="senha-revelada-valor"></code></p>
-                        <p class="texto-suave">Anote e entregue à pessoa. Esta senha não será exibida de novo.</p>
-                        <div class="linha-botoes">
-                            <button class="botao botao-secundario" id="senha-revelada-fechar" type="button">Já anotei</button>
-                        </div>
-                    </section>
 
                     <section class="cartao">
                         <div class="cartao-cabecalho">
                             <h2>Equipe cadastrada</h2>
+                            <span class="icone-cabecalho" aria-hidden="true"><i class="ph ph-identification-badge"></i></span>
                         </div>
                         <div id="lista-equipe"></div>
                     </section>
                 </section>
 
-                <!-- Mensagens (componente compartilhado) -->
-                <section class="secao secao-mensagens" data-pagina="mensagens" aria-labelledby="titulo-pagina" hidden>
-                    <div id="mensagens"></div>
-                </section>
 
                 <!-- Configurações -->
                 <section class="secao" data-pagina="configuracoes" aria-labelledby="titulo-pagina" hidden>
@@ -487,6 +474,7 @@
                             <div class="cartao-cabecalho">
                                 <h2>E-mail</h2>
                                 <p class="texto-suave">Usado para recuperar a senha e receber notificações. Só é salvo depois de confirmado.</p>
+                                <span class="icone-cabecalho" aria-hidden="true"><i class="ph ph-envelope-simple"></i></span>
                             </div>
                             <div id="perfil-email"></div>
                         </section>
@@ -497,6 +485,7 @@
                             <div class="cartao-cabecalho">
                                 <h2>Alterar minha senha</h2>
                                 <p class="texto-suave">Sua senha é pessoal. Ao trocar, as outras sessões abertas são encerradas.</p>
+                                <span class="icone-cabecalho" aria-hidden="true"><i class="ph ph-key"></i></span>
                             </div>
                             <form class="formulario formulario-estreito" id="form-senha">
                                 <div class="campo">
@@ -520,6 +509,7 @@
                             <div class="cartao-cabecalho">
                                 <h2>Dispositivos conectados</h2>
                                 <p class="texto-suave">Aparelhos em que sua conta está aberta. Encerre os que você não reconhece.</p>
+                                <span class="icone-cabecalho" aria-hidden="true"><i class="ph ph-devices"></i></span>
                             </div>
                             <div id="lista-sessoes"></div>
                         </section>
@@ -530,6 +520,7 @@
                             <div class="cartao-cabecalho">
                                 <h2>Notificações por e-mail</h2>
                                 <p class="texto-suave">Escolha o que você quer receber no seu e-mail.</p>
+                                <span class="icone-cabecalho" aria-hidden="true"><i class="ph ph-bell-simple"></i></span>
                             </div>
                             <div id="config-notificacoes"></div>
                         </section>
@@ -540,6 +531,7 @@
                             <div class="cartao-cabecalho">
                                 <h2>Aparência</h2>
                                 <p class="texto-suave">Vale só para este aparelho.</p>
+                                <span class="icone-cabecalho" aria-hidden="true"><i class="ph ph-palette"></i></span>
                             </div>
                             <fieldset class="opcoes">
                                 <legend>Tema</legend>
@@ -557,29 +549,21 @@
                     </div>
                 </section>
 
-                <!-- Mais (celular) -->
-                <section class="secao" data-pagina="mais" aria-labelledby="titulo-pagina" hidden>
-                    <ul class="lista-mais">
-                        <li><a class="item-mais" href="#/turmas"><i class="ph ph-users-three" aria-hidden="true"></i><span>Turmas</span><i class="ph ph-caret-right" aria-hidden="true"></i></a></li>
-                        <li><a class="item-mais" href="#/ocorrencias"><i class="ph ph-warning-octagon" aria-hidden="true"></i><span>Ocorrências</span><span class="menu-contador" data-contador="ocorrencias" hidden></span><i class="ph ph-caret-right" aria-hidden="true"></i></a></li>
-                        <li><a class="item-mais" href="#/justificativas"><i class="ph ph-file-text" aria-hidden="true"></i><span>Justificativas</span><span class="menu-contador" data-contador="justificativas" hidden></span><i class="ph ph-caret-right" aria-hidden="true"></i></a></li>
-                        <li><a class="item-mais" href="#/relatorios"><i class="ph ph-chart-bar" aria-hidden="true"></i><span>Relatórios</span><i class="ph ph-caret-right" aria-hidden="true"></i></a></li>
-                        <li><a class="item-mais" href="#/equipe"><i class="ph ph-identification-badge" aria-hidden="true"></i><span>Equipe</span><i class="ph ph-caret-right" aria-hidden="true"></i></a></li>
-                        <li><a class="item-mais" href="#/configuracoes/perfil"><i class="ph ph-gear-six" aria-hidden="true"></i><span>Configurações</span><i class="ph ph-caret-right" aria-hidden="true"></i></a></li>
-                        <li><button class="item-mais item-mais-sair" type="button" data-sair><i class="ph ph-sign-out" aria-hidden="true"></i><span>Sair do portal</span></button></li>
-                    </ul>
-                </section>
             </main>
         </div>
 
-        <!-- Abas inferiores (celular) -->
-        <nav class="abas" aria-label="Seções principais">
-            <a class="aba" href="#/visao-geral" data-aba="visao-geral"><i class="ph ph-squares-four" aria-hidden="true"></i><span>Visão geral</span></a>
-            <a class="aba" href="#/avisos" data-aba="avisos"><i class="ph ph-megaphone-simple" aria-hidden="true"></i><span>Avisos</span></a>
-            <a class="aba" href="#/alunos" data-aba="alunos"><i class="ph ph-student" aria-hidden="true"></i><span>Alunos</span></a>
-            <a class="aba" href="#/mensagens" data-aba="mensagens"><span class="aba-icone"><i class="ph ph-chat-circle-dots" aria-hidden="true"></i><span class="ponto-alerta" data-ponto-mensagens hidden></span></span><span>Mensagens</span></a>
-            <a class="aba" href="#/mais" data-aba="mais"><i class="ph ph-dots-three-outline" aria-hidden="true"></i><span>Mais</span><span class="ponto-alerta ponto-mais" data-ponto-mais hidden></span></a>
-        </nav>
+        <!-- Senha provisória (protótipo .modal) -->
+        <dialog class="modal" id="senha-revelada" aria-labelledby="senha-revelada-titulo">
+            <div class="modal-conteudo">
+                <h2 id="senha-revelada-titulo"><i class="ph ph-key" aria-hidden="true"></i>Senha provisória</h2>
+                <p id="senha-revelada-texto"></p>
+                <p class="senha-revelada-valor"><code id="senha-revelada-valor"></code></p>
+                <p>Anote e entregue à pessoa. Esta senha não será exibida de novo.</p>
+                <div class="modal-botoes">
+                    <button class="botao botao-primario" id="senha-revelada-fechar" type="button">Já anotei</button>
+                </div>
+            </div>
+        </dialog>
     </div>
 </body>
 </html>

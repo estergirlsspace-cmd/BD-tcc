@@ -181,27 +181,28 @@ function readsBlock(notice) {
         bar);
 }
 
+// Cartão no desenho do protótipo (.notice): título, texto, etiquetas e ações pequenas.
 function noticeCard(notice) {
     const card = el('article', { class: `aviso${notice.urgente ? ' aviso-urgente' : ''}` });
-    const labels = el('div', { class: 'aviso-selos' },
-        notice.urgente ? badge('Urgente', 'alerta') : null,
-        badge(G.TYPE_NAMES[notice.tipo] || 'Aviso', 'neutro'));
-    card.append(el('div', { class: 'aviso-topo' },
-        labels,
-        el('span', { class: 'texto-suave', text: `Publicado em ${G.formatCreated(notice.criado_em)}` })));
     card.append(el('h3', { class: 'aviso-titulo', text: notice.titulo }));
     card.append(el('p', { class: 'aviso-texto', text: notice.conteudo }));
 
     const anexo = attachmentOf(notice);
     if (anexo) card.append(el('div', { class: 'aviso-anexo' }, G.attachmentButton(anexo)));
 
-    const info = el('p', { class: 'aviso-publico' }, icon('users-three'), el('span', { text: audienceLabel(notice) }));
-    if (notice.data_evento) {
-        info.append(el('span', { class: 'separador', 'aria-hidden': 'true', text: '·' }),
-            icon('calendar-blank'), el('span', { text: `Data: ${formatSchoolDate(notice.data_evento)}` }));
-    }
+    card.append(el('div', { class: 'aviso-selos' },
+        el('span', { class: 'selo selo-neutro' }, icon('clock'), `Publicado em ${G.formatCreated(notice.criado_em)}`),
+        el('span', { class: 'selo selo-neutro' }, icon('users-three'), audienceLabel(notice)),
+        notice.data_evento
+            ? el('span', { class: 'selo selo-neutro' }, icon('calendar-blank'), `Data: ${formatSchoolDate(notice.data_evento)}`)
+            : null,
+        badge(G.TYPE_NAMES[notice.tipo] || 'Aviso', 'neutro'),
+        notice.urgente ? badge('Urgente', 'alerta') : null));
+    const reads = readsBlock(notice);
+    if (reads) card.append(reads);
+
     const actions = el('div', { class: 'acoes' });
-    const remove = button([icon('trash'), 'Excluir'], 'botao botao-texto botao-perigo-texto botao-pequeno', () =>
+    const remove = button([icon('trash'), 'Excluir'], 'botao botao-perigo botao-pequeno', () =>
         G.confirmInline(actions, {
             question: 'Excluir este aviso de vez?',
             confirmLabel: 'Sim, excluir',
@@ -213,9 +214,9 @@ function noticeCard(notice) {
             }
         }));
     actions.append(
-        button([icon('pencil-simple'), 'Editar'], 'botao botao-texto botao-pequeno', () => startEdit(notice)),
+        button([icon('pencil-simple'), 'Editar'], 'botao botao-primario botao-pequeno', () => startEdit(notice)),
         remove);
-    card.append(el('div', { class: 'aviso-rodape' }, info, readsBlock(notice), actions));
+    card.append(actions);
     return card;
 }
 

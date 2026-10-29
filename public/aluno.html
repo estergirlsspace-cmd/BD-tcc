@@ -16,12 +16,10 @@
     <link rel="stylesheet" href="/vendor/phosphor/fill.css">
     <link rel="stylesheet" href="/tema.css">
     <link rel="stylesheet" href="/notificacoes.css">
-    <link rel="stylesheet" href="/componentes/mensagens.css">
     <link rel="stylesheet" href="/componentes/formulario.css">
     <link rel="stylesheet" href="/aluno.css">
     <script src="/datas.js" defer></script>
     <script src="/notificacoes.js" defer></script>
-    <script src="/componentes/mensagens.js" defer></script>
     <script src="/componentes/formulario.js" defer></script>
     <script src="/aluno.js" defer></script>
 </head>
@@ -39,7 +37,6 @@
                 <li><a class="rail-item" href="#/avisos/todos" data-secao="avisos"><span class="rail-icone"><i class="ph ph-megaphone-simple" aria-hidden="true"></i><span class="ponto-alerta" data-ponto-naolidos hidden></span></span><span class="rail-rotulo">Avisos</span><span class="visually-hidden" data-sr-naolidos></span></a></li>
                 <li><a class="rail-item" href="#/atividades/pendentes" data-secao="atividades"><span class="rail-icone"><i class="ph ph-clipboard-text" aria-hidden="true"></i></span><span class="rail-rotulo">Atividades</span></a></li>
                 <li><a class="rail-item" href="#/frequencia/resumo" data-secao="frequencia"><span class="rail-icone"><i class="ph ph-list-checks" aria-hidden="true"></i></span><span class="rail-rotulo">Frequência</span></a></li>
-                <li><a class="rail-item" href="#/mensagens" data-secao="mensagens"><span class="rail-icone"><i class="ph ph-chat-circle-dots" aria-hidden="true"></i><span class="badge-contador" data-badge-mensagens aria-hidden="true" hidden></span></span><span class="rail-rotulo">Mensagens</span><span class="visually-hidden" data-sr-mensagens></span></a></li>
             </ul>
             <div class="rail-rodape">
                 <a class="rail-item" href="#/ajustes/perfil" data-secao="ajustes"><span class="rail-icone"><i class="ph ph-gear-six" aria-hidden="true"></i></span><span class="rail-rotulo">Configurações</span></a>
@@ -86,11 +83,11 @@
 
         <!-- Abas inferiores (celular) -->
         <nav class="abas" aria-label="Seções do portal">
-            <a class="aba" href="#/inicio" data-secao="inicio" data-inclui="frequencia"><span class="aba-icone"><i class="ph ph-house" aria-hidden="true"></i></span><span>Início</span></a>
-            <a class="aba" href="#/atividades/pendentes" data-secao="atividades"><span class="aba-icone"><i class="ph ph-clipboard-text" aria-hidden="true"></i></span><span>Atividades</span></a>
-            <a class="aba aba-central" href="#/avisos/todos" data-secao="avisos"><span class="aba-icone"><i class="ph-fill ph-megaphone-simple" aria-hidden="true"></i><span class="ponto-alerta" data-ponto-naolidos hidden></span></span><span>Avisos</span><span class="visually-hidden" data-sr-naolidos></span></a>
-            <a class="aba" href="#/mensagens" data-secao="mensagens"><span class="aba-icone"><i class="ph ph-chat-circle-dots" aria-hidden="true"></i><span class="badge-contador" data-badge-mensagens aria-hidden="true" hidden></span></span><span>Mensagens</span><span class="visually-hidden" data-sr-mensagens></span></a>
-            <a class="aba" href="#/ajustes/perfil" data-secao="ajustes"><span class="aba-icone"><i class="ph ph-gear-six" aria-hidden="true"></i></span><span>Configurações</span></a>
+            <a class="aba" href="#/inicio" data-secao="inicio"><span class="aba-icone"><i class="ph-fill ph-house" aria-hidden="true"></i></span><span>Início</span></a>
+            <a class="aba" href="#/atividades/pendentes" data-secao="atividades"><span class="aba-icone"><i class="ph-fill ph-clipboard-text" aria-hidden="true"></i></span><span>Atividades</span></a>
+            <a class="aba aba-central" href="#/avisos/todos" data-secao="avisos"><span class="aba-icone"><i class="ph-fill ph-megaphone-simple" aria-hidden="true"></i><span class="ponto-alerta" data-ponto-naolidos hidden></span></span><span class="visually-hidden">Avisos</span><span class="visually-hidden" data-sr-naolidos></span></a>
+            <a class="aba" href="#/frequencia/resumo" data-secao="frequencia"><span class="aba-icone"><i class="ph-fill ph-list-checks" aria-hidden="true"></i></span><span>Frequência</span></a>
+            <a class="aba" href="#/ajustes/perfil" data-secao="ajustes"><span class="aba-icone"><i class="ph-fill ph-user" aria-hidden="true"></i></span><span>Perfil</span></a>
         </nav>
     </div>
 

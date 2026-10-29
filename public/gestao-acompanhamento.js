@@ -77,7 +77,6 @@ function renderPanel() {
     if (!renderStatusInto(container, ['painel'], 'Carregando a visão geral…')) return;
     const panel = G.source('painel').data || {};
     const { kpis, classes, attention } = panelParts(panel);
-    if (typeof panel.mensagens_nao_lidas === 'number') G.setUnread?.(panel.mensagens_nao_lidas);
     const count = (value) => (value === null ? '—' : Number(value).toLocaleString('pt-BR'));
     const below = Number(kpis.abaixo) || 0;
 
@@ -153,7 +152,6 @@ function setCounter(name, value, [singular, plural]) {
         node.textContent = number > 99 ? '99+' : String(number);
         node.setAttribute('aria-label', `${number} ${number === 1 ? singular : plural}`);
     });
-    G.updateMoreDot?.();
 }
 
 // ---------------------------------------------------------------- ocorrências

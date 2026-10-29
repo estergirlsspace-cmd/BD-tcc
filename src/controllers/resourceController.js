@@ -6,6 +6,7 @@ const notificacoes = require('../services/notificacoes');
 const { registrar } = require('../services/auditoria');
 const { studentNoticeScope, teacherNoticeScope, noticeAudienceFrom } = require('../utils/audience');
 const { assertOwnFile, attachmentColumns, attachmentFrom } = require('../utils/arquivos');
+const { readableClassLogin } = require('../utils/accounts');
 
 // Avisos com o anexo (metadados do arquivo) e, para quem acompanha as leituras, a contagem.
 const NOTICE_SELECT = `SELECT posts_avisos.*, ${attachmentColumns('arq')}
@@ -188,8 +189,20 @@ function listRecords(resource, user) {
     const sql = resource.table === 'posts_avisos'
         ? `${NOTICE_SELECT}${where} ORDER BY posts_avisos.criado_em DESC, posts_avisos.id_post DESC`
         : `SELECT * FROM ${resource.table}${where} ORDER BY ${resource.id}`;
-    return database.prepare(sql).all(...params)
+    const records = database.prepare(sql).all(...params)
         .map((record) => publicRecord(resource, record, user));
+    // Gestão: indica quais turmas têm acesso da turma ativo (calculado, sem coluna).
+    if (resource.table === 'turmas' && user.tipo_usuario === 'gestao') {
+        const withPassword = new Set(database.prepare(`
+            SELECT CAST(substr(login, 7) AS INTEGER) AS id_turma FROM usuarios
+            WHERE tipo_usuario = 'aluno' AND ativo = 1 AND login GLOB 'turma-[0-9]*'
+        `).all().map((row) => row.id_turma));
+        for (const record of records) {
+            record.tem_senha = withPassword.has(record.id_turma);
+            record.usuario = readableClassLogin(record); // usuário da sala, ex.: "1info-a"
+        }
+    }
+    return records;
 }
 
 // Criação/exclusão de contas e matrículas pela rota genérica entra no registro de auditoria.

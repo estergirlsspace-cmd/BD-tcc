@@ -165,17 +165,18 @@ function pendingEmailNote(result) {
 
 // ---------------------------------------------------------------- equipe
 
+// Senha provisória em janela modal (protótipo .modal): <dialog> prende o foco e fecha com Esc.
 function revealPassword(text, password) {
     $('#senha-revelada-texto').textContent = text;
     $('#senha-revelada-valor').textContent = password;
-    const box = $('#senha-revelada');
-    box.hidden = false;
-    box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const dialog = $('#senha-revelada');
+    if (!dialog.open) dialog.showModal();
     $('#senha-revelada-fechar').focus();
 }
 
 function hidePassword() {
-    $('#senha-revelada').hidden = true;
+    const dialog = $('#senha-revelada');
+    if (dialog.open) dialog.close();
     $('#senha-revelada-valor').textContent = '';
     $('#senha-revelada-texto').textContent = '';
 }
@@ -300,7 +301,117 @@ function renderClasses() {
         container.replaceChildren(emptyState('Nenhuma turma cadastrada ainda.', 'users-three'));
         return;
     }
-    container.replaceChildren(...classes.map(classCard));
+    // Agrupadas por série (1ª, 2ª, 3ª); turmas sem série ficam num grupo final.
+    const groups = new Map();
+    [...classes].sort((a, b) => (a.serie || 9) - (b.serie || 9)
+        || (a.curso || '').localeCompare(b.curso || '')
+        || a.nome_turma.localeCompare(b.nome_turma, 'pt-BR'))
+        .forEach((item) => {
+            const key = G.SERIES_NAMES[item.serie] || 'Outras turmas';
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(item);
+        });
+    container.replaceChildren(...[...groups].map(([title, items], index) => {
+        const headingId = `turmas-grupo-${index}`;
+        const withPassword = items.filter((item) => item.tem_senha === true).length;
+        return el('section', { class: 'turmas-serie', 'aria-labelledby': headingId },
+            el('div', { class: 'turmas-serie-topo' },
+                el('h2', { class: 'titulo-secao', id: headingId, text: title }),
+                el('span', { class: 'texto-suave', text: `${withPassword} de ${items.length} com senha da turma` })),
+            ...items.map(classCard));
+    }));
+}
+
+// Usuário da sala (ex.: "1info-a"): vem da API; sem ele, monta pelo mesmo padrão (série+curso-letra).
+function classUser(schoolClass) {
+    if (schoolClass.usuario) return schoolClass.usuario;
+    const letter = /\s([A-Za-z])$/.exec(schoolClass.nome_turma || '')?.[1];
+    const course = { informatica: 'info', redes: 'redes' }[schoolClass.curso];
+    return letter && course && schoolClass.serie ? `${schoolClass.serie}${course}-${letter.toLowerCase()}` : null;
+}
+
+function copyButton(text, label) {
+    const copy = button([icon('copy'), 'Copiar'], 'botao botao-texto botao-pequeno', async () => {
+        try {
+            await navigator.clipboard.writeText(text);
+            G.showSuccess(`${label} copiado.`);
+        } catch {
+            G.showError('Não foi possível copiar. Selecione o texto e copie manualmente.');
+        }
+    }, { 'aria-label': `Copiar ${label.toLowerCase()} ${text}` });
+    return copy;
+}
+
+// Senha da turma: a gestão define/troca (mín. 8 caracteres) ou desativa o acesso compartilhado.
+// O aluno entra no login com o usuário da sala e a senha da turma.
+function classAccess(schoolClass) {
+    const hasPassword = schoolClass.tem_senha === true;
+    const user = classUser(schoolClass);
+    const actions = el('div', { class: 'acoes' });
+    const wrapper = el('div', { class: 'turma-acesso' },
+        el('div', { class: 'turma-acesso-info' },
+            hasPassword ? badge('Com senha', 'ok') : badge('Sem senha', 'neutro'),
+            user ? el('span', { class: 'turma-usuario' },
+                el('span', { class: 'texto-suave', text: 'Usuário da sala:' }),
+                el('code', { text: user }),
+                copyButton(user, 'Usuário da sala')) : null,
+            el('p', { class: 'texto-suave turma-acesso-ajuda', text: hasPassword
+                ? 'O aluno entra no login com o usuário da sala e a senha da turma.'
+                : 'Defina a senha da turma para liberar o login com o usuário da sala.' })),
+        actions);
+    const fillActions = () => {
+        actions.replaceChildren(
+            button([icon('key'), hasPassword ? 'Trocar senha' : 'Definir senha'], 'botao botao-texto botao-pequeno',
+                () => showClassPasswordForm(schoolClass, wrapper, actions, fillActions)));
+        if (hasPassword) {
+            actions.append(button([icon('prohibit'), 'Desativar acesso'], 'botao botao-texto botao-perigo-texto botao-pequeno', () =>
+                G.confirmInline(actions, {
+                    question: 'A senha da turma deixa de valer e as sessões abertas são encerradas.',
+                    confirmLabel: 'Desativar acesso',
+                    onConfirm: async () => {
+                        await G.sendJson(`/api/turmas/${schoolClass.id_turma}/senha`, 'DELETE');
+                        G.showSuccess(`Acesso da turma ${schoolClass.nome_turma} desativado.`);
+                        await G.loadSource('turmas', { silent: true });
+                    }
+                })));
+        }
+    };
+    fillActions();
+    return wrapper;
+}
+
+function showClassPasswordForm(schoolClass, wrapper, actions, fillActions) {
+    const inputId = `senha-turma-${schoolClass.id_turma}`;
+    const helpId = `${inputId}-ajuda`;
+    const input = el('input', { id: inputId, type: 'password', minlength: 8, maxlength: 128, required: true,
+        autocomplete: 'new-password', 'aria-describedby': helpId });
+    const submit = el('button', { type: 'submit', class: 'botao botao-primario botao-pequeno' }, 'Salvar senha');
+    const cancel = button('Cancelar', 'botao botao-secundario botao-pequeno', () => {
+        form.remove();
+        actions.hidden = false;
+        fillActions();
+        actions.querySelector('button')?.focus();
+    });
+    const form = el('form', { class: 'form-senha-turma', novalidate: true },
+        el('div', { class: 'campo' },
+            el('label', { for: inputId, text: schoolClass.tem_senha ? 'Nova senha da turma' : 'Senha da turma' }),
+            input,
+            el('p', { class: 'texto-suave', id: helpId, text: 'Mínimo de 8 caracteres. Passe a senha só aos alunos da turma.' })),
+        el('div', { class: 'linha-botoes' }, submit, cancel));
+    form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        G.runFormAction(form, submit, async () => {
+            if (input.value.length < 8) throw G.fieldError(input, 'A senha precisa ter pelo menos 8 caracteres.');
+            const result = await G.sendJson(`/api/turmas/${schoolClass.id_turma}/senha`, 'PUT', { senha: input.value });
+            input.value = '';
+            const user = result?.usuario || classUser(schoolClass);
+            G.showSuccess(`Senha da turma ${schoolClass.nome_turma} salva${user ? ` (usuário da sala: ${user})` : ''}. As sessões abertas foram encerradas.`);
+            await G.loadSource('turmas', { silent: true });
+        }, { fieldFor: () => input });
+    });
+    actions.hidden = true;
+    wrapper.append(form);
+    input.focus();
 }
 
 function classCard(schoolClass) {
@@ -310,7 +421,7 @@ function classCard(schoolClass) {
         [G.SERIES_NAMES[schoolClass.serie], G.COURSE_NAMES[schoolClass.curso], `${enrolled} ${enrolled === 1 ? 'aluno' : 'alunos'}`]
             .filter(Boolean).join(' · '));
     const header = el('div', { class: 'turma-cabecalho' },
-        el('div', {}, el('h2', { text: schoolClass.nome_turma }), meta),
+        el('div', {}, el('h3', { text: schoolClass.nome_turma }), meta),
         frequency !== null
             ? el('span', { class: `turma-frequencia${frequency < G.FREQUENCIA_MINIMA ? ' alerta' : ''}` },
                 el('strong', { text: G.formatPercent(frequency) }), el('small', { text: 'frequência' }))
@@ -344,7 +455,8 @@ function classCard(schoolClass) {
                 el('thead', {}, el('tr', {}, el('th', { scope: 'col', text: 'Disciplina' }), el('th', { scope: 'col', text: 'Professor' }))),
                 el('tbody', {}, rows)))
         : emptyState('Nenhuma disciplina nesta turma.', 'books');
-    return el('section', { class: 'cartao turma' }, header, table, disciplineForm(schoolClass));
+    return el('section', { class: 'cartao turma', 'aria-label': schoolClass.nome_turma },
+        header, classAccess(schoolClass), table, disciplineForm(schoolClass));
 }
 
 function disciplineForm(schoolClass) {
@@ -442,6 +554,7 @@ G.sections.equipe = {
         type.addEventListener('change', () => { $('#campo-equipe-area').hidden = type.value !== 'professor'; });
         $('#form-equipe').addEventListener('submit', createStaff);
         $('#senha-revelada-fechar').addEventListener('click', hidePassword);
+        $('#senha-revelada').addEventListener('close', hidePassword);
         onSource(['usuarios', 'professores'], renderStaff);
     },
     hide: hidePassword
@@ -449,7 +562,7 @@ G.sections.equipe = {
 
 G.sections.turmas = {
     title: 'Turmas',
-    description: 'Organize as turmas e vincule professores às disciplinas.',
+    description: 'Organize as turmas, defina a senha de cada uma e vincule professores às disciplinas.',
     setup() {
         setupClassForm();
         onSource(['turmas', 'disciplinas', 'professores', 'alunos', 'usuarios', 'painel'], renderClasses);

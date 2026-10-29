@@ -360,6 +360,40 @@ database.exec(`
 `);
 ensureColumn('avisos_usuarios', 'id_pasta', 'INTEGER REFERENCES pastas(id_pasta) ON DELETE SET NULL');
 
+// ---- Sprint 5: 12 turmas (série 1–3 × curso × letra A/B), sem mudar a estrutura ----
+// Idempotente: "1ª Série — Informática" vira "1ª Série — Informática A" (mesmo id, nada se perde)
+// e as que faltarem são criadas. Banco sem nenhuma turma (instalação nova / seed de exemplo)
+// fica como está; a migração roda na próxima subida, quando já houver turmas.
+function migrateClassLetters() {
+    if (!database.prepare('SELECT 1 FROM turmas LIMIT 1').get()) return;
+    const labels = { informatica: 'Informática', redes: 'Redes' };
+    const byName = database.prepare('SELECT id_turma FROM turmas WHERE nome_turma = ?');
+    const rename = database.prepare(
+        'UPDATE turmas SET nome_turma = ?, curso = ?, serie = ? WHERE id_turma = ?'
+    );
+    const insert = database.prepare('INSERT INTO turmas (nome_turma, curso, serie) VALUES (?, ?, ?)');
+    database.exec('BEGIN IMMEDIATE');
+    try {
+        for (let serie = 1; serie <= 3; serie += 1) {
+            for (const [curso, label] of Object.entries(labels)) {
+                const base = `${serie}ª Série — ${label}`;
+                const legacy = byName.get(base);
+                if (legacy && !byName.get(`${base} A`)) {
+                    rename.run(`${base} A`, curso, serie, legacy.id_turma);
+                }
+                for (const letra of ['A', 'B']) {
+                    if (!byName.get(`${base} ${letra}`)) insert.run(`${base} ${letra}`, curso, serie);
+                }
+            }
+        }
+        database.exec('COMMIT');
+    } catch (error) {
+        database.exec('ROLLBACK');
+        throw error;
+    }
+}
+migrateClassLetters();
+
 // Instalação nova (banco vazio): cria a primeira conta da gestão a partir de variáveis de
 // ambiente. A senha é provisória e precisa ser trocada no primeiro acesso.
 const hasManager = database.prepare(

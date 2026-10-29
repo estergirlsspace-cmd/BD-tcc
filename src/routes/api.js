@@ -17,6 +17,9 @@ const { handleAuditoriaRequest } = require('../controllers/auditoriaController')
 const { handleHorariosPdfRequest } = require('../controllers/horariosPdfController');
 const { handlePastasRequest, handleSalvosRequest } = require('../controllers/salvosController');
 const { handleImportacaoRequest } = require('../controllers/importacaoController');
+const {
+    handleClassPasswordRequest, assertClassAccountAllowed
+} = require('../controllers/contasTurmaController');
 const database = require('../database');
 
 // Módulos por prefixo: /api/<prefixo>/... → handler(request, response, user, parts, searchParams).
@@ -130,6 +133,12 @@ async function handleApiRequest(request, response) {
     const isPrivacyRoute = parts[1] === 'privacidade';
     if (user.termos_pendentes && !isPasswordRoute && !isProfileRoute && !isPrivacyRoute) {
         throw new ApiError(403, 'Aceite os termos de uso e a política de privacidade para continuar.');
+    }
+    // Conta da turma: recursos pessoais (justificativas, entregas, frequência, mensagens...) → 403.
+    assertClassAccountAllowed(user, parts, request.method);
+
+    if (await handleClassPasswordRequest(request, response, user, parts)) {
+        return;
     }
 
     if (MODULE_ROUTES[parts[1]]) {

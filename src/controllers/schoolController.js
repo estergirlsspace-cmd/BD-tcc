@@ -95,6 +95,7 @@ function getProfile(request, response, user) {
         nome: user.nome,
         area: user.area,
         conta_compartilhada: user.conta_compartilhada,
+        conta_turma: Boolean(user.conta_turma),
         deve_trocar_senha: user.deve_trocar_senha,
         termos_pendentes: user.termos_pendentes,
         curso: user.curso,
@@ -202,7 +203,7 @@ async function resetStudentPassword(request, response, user, studentId) {
     const student = database.prepare(`
         SELECT u.id_usuario FROM alunos a
         JOIN usuarios u ON u.id_usuario = a.id_usuario
-        WHERE a.id_aluno = ?
+        WHERE a.id_aluno = ? AND u.login NOT GLOB 'turma-[0-9]*'
     `).get(studentId);
     if (!student) throw new ApiError(404, 'Aluno não encontrado.');
     database.exec('BEGIN IMMEDIATE');

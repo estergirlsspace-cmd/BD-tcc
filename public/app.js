@@ -154,12 +154,11 @@ recoverForm.addEventListener('submit', async (event) => {
 function selectRole(role) {
     state.role = role;
     const isStudent = role === 'aluno';
-    loginLabel.textContent = isStudent ? 'Matrícula' : 'Usuário';
+    loginLabel.textContent = isStudent ? 'Usuário da sala ou matrícula' : 'Usuário';
     loginInput.placeholder = isStudent
-        ? 'Digite o número da sua matrícula'
+        ? 'Ex.: 1info-a ou sua matrícula'
         : 'Digite seu usuário';
-    loginInput.inputMode = isStudent ? 'numeric' : 'text';
-    firstAccessHint.hidden = !isStudent;
+        firstAccessHint.hidden = !isStudent;
     staffAccessHint.hidden = isStudent;
     submitButton.textContent = submitLabel();
     clearMessage();

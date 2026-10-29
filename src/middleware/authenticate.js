@@ -1,7 +1,7 @@
 const database = require('../database');
 const { ApiError } = require('../errors');
 const { hashToken } = require('../controllers/authController');
-const { isSharedStudentLogin } = require('../utils/accounts');
+const { isSharedStudentLogin, isClassAccount } = require('../utils/accounts');
 const { termosPendentes } = require('../utils/termos');
 
 const LAST_SEEN_INTERVAL_SECONDS = 60;
@@ -38,13 +38,16 @@ function authenticate(request) {
             .run(now, session.token_hash);
     }
 
+    const classAccount = isClassAccount(session);
     return {
         tokenHash: session.token_hash,
         id_usuario: session.id_usuario,
         login: session.login,
         tipo_usuario: session.tipo_usuario,
         conta_compartilhada: isSharedStudentLogin(session.login),
-        deve_trocar_senha: session.deve_trocar_senha === 1,
+        // Conta da turma: senha definida pela gestão, sem "primeiro acesso".
+        conta_turma: classAccount,
+        deve_trocar_senha: !classAccount && session.deve_trocar_senha === 1,
         termos_pendentes: termosPendentes(session.termos_aceitos_em),
         nome: session.nome,
         area: session.area,

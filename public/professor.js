@@ -1,8 +1,8 @@
 // Portal do Professor (C·Warning).
 // Aplicação de página única: navegação por hash (#/secao/...), dados reais da API,
 // renderização só com createElement/textContent (nada de innerHTML com dados).
-// Depende de /datas.js (datas no horário de Brasília), /notificacoes.js (notify) e
-// /componentes/mensagens.js (CwMensagens, componente compartilhado de mensagens).
+// Depende de /datas.js (datas no horário de Brasília) e /notificacoes.js (notify).
+// O chat (Mensagens) foi retirado deste portal a pedido do usuário; a API continua no servidor.
 
 'use strict';
 
@@ -11,8 +11,8 @@ const token = sessionStorage.getItem(TOKEN_KEY);
 const FUSO_ESCOLA = 'America/Sao_Paulo';
 const FREQUENCIA_MINIMA = 75;
 const ANEXO_MAX_BYTES = 5 * 1024 * 1024;
-const POLLING_MENSAGENS_MS = 30000;
-const MOBILE_QUERY = window.matchMedia('(max-width: 899.98px)');
+// Mesmo ponto de quebra do protótipo: até 650px o menu lateral vira o bloco escuro do topo.
+const MOBILE_QUERY = window.matchMedia('(max-width: 650px)');
 
 const AREAS = {
     natureza: 'Ciências da Natureza',
@@ -24,18 +24,19 @@ const AREAS = {
 };
 const COURSE_NAMES = { informatica: 'Informática', redes: 'Redes de Computadores' };
 
+// eyebrow e subtitle: sobretítulo e subtítulo do cabeçalho da página, como no protótipo
+// (inicioPagina: sobretítulo em caixa alta, título e subtítulo).
 const SECTIONS = {
-    inicio: { title: 'Início', icon: 'house' },
-    turmas: { title: 'Turmas', icon: 'users-three' },
-    horario: { title: 'Horário', icon: 'calendar-dots' },
-    chamada: { title: 'Chamada', icon: 'list-checks' },
-    atividades: { title: 'Atividades', icon: 'clipboard-text' },
-    avisos: { title: 'Avisos', icon: 'megaphone-simple' },
-    salvos: { title: 'Salvos', icon: 'bookmark-simple' },
-    ocorrencias: { title: 'Ocorrências', icon: 'warning-octagon' },
-    mensagens: { title: 'Mensagens', icon: 'chats-circle' },
-    configuracoes: { title: 'Configurações', icon: 'gear-six' },
-    mais: { title: 'Mais', icon: 'dots-three-outline' }
+    inicio: { title: 'Início', icon: 'house', eyebrow: 'Área do professor', subtitle: 'Resumo do seu dia: aulas, turmas, entregas e recados.' },
+    turmas: { title: 'Turmas', icon: 'users-three', eyebrow: 'Área docente', subtitle: 'Selecione uma turma para ver os alunos e a frequência.' },
+    horario: { title: 'Horário', icon: 'calendar-dots', eyebrow: 'Área docente', subtitle: 'Confira os horários publicados pela gestão.' },
+    chamada: { title: 'Chamada', icon: 'list-checks', eyebrow: 'Área docente', subtitle: 'Registre a presença dos alunos em cada aula.' },
+    atividades: { title: 'Atividades', icon: 'clipboard-text', eyebrow: 'Área docente', subtitle: 'Publique atividades e acompanhe as entregas das turmas.' },
+    avisos: { title: 'Avisos', icon: 'megaphone-simple', eyebrow: 'Mural escolar', subtitle: 'Crie avisos para as suas turmas e acompanhe os comunicados da gestão.' },
+    salvos: { title: 'Salvos', icon: 'bookmark-simple', eyebrow: 'Comunicados salvos', subtitle: 'Organize em pastas os comunicados importantes.' },
+    ocorrencias: { title: 'Ocorrências', icon: 'warning-octagon', eyebrow: 'Área docente', subtitle: 'Registre e acompanhe as ocorrências dos alunos.' },
+    configuracoes: { title: 'Configurações', icon: 'gear-six', eyebrow: 'Informações da conta', subtitle: 'Seus dados, notificações, aparência, senha e privacidade.' },
+    mais: { title: 'Mais', icon: 'dots-three-outline', eyebrow: 'Menu', subtitle: 'Demais seções do portal.' }
 };
 
 const SETTINGS_TABS = [
@@ -65,8 +66,7 @@ const NOTIFICATION_TYPES = [
     ['urgente', 'Avisos urgentes', 'Comunicados marcados como urgentes pela escola.'],
     ['turma', 'Avisos das minhas turmas', 'Publicações para as turmas em que você leciona.'],
     ['prazos', 'Prazos', 'Lembretes de prazos de atividades.'],
-    ['eventos', 'Eventos', 'Eventos e datas do calendário escolar.'],
-    ['mensagens', 'Mensagens', 'Novas mensagens de alunos e da coordenação.']
+    ['eventos', 'Eventos', 'Eventos e datas do calendário escolar.']
 ];
 
 const SOURCE_PATHS = {
@@ -81,7 +81,6 @@ const SOURCE_PATHS = {
     salvos: '/api/salvos',
     horariosPdf: '/api/horarios-pdf',
     ocorrencias: '/api/ocorrencias',
-    conversas: '/api/mensagens',
     conta: '/api/conta',
     sessoes: '/api/conta/sessoes'
 };
@@ -97,12 +96,10 @@ const state = {
     submissions: new Map(),  // id_atividade → { status, data, error }
     chamada: null,
     activityFilter: '',
-    unreadMessages: 0,
-    messagesUnavailable: false,
     pendingEmail: null       // e-mail aguardando confirmação (resposta de POST /api/conta/email)
 };
 
-// Nós persistentes (formulários e o componente de mensagens) para não perder o que foi digitado
+// Nós persistentes (formulários) para não perder o que foi digitado
 // quando a tela é redesenhada.
 const persistent = new Map();
 
@@ -233,11 +230,10 @@ async function initialize() {
     applyRoute(parseHash(), { focus: false });
     window.addEventListener('hashchange', () => applyRoute(parseHash(), { focus: true }));
     MOBILE_QUERY.addEventListener('change', render);
-    startUnreadPolling();
 }
 
 function showFatalError(message) {
-    $('#conteudo').replaceChildren(errorState(message, () => window.location.reload()));
+    $('#corpo').replaceChildren(errorState(message, () => window.location.reload()));
     $('#titulo-pagina').textContent = 'Portal do Professor';
 }
 
@@ -665,10 +661,8 @@ function dashboard() {
     const justifications = panel ? firstDefined(panel.justificativas_pendentes,
         panel.justificativas?.pendentes, Array.isArray(panel.justificativas) ? panel.justificativas.length : undefined,
         typeof panel.justificativas === 'number' ? panel.justificativas : undefined) : null;
-    const messages = panel ? firstDefined(panel.mensagens_nao_lidas, panel.mensagens?.nao_lidas,
-        typeof panel.mensagens === 'number' ? panel.mensagens : undefined) : null;
 
-    return { panel, lessons, current, next: current ? null : lessonNext(lessons), classes, deliveries, justifications, messages };
+    return { panel, lessons, current, next: current ? null : lessonNext(lessons), classes, deliveries, justifications };
 }
 
 function normalizeRoster(result) {
@@ -758,6 +752,7 @@ function setupShell() {
     const user = state.user;
     $('#usuario-avatar').textContent = initials(user.nome || user.login);
     $('#usuario-nome').textContent = user.nome || user.login;
+    $('#topo-nome').textContent = user.nome || user.login;
     $('#usuario-detalhe').textContent = AREAS[user.area] || 'Professor(a)';
     document.querySelectorAll('[data-sair]').forEach((button) => button.addEventListener('click', logout));
 
@@ -776,45 +771,12 @@ function updateNavigation() {
     const current = state.route.section;
     document.querySelectorAll('[data-secao]').forEach((link) => {
         const active = link.dataset.secao === current
-            || (link.dataset.secao === 'mais' && ['turmas', 'horario', 'atividades', 'salvos', 'ocorrencias', 'configuracoes'].includes(current)
+            || (link.dataset.secao === 'mais' && ['turmas', 'horario', 'salvos', 'ocorrencias', 'configuracoes'].includes(current)
                 && MOBILE_QUERY.matches);
         link.classList.toggle('ativo', active);
         if (active) link.setAttribute('aria-current', 'page');
         else link.removeAttribute('aria-current');
     });
-}
-
-function updateUnreadBadges() {
-    const total = state.unreadMessages;
-    document.querySelectorAll('[data-contador-mensagens]').forEach((badge) => {
-        badge.hidden = !total;
-        badge.textContent = total > 99 ? '99+' : String(total);
-        badge.setAttribute('aria-label', plural(total, 'mensagem não lida', 'mensagens não lidas'));
-    });
-    document.querySelectorAll('[data-ponto-mensagens]').forEach((dot) => { dot.hidden = !total; });
-}
-
-function setUnread(total) {
-    const value = Math.max(0, Number(total) || 0);
-    if (value === state.unreadMessages) return;
-    state.unreadMessages = value;
-    updateUnreadBadges();
-}
-
-async function pollUnread() {
-    if (state.messagesUnavailable || document.visibilityState !== 'visible') return;
-    try {
-        const result = await api('/api/mensagens/nao-lidas');
-        setUnread(result?.total);
-    } catch (error) {
-        if (error.status === 501 || error.status === 404) state.messagesUnavailable = true;
-    }
-}
-
-function startUnreadPolling() {
-    pollUnread();
-    window.setInterval(pollUnread, POLLING_MENSAGENS_MS);
-    document.addEventListener('visibilitychange', pollUnread);
 }
 
 // ---------------------------------------------------------------- render principal
@@ -828,7 +790,6 @@ const RENDERERS = {
     avisos: renderNotices,
     salvos: renderSaved,
     ocorrencias: renderIncidents,
-    mensagens: renderMessages,
     configuracoes: renderSettings,
     mais: renderMore
 };
@@ -849,31 +810,42 @@ function renderNow() {
     if (!state.user) return;
     const { section } = state.route;
     updateNavigation();
-    updateUnreadBadges();
     const meta = SECTIONS[section];
     const view = RENDERERS[section]();
-    $('#topo-trilha').textContent = view.trail || 'Portal do Professor';
+    // Barra superior do protótipo: "Seção | Área docente"; cabeçalho: sobretítulo, título, subtítulo.
+    $('#topo-trilha').textContent = `${meta.title} | Área docente`;
+    $('#pagina-sobretitulo').textContent = view.trail || meta.eyebrow;
     $('#titulo-pagina').textContent = view.title || meta.title;
-    document.title = `${view.title || meta.title} · Portal do Professor · C·Warning`;
+    const nodes = [].concat(view.content).flat(Infinity).filter(Boolean);
+    // A introdução da seção vira o subtítulo do cabeçalho (como no protótipo), sem repetir o texto.
+    const intro = nodes[0] instanceof HTMLElement && nodes[0].classList.contains('introducao') ? nodes.shift() : null;
+    const subtitle = intro ? intro.textContent
+        : view.subtitle !== undefined ? view.subtitle : (view.trail ? '' : meta.subtitle);
+    $('#pagina-subtitulo').textContent = subtitle || '';
+    $('#pagina-subtitulo').hidden = !subtitle;
+    document.title = `${view.docTitle || view.title || meta.title} · Portal do Professor · C-Warning`;
     $('#topo-acoes').replaceChildren(...(view.actions || []));
-    const main = $('#conteudo');
-    main.dataset.secao = section;
-    main.replaceChildren(...[].concat(view.content).flat(Infinity).filter(Boolean));
+    $('#conteudo').dataset.secao = section;
+    $('#corpo').replaceChildren(...nodes);
 }
 
 // ---------------------------------------------------------------- Início
 
 function renderHome() {
-    ensure('painel', 'conversas');
+    ensure('painel');
     const panelSource = source('painel');
     if (panelSource.status === 'error') ensure('frequencias');
     const base = guard(['disciplinas', 'turmas', 'horarios'], { count: 4 });
-    const header = el('div', { class: 'saudacao' },
-        el('p', { class: 'sobretitulo', text: todayLongLabel() }),
-        el('p', { class: 'saudacao-titulo', text: `${greeting()}, ${firstName(state.user.nome)}` }));
-    if (base) return { title: 'Início', content: [header, base] };
+    // Cabeçalho do protótipo: sobretítulo (data), título (saudação) e subtítulo.
+    const page = {
+        title: `${greeting()}, ${firstName(state.user.nome)}`,
+        docTitle: 'Início',
+        trail: todayLongLabel(),
+        subtitle: SECTIONS.inicio.subtitle
+    };
+    if (base) return { ...page, content: [base] };
     if (panelSource.status === 'loading' || panelSource.status === 'idle') {
-        return { title: 'Início', content: [header, skeleton(4)] };
+        return { ...page, content: [skeleton(4)] };
     }
 
     const data = dashboard();
@@ -889,15 +861,10 @@ function renderHome() {
     if (data.justifications !== null && data.justifications !== undefined) {
         kpis.push(el('span', { class: 'selo' }, icon('file-text'), plural(Number(data.justifications), 'justificativa pendente', 'justificativas pendentes')));
     }
-    const unread = data.messages ?? (state.unreadMessages || null);
-    if (unread) {
-        kpis.push(el('a', { class: 'selo selo-azul', href: '#/mensagens' }, icon('chats-circle'), plural(Number(unread), 'mensagem não lida', 'mensagens não lidas')));
-    }
 
     return {
-        title: 'Início',
+        ...page,
         content: [
-            header,
             notice,
             kpis.length ? el('div', { class: 'linha-selos' }, kpis) : null,
             el('div', { class: 'grade-inicio' },
@@ -907,8 +874,7 @@ function renderHome() {
                     deliveriesCard(data)),
                 el('div', { class: 'coluna-lateral' },
                     todayLessonsCard(data),
-                    shortcutsCard(),
-                    recentMessagesCard()))
+                    shortcutsCard()))
         ]
     };
 }
@@ -1003,37 +969,6 @@ function shortcutsCard() {
         el('div', { class: 'atalhos' },
             el('a', { class: 'atalho', href: '#/avisos' }, el('span', { class: 'icone-quadrado' }, icon('megaphone-simple')), 'Enviar aviso à turma'),
             el('a', { class: 'atalho', href: '#/ocorrencias' }, el('span', { class: 'icone-quadrado icone-alerta' }, icon('warning-octagon')), 'Registrar ocorrência')));
-}
-
-function conversationList() {
-    const data = source('conversas').data;
-    return Array.isArray(data) ? data : (data?.conversas || []);
-}
-
-function recentMessagesCard() {
-    const conv = source('conversas');
-    let body;
-    if (conv.status === 'error') {
-        body = isUnavailable(conv)
-            ? soonState('As mensagens chegam em breve.')
-            : errorState(conv.error, () => reload('conversas'));
-    } else if (conv.status !== 'ok') {
-        body = skeleton(2);
-    } else {
-        const items = conversationList().slice(0, 4);
-        body = items.length
-            ? el('ul', { class: 'lista-mensagens' }, items.map((item) => el('li', {},
-                el('a', { class: 'linha-mensagem', href: '#/mensagens' },
-                    avatar(item.com?.nome),
-                    el('span', { class: 'linha-texto' },
-                        el('span', { class: 'linha-entre' },
-                            el('strong', { text: item.com?.nome || 'Contato' }),
-                            el('span', { class: 'meta', text: timeAgo(item.ultima?.criado_em) })),
-                        el('span', { class: 'meta', text: `${item.ultima?.minha ? 'Você: ' : ''}${truncate(item.ultima?.texto, 60)}` })),
-                    item.nao_lidas ? el('span', { class: 'contador', text: String(item.nao_lidas) }, srText(' não lidas')) : null))))
-            : emptyState('Nenhuma conversa ainda.', 'chats-circle');
-    }
-    return card('', cardHeader('Mensagens recentes', 'chats-circle', el('a', { class: 'link-seta', href: '#/mensagens' }, 'Abrir', icon('arrow-right'))), body);
 }
 
 // ---------------------------------------------------------------- Turmas
@@ -1720,10 +1655,33 @@ function renderNotices() {
 function syncNoticeForm(form) {
     const select = form.querySelector('select[name="turma"]');
     selectOptions(select, myClasses().map((item) => [item.id_turma, item.nome_turma]), 'Selecione a turma');
+    form.syncTargets?.();
 }
 
 function noticeForm() {
     const classSelect = el('select', { name: 'turma', required: true });
+    // Publicação nova: uma ou mais turmas (um aviso por turma). Edição: a turma do próprio aviso.
+    const allClasses = el('input', { type: 'checkbox', name: 'todas_turmas', id: 'aviso-todas-turmas' });
+    const classChoices = el('div', { class: 'grupo-opcoes' });
+    const targets = el('fieldset', { class: 'grupo-opcoes grupo-turmas', id: 'aviso-turmas', 'aria-describedby': 'aviso-turmas-dica' },
+        el('legend', { text: 'Turmas' }),
+        el('label', { class: 'opcao-caixa', for: 'aviso-todas-turmas' }, allClasses,
+            el('span', {}, el('strong', { text: 'Todas as minhas turmas' }),
+                el('span', { class: 'meta', text: 'Um aviso para cada turma em que você leciona.' }))),
+        classChoices,
+        el('p', { class: 'campo-dica', id: 'aviso-turmas-dica', text: 'Escolha uma ou mais turmas. Os alunos de cada uma recebem o aviso no mural.' }));
+    const classBoxes = () => [...classChoices.querySelectorAll('input[type="checkbox"]')];
+    const chosenClasses = () => classBoxes().filter((box) => box.checked).map((box) => Number(box.value));
+    const syncAll = () => {
+        const boxes = classBoxes();
+        const checked = boxes.filter((box) => box.checked).length;
+        allClasses.checked = boxes.length > 0 && checked === boxes.length;
+        allClasses.indeterminate = checked > 0 && checked < boxes.length;
+    };
+    allClasses.addEventListener('change', () => {
+        classBoxes().forEach((box) => { box.checked = allClasses.checked; });
+        allClasses.indeterminate = false;
+    });
     const type = el('select', { name: 'tipo' },
         ['aviso', 'evento', 'comunicado'].map((value) => el('option', { value, text: NOTICE_TYPES[value] })));
     const title = el('input', { type: 'text', name: 'titulo', maxlength: 200, required: true, autocomplete: 'off' });
@@ -1757,8 +1715,11 @@ function noticeForm() {
     });
     fileInfo.textContent = 'Opcional · PDF de até 5 MB.';
 
+    const classField = field('Turma', classSelect, { hint: 'Ao editar, o aviso continua numa única turma.' });
+    classField.hidden = true;
     const form = el('form', { class: 'formulario', novalidate: true },
-        field('Turma', classSelect, { hint: 'Os alunos da turma recebem o aviso no mural.' }),
+        targets,
+        classField,
         el('div', { class: 'campos-linha' },
             field('Tipo', type),
             field('Data do evento (opcional)', eventDate)),
@@ -1774,10 +1735,28 @@ function noticeForm() {
     file.setAttribute('aria-describedby', 'aviso-anexo-dica');
     fileInfo.id = 'aviso-anexo-dica';
 
+    // Caixas das turmas: redesenhadas a cada render, mantendo o que já estava marcado.
+    form.syncTargets = () => {
+        const previous = new Set(chosenClasses());
+        classChoices.replaceChildren(...myClasses().map((item) => {
+            const boxId = `aviso-turma-${item.id_turma}`;
+            const box = el('input', { type: 'checkbox', name: 'turmas', value: String(item.id_turma), id: boxId });
+            box.checked = previous.has(item.id_turma);
+            box.addEventListener('change', syncAll);
+            return el('label', { class: 'opcao-caixa', for: boxId }, box,
+                el('span', {}, el('strong', { text: item.nome_turma })));
+        }));
+        targets.hidden = Boolean(form.editing) || !classBoxes().length;
+        allClasses.closest('label').hidden = classBoxes().length < 2;
+        syncAll();
+    };
+
     // Modo edição: o mesmo formulário carrega um aviso próprio e salva com PATCH.
     form.editing = null;
     const setMode = (notice) => {
         form.editing = notice || null;
+        classField.hidden = !notice;
+        form.syncTargets();
         submit.replaceChildren(icon(notice ? 'floppy-disk' : 'paper-plane-tilt'), notice ? 'Salvar alterações' : 'Publicar aviso');
         cancelEdit.hidden = !notice;
         fileInfo.textContent = fileHint();
@@ -1805,30 +1784,47 @@ function noticeForm() {
         window.setTimeout(() => title.focus(), 0);
     });
 
+    const targetIds = () => (form.editing ? [Number(classSelect.value)].filter(Boolean) : chosenClasses());
+    const targetLabel = (ids) => (ids.length === 1 ? className(ids[0]) : `${ids.length} turmas`);
+
+    // Uma publicação por turma escolhida (mesma API de avisos); o anexo sobe uma vez só.
     const send = async () => {
-        const classId = Number(classSelect.value);
+        const classIds = targetIds();
         const editing = form.editing;
         await withBusy(submit, async () => {
+            const published = [];
             try {
-                const payload = {
+                const base = {
                     titulo: title.value.trim(),
                     conteudo: content.value.trim(),
-                    id_turma: classId,
                     tipo: type.value,
                     urgente: urgent.checked
                 };
-                if (eventDate.value) payload.data_evento = eventDate.value;
-                else if (editing) payload.data_evento = null;
+                if (eventDate.value) base.data_evento = eventDate.value;
+                else if (editing) base.data_evento = null;
                 if (file.files[0]) {
                     const uploaded = await uploadFile(file.files[0]);
-                    payload.id_arquivo = uploaded.id_arquivo;
+                    base.id_arquivo = uploaded.id_arquivo;
                 }
-                if (editing) await api(`/api/avisos/${editing.id_post}`, json('PATCH', payload));
-                else await api('/api/avisos', json('POST', payload));
+                if (editing) {
+                    await api(`/api/avisos/${editing.id_post}`, json('PATCH', { ...base, id_turma: classIds[0] }));
+                } else {
+                    for (const classId of classIds) {
+                        await api('/api/avisos', json('POST', { ...base, id_turma: classId }));
+                        published.push(classId);
+                    }
+                }
                 resetForm();
-                notify(editing ? 'Aviso atualizado.' : `Aviso publicado para ${className(classId)}.`);
+                notify(editing ? 'Aviso atualizado.' : `Aviso publicado para ${targetLabel(classIds)}.`);
                 reload('avisos');
             } catch (error) {
+                if (published.length) {
+                    // Parte já saiu: desmarca as turmas publicadas para não duplicar ao tentar de novo.
+                    classBoxes().forEach((box) => { if (published.includes(Number(box.value))) box.checked = false; });
+                    syncAll();
+                    reload('avisos');
+                    error = new Error(`Publicado para ${published.map(className).join(', ')}, mas falhou nas demais: ${error.message}`);
+                }
                 if (/anexo/i.test(error.message)) CwFormulario.erro(file, error.message, { focar: true });
                 else CwFormulario.mostrar(form, error);
                 notify(error.message, 'erro');
@@ -1839,14 +1835,23 @@ function noticeForm() {
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
         CwFormulario.limparTudo(form);
-        const classId = Number(classSelect.value);
-        if (!classId) { CwFormulario.erro(classSelect, 'Selecione a turma.', { focar: true }); return; }
+        const classIds = targetIds();
+        if (!classIds.length) {
+            if (form.editing) CwFormulario.erro(classSelect, 'Selecione a turma.', { focar: true });
+            else {
+                CwFormulario.erro(targets, 'Escolha pelo menos uma turma.');
+                (allClasses.closest('label').hidden ? classBoxes()[0] : allClasses)?.focus();
+            }
+            return;
+        }
         if (!title.value.trim()) { CwFormulario.erro(title, 'Escreva o título do aviso.', { focar: true }); return; }
         if (!content.value.trim()) { CwFormulario.erro(content, 'Escreva a mensagem do aviso.', { focar: true }); return; }
         if (urgent.checked) {
             confirmDialog({
                 title: form.editing ? 'Salvar como urgente?' : 'Publicar como urgente?',
-                message: `Isto envia e-mail para a turma toda (${className(classId)}), além do destaque no topo do mural.`,
+                message: classIds.length === 1
+                    ? `Isto envia e-mail para a turma toda (${className(classIds[0])}), além do destaque no topo do mural.`
+                    : `Isto envia e-mail para ${classIds.length} turmas inteiras (${classIds.map(className).join(', ')}), além do destaque no topo do mural.`,
                 confirmLabel: form.editing ? 'Salvar como urgente' : 'Publicar como urgente',
                 onConfirm: send,
                 onCancel: () => urgent.focus()
@@ -2450,39 +2455,12 @@ function incidentCard(incident) {
             el('p', { class: 'texto-longo', text: incident.descricao || '' })));
 }
 
-// ---------------------------------------------------------------- Mensagens
-
-function messagesHost() {
-    return persistentNode('mensagens', () => {
-        const host = el('div', { class: 'mensagens-host' });
-        if (window.CwMensagens && typeof window.CwMensagens.montar === 'function') {
-            try {
-                window.CwMensagens.montar(host, {
-                    api,
-                    usuario: state.user,
-                    aoMudarNaoLidas: setUnread
-                });
-            } catch (error) {
-                host.replaceChildren(errorState(`Não foi possível abrir as mensagens: ${error.message}`));
-            }
-        } else {
-            host.replaceChildren(soonState('As mensagens chegam em breve. Assim que o recurso estiver pronto, suas conversas com alunos e coordenação aparecem aqui.'));
-        }
-        return host;
-    });
-}
-
-function renderMessages() {
-    return { title: 'Mensagens', content: messagesHost() };
-}
-
 // ---------------------------------------------------------------- Mais (celular)
 
 function renderMore() {
     const links = [
         ['#/turmas', 'Turmas', 'users-three'],
         ['#/horario', 'Horário', 'calendar-dots'],
-        ['#/atividades', 'Atividades', 'clipboard-text'],
         ['#/salvos', 'Salvos', 'bookmark-simple'],
         ['#/ocorrencias', 'Ocorrências', 'warning-octagon'],
         ['#/configuracoes/perfil', 'Configurações', 'gear-six']

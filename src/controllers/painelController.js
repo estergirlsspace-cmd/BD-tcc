@@ -16,6 +16,7 @@ const RECENT_ACTIVITIES = 10;
 // Alunos com conta ativa numa turma (expressão SQL com o id da turma).
 const activeStudentsIn = (classExpression) => `(SELECT COUNT(*) FROM alunos sa
     JOIN usuarios su ON su.id_usuario = sa.id_usuario AND su.ativo = 1
+        AND su.login NOT GLOB 'turma-[0-9]*'
     WHERE sa.id_turma = ${classExpression})`;
 
 function unreadMessages(user) {
@@ -99,6 +100,7 @@ function studentSummaries() {
                    WHERE o.id_aluno = a.id_aluno AND o.situacao = 'aberta') AS ocorrencias_abertas
         FROM alunos a
         JOIN usuarios u ON u.id_usuario = a.id_usuario AND u.ativo = 1
+            AND u.login NOT GLOB 'turma-[0-9]*'
         JOIN turmas t ON t.id_turma = a.id_turma
         LEFT JOIN frequencias f ON f.id_aluno = a.id_aluno
         GROUP BY a.id_aluno
@@ -170,6 +172,7 @@ function attendanceReport(response) {
                COUNT(j.id_justificativa) AS justificadas
         FROM alunos a
         JOIN usuarios u ON u.id_usuario = a.id_usuario AND u.ativo = 1
+            AND u.login NOT GLOB 'turma-[0-9]*'
         JOIN turmas t ON t.id_turma = a.id_turma
         JOIN disciplinas d ON d.id_turma = a.id_turma
         LEFT JOIN frequencias f ON f.id_aluno = a.id_aluno AND f.id_disciplina = d.id_disciplina

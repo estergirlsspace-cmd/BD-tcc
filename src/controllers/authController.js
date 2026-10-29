@@ -5,6 +5,7 @@ const { readBody, sendJson } = require('../utils/http');
 const { hashPassword, verifyPassword } = require('../utils/password');
 const { registrar } = require('../services/auditoria');
 const { clientAddress } = require('../utils/ip');
+const { isClassAccount, parseReadableClassLogin, classAccountLogin } = require('../utils/accounts');
 
 const SESSION_LIFETIME_SECONDS = 8 * 60 * 60;
 const MAX_ATTEMPTS_PER_IP = 20;
@@ -116,6 +117,20 @@ function describeDevice(userAgent) {
     return [browser || 'Navegador', system].filter(Boolean).join(' · ');
 }
 
+// Usuário da sala ("1info-a") → login interno da conta da turma ("turma-<id>"), antes de contar
+// a tentativa: o bloqueio progressivo vale para a conta real, escreva-se como escrever.
+// Sem turma correspondente, devolve o texto como veio (cai no 401 genérico).
+function resolveClassLogin(login) {
+    const readable = parseReadableClassLogin(login);
+    if (!readable) return login;
+    const schoolClass = database.prepare(`
+        SELECT id_turma FROM turmas
+        WHERE serie = ? AND curso = ? AND substr(nome_turma, -2) = ?
+        ORDER BY id_turma LIMIT 1
+    `).get(readable.serie, readable.curso, ` ${readable.letra}`);
+    return schoolClass ? classAccountLogin(schoolClass.id_turma) : login;
+}
+
 async function handleLogin(request, response) {
     const body = await readBody(request);
     if (!body || typeof body !== 'object' || Array.isArray(body)) {
@@ -133,7 +148,7 @@ async function handleLogin(request, response) {
         throw new ApiError(400, 'Informe a senha.');
     }
 
-    const login = body.login.trim();
+    const login = resolveClassLogin(body.login.trim());
     assertIpRate(request);
     const passwordAccepted = beginPasswordAttempt(login);
 
@@ -146,6 +161,8 @@ async function handleLogin(request, response) {
         LEFT JOIN turmas t ON t.id_turma = a.id_turma
         LEFT JOIN professores p ON p.id_usuario = u.id_usuario
         WHERE u.login = ? AND u.ativo = 1
+          -- Contas do modelo antigo (por curso/série, já desativadas em database.js) nunca entram.
+          -- As contas da turma atuais usam o prefixo 'turma-' e passam normalmente.
           AND u.login NOT GLOB '__aluno_compartilhado_*'
     `).get(login);
 
@@ -168,6 +185,7 @@ async function handleLogin(request, response) {
         describeDevice(request.headers['user-agent']), Math.floor(Date.now() / 1000));
 
     registrar(user, 'auth.login', `usuario:${user.id_usuario}`);
+    const classAccount = isClassAccount(user);
     sendJson(response, 200, {
         token,
         tipo: 'Bearer',
@@ -179,7 +197,8 @@ async function handleLogin(request, response) {
             area: user.area,
             tipo_usuario: user.tipo_usuario,
             conta_compartilhada: false,
-            deve_trocar_senha: user.deve_trocar_senha === 1,
+            conta_turma: classAccount,
+            deve_trocar_senha: !classAccount && user.deve_trocar_senha === 1,
             curso: user.curso,
             serie: user.turma_serie || user.serie,
             id_aluno: user.id_aluno,
@@ -214,6 +233,7 @@ async function handleLogout(request, response, session) {
 }
 
 module.exports = {
-    handleLogin, handleLogout, hashToken, clientAddress, createIpLimiter, beginPasswordAttempt,
+    handleLogin, handleLogout, hashToken, clientAddress, createIpLimiter,
+    beginPasswordAttempt,
     assertCurrentPassword
 };

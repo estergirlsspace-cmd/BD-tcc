@@ -53,8 +53,20 @@
 }
 
 .pv-topo__marca {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
     font-size: 20px;
     text-decoration: none;
+}
+
+/* Logo do cartão de entrada (protótipo), com o mesmo contorno branco. */
+.pv-topo__logo {
+    display: block;
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    box-shadow: 0 0 0 2px #FFFFFF;
 }
 
 .pv-topo__voltar {
@@ -112,8 +124,9 @@
     margin-top: 20px;
     padding: 20px;
     border: 1px solid var(--cw-borda);
-    border-radius: var(--cw-raio);
+    border-radius: 18px;
     background: var(--cw-superficie);
+    box-shadow: var(--cw-sombra);
 }
 
 .pv-sumario__titulo {

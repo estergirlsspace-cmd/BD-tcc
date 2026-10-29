@@ -10,6 +10,13 @@ const { $, el, icon, button, onSource, emptyState } = G;
 
 G.SOURCE_PATHS.horarios = '/api/horarios-pdf';
 
+// Abas do protótipo (.schedule-tabs): horário das turmas | horário dos professores.
+const TABS = {
+    turmas: { label: 'Horário das turmas', help: 'Cada PDF aparece na página dos alunos da turma e na dos professores que dão aula nela.' },
+    professores: { label: 'Horário dos professores', help: 'Este PDF aparece na página dos professores.' }
+};
+let activeTab = 'turmas';
+
 function isPdf(file) {
     return file.type === 'application/pdf' || (!file.type && /\.pdf$/i.test(file.name));
 }
@@ -22,8 +29,10 @@ function cell(label, ...content) {
 function targets() {
     const data = G.source('horarios').data || {};
     const byClass = new Map((data.turmas || []).map((item) => [item.id_turma, item]));
+    if (activeTab === 'professores') {
+        return [{ label: 'Professores', name: 'dos professores', path: '/api/horarios-pdf/professores', item: data.professores || null }];
+    }
     return [
-        { label: 'Professores', name: 'dos professores', path: '/api/horarios-pdf/professores', item: data.professores || null },
         ...G.sortedClasses().map((schoolClass) => ({
             label: schoolClass.nome_turma,
             name: `de ${schoolClass.nome_turma}`,
@@ -42,7 +51,14 @@ function renderSchedules() {
         return;
     }
     if (!G.renderStatusInto(container, ['horarios', 'turmas'], 'Carregando horários…')) return;
-    container.replaceChildren(el('div', { class: 'tabela-rolagem', tabindex: '0', role: 'region', 'aria-label': 'Tabela de horários em PDF' },
+    const tabs = el('div', { class: 'segmentos', role: 'group', 'aria-label': 'Horários' },
+        Object.entries(TABS).map(([key, tab]) => button(tab.label, 'segmento', () => {
+            if (activeTab === key) return;
+            activeTab = key;
+            renderSchedules();
+            container.querySelector(`[data-aba-horario="${key}"]`)?.focus();
+        }, { 'aria-pressed': String(activeTab === key), dataset: { abaHorario: key } })));
+    container.replaceChildren(tabs, el('p', { class: 'aviso-info' }, icon('info'), el('span', { text: TABS[activeTab].help })), el('div', { class: 'tabela-rolagem', tabindex: '0', role: 'region', 'aria-label': 'Tabela de horários em PDF' },
         el('table', { class: 'tabela tabela-cartoes' },
             el('thead', {}, el('tr', {},
                 el('th', { scope: 'col', text: 'Horário' }),

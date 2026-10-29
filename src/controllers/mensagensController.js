@@ -80,7 +80,8 @@ function toContact(person, viewer) {
 
 function listContactRows(user) {
     const base = `SELECT ${PERSON_COLUMNS} FROM usuarios u ${PERSON_JOINS}
-        WHERE u.ativo = 1 AND u.id_usuario != ? AND u.login NOT GLOB '__aluno_compartilhado_*'`;
+        WHERE u.ativo = 1 AND u.id_usuario != ? AND u.login NOT GLOB '__aluno_compartilhado_*'
+        AND u.login NOT GLOB 'turma-[0-9]*'`;
     const order = `ORDER BY CASE u.tipo_usuario WHEN 'gestao' THEN 0 WHEN 'professor' THEN 1 ELSE 2 END,
         nome COLLATE NOCASE`;
     if (user.tipo_usuario === 'gestao') {
@@ -124,7 +125,8 @@ function canContact(user, other) {
 
 function findPerson(userId) {
     return database.prepare(`SELECT ${PERSON_COLUMNS} FROM usuarios u ${PERSON_JOINS}
-        WHERE u.id_usuario = ? AND u.ativo = 1 AND u.login NOT GLOB '__aluno_compartilhado_*'`)
+        WHERE u.id_usuario = ? AND u.ativo = 1 AND u.login NOT GLOB '__aluno_compartilhado_*'
+        AND u.login NOT GLOB 'turma-[0-9]*'`)
         .get(userId);
 }
 

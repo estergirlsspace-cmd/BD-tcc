@@ -3,7 +3,7 @@
 // carregamento/erro/vazio, confirmação inline e downloads autenticados (fetch → blob).
 // Depende de /datas.js (formatSchoolDate) e /notificacoes.js (notify).
 // Tudo fica dentro de uma função e é exposto em window.CwGestao, para não colidir com nomes
-// globais de outros scripts da página (como o componente de mensagens).
+// globais de outros scripts da página.
 
 (function () {
 'use strict';
@@ -37,8 +37,7 @@ const PROFILE_NAMES = { aluno: 'Aluno', professor: 'Professor', gestao: 'Gestão
 const state = {
     user: null,
     route: { section: 'visao-geral', sub: null },
-    sources: {},
-    unreadMessages: 0
+    sources: {}
 };
 
 const SOURCE_PATHS = {
@@ -146,7 +145,7 @@ async function loadSource(name, { silent = false } = {}) {
         renderSource(name);
     }
     try {
-        item.data = await api(SOURCE_PATHS[name]);
+        item.data = withoutClassAccounts(name, await api(SOURCE_PATHS[name]));
         item.status = 'ok';
         item.error = null;
     } catch (error) {
@@ -155,6 +154,28 @@ async function loadSource(name, { silent = false } = {}) {
         item.errorStatus = error.status;
     }
     renderSource(name);
+}
+
+// Contas compartilhadas das turmas (login "turma-<id>") só aparecem na tela de Turmas: saem das
+// listas de usuários e de alunos (a API de alunos não traz o login, então o filtro usa os ids).
+const CLASS_ACCOUNT_LOGIN = /^turma-\d+$/;
+let classAccountIds = null;
+
+function withoutClassAccounts(name, data) {
+    if (!Array.isArray(data)) return data;
+    if (name === 'usuarios') {
+        classAccountIds = new Set(data.filter((user) => CLASS_ACCOUNT_LOGIN.test(user.login || '')).map((user) => user.id_usuario));
+        const students = source('alunos');
+        if (students.status === 'ok' && Array.isArray(students.data)) {
+            students.data = students.data.filter((student) => !classAccountIds.has(student.id_usuario));
+            queueMicrotask(() => renderSource('alunos'));
+        }
+        return data.filter((user) => !classAccountIds.has(user.id_usuario));
+    }
+    if (name === 'alunos' && classAccountIds) {
+        return data.filter((student) => !classAccountIds.has(student.id_usuario));
+    }
+    return data;
 }
 
 function loadSources(...names) {

@@ -14,8 +14,7 @@ const NOTIFICATION_TYPES = [
     ['urgente', 'Avisos urgentes', 'Quando um aviso marcado como urgente é publicado.'],
     ['turma', 'Avisos de turma', 'Avisos publicados para turmas.'],
     ['prazos', 'Prazos', 'Lembrete na véspera de prazos de entrega.'],
-    ['eventos', 'Eventos', 'Avisos de eventos da escola.'],
-    ['mensagens', 'Mensagens', 'Quando você recebe uma mensagem nova.']
+    ['eventos', 'Eventos', 'Avisos de eventos da escola.']
 ];
 let configTab = 'perfil';
 let editingEmail = false;

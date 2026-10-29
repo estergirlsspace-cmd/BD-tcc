@@ -82,6 +82,12 @@ function validateSheet(text) {
 
     const classes = database.prepare('SELECT id_turma, nome_turma, curso, serie FROM turmas ORDER BY nome_turma').all();
     const classByName = new Map(classes.map((row) => [fold(row.nome_turma), row]));
+    // Planilhas antigas (antes das turmas A/B): "1ª Série — Informática" é a turma "… A",
+    // que é a mesma turma renomeada na migração (mesmo id).
+    for (const row of classes) {
+        const legacy = / A$/.test(row.nome_turma) && fold(row.nome_turma.slice(0, -2));
+        if (legacy && !classByName.has(legacy)) classByName.set(legacy, row);
+    }
     const validClassNames = classes.map((row) => row.nome_turma).join(', ') || 'nenhuma cadastrada';
     const loginExists = database.prepare('SELECT 1 FROM usuarios WHERE login = ?');
     const emailExists = database.prepare('SELECT 1 FROM usuarios WHERE lower(email) = ?');
