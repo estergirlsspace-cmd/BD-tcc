@@ -64,7 +64,6 @@ async function initializePortal() {
     currentFolder = folders[0]?.id;
     document.querySelector('#sidebar-course').textContent = courseName;
     document.querySelector('#cohort-badge').textContent = cohortName;
-    document.querySelector('#welcome-heading').textContent = `Olá, ${studentName.split(' ')[0]}!`;
     document.querySelector('#sidebar-name').textContent = studentName;
     document.querySelector('#student-avatar').textContent = studentName.charAt(0).toUpperCase();
     document.querySelector('#profile-name').textContent = studentName;

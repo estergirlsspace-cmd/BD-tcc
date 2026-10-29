@@ -155,3 +155,21 @@ button { cursor: pointer; }
     .upcoming-item { grid-template-columns: auto 1fr; }
     .upcoming-item time { grid-column: 1 / -1; }
 }
+
+/* Celular: o conteúdo principal (próximos eventos e avisos) aparece logo ao abrir. */
+@media (max-width: 760px) {
+    .sidebar { padding: .5rem 1rem; }
+    .brand-icon { width: 34px; height: 34px; border-radius: 10px; font-size: 1.05rem; }
+    .brand small { display: none; }
+    .topbar { min-height: 0; flex-direction: row; align-items: center; padding: .6rem 1rem; }
+    .topbar .eyebrow, #topbar-description { display: none; }
+    .topbar h1 { font-size: 1.15rem; }
+    .container { padding-top: .75rem; }
+    .content-card { margin-bottom: .9rem; padding: .9rem; }
+    .search-field { margin-bottom: .6rem; }
+    .filter-row { flex-wrap: nowrap; overflow-x: auto; padding-bottom: .2rem; scrollbar-width: none; }
+    .filter-row::-webkit-scrollbar { display: none; }
+    .filter-button { flex: 0 0 auto; min-height: 44px; }
+    .notice-list { margin-top: .3rem; }
+    .notice-card { margin: .7rem 0; }
+}
