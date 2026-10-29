@@ -1,0 +1,60 @@
+/* Avisos flutuantes (toasts). Contraste do texto branco: verde 6,9:1 e vermelho 6,2:1 (WCAG AA). */
+.toast-region {
+    position: fixed;
+    right: 0;
+    bottom: 24px;
+    left: 0;
+    z-index: 50;
+    display: grid;
+    justify-items: center;
+    gap: .5rem;
+    padding: 0 16px;
+    pointer-events: none;
+}
+
+.toast {
+    display: flex;
+    width: min(100%, 480px);
+    align-items: center;
+    gap: .7rem;
+    padding: .8rem .6rem .8rem 1rem;
+    border-radius: 12px;
+    color: #fff;
+    box-shadow: 0 8px 24px #00000033;
+    font-size: .95rem;
+    line-height: 1.4;
+    pointer-events: auto;
+    animation: toast-entrada .2s ease-out;
+}
+.toast-sucesso { background: #1e6b3a; }
+.toast-erro { background: #a3302b; }
+.toast-icon { flex: 0 0 auto; font-weight: 700; }
+.toast-text { flex: 1; margin: 0; }
+.toast-close {
+    display: grid;
+    flex: 0 0 auto;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+    border: 0;
+    border-radius: 8px;
+    color: #fff;
+    background: transparent;
+    font-size: 1.4rem;
+    cursor: pointer;
+}
+.toast-close:hover { background: #ffffff26; }
+.toast-close:focus-visible { outline: 3px solid #f5a300; outline-offset: 1px; }
+
+@keyframes toast-entrada {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .toast { animation: none; }
+}
+
+/* No celular, acima da barra de navegação inferior. */
+@media (max-width: 760px) {
+    .toast-region { bottom: calc(88px + env(safe-area-inset-bottom)); }
+}

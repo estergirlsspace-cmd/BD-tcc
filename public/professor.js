@@ -16,7 +16,6 @@ const pageDetails = {
     turmas: ['Minhas turmas', 'Consulte as turmas e disciplinas vinculadas ao seu perfil.'],
     recebidos: ['Comunicados recebidos', 'Informações da escola destinadas às suas turmas.']
 };
-const statusMessage = document.querySelector('#status-message');
 const disciplineSelect = document.querySelector('#notice-discipline');
 const noticeList = document.querySelector('#notice-list');
 const searchInput = document.querySelector('#notice-search');
@@ -118,17 +117,15 @@ async function loadResource(path, errorLabel) {
 }
 
 function showError(text) {
-    statusMessage.classList.remove('is-success');
-    statusMessage.textContent = text;
+    notify(text, 'erro');
 }
 
 function showSuccess(text) {
-    statusMessage.classList.add('is-success');
-    statusMessage.textContent = text;
+    notify(text, 'sucesso');
 }
 
 function clearStatus() {
-    statusMessage.textContent = '';
+    clearErrorNotifications();
 }
 
 function setupNavigation() {
@@ -344,7 +341,7 @@ async function deleteNotice(notice) {
         renderNotices();
         renderReceivedNotices();
         renderSavedNotices();
-        clearStatus();
+        showSuccess(`Comunicado "${notice.titulo}" excluído.`);
     } catch (error) {
         showError(error.message);
     }

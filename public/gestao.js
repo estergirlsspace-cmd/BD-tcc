@@ -23,7 +23,6 @@ const pageDetails = {
     turmas: ['Turmas e disciplinas', 'Organize as turmas e vincule professores às disciplinas.'],
     conta: ['Minha conta', 'Altere a sua senha de acesso.']
 };
-const statusMessage = document.querySelector('#status-message');
 
 let currentUser;
 let classes = [];
@@ -113,20 +112,15 @@ async function reloadAll() {
 /* ---------- Mensagens e navegação ---------- */
 
 function showError(text) {
-    statusMessage.classList.remove('is-success');
-    statusMessage.textContent = text;
-    statusMessage.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    notify(text, 'erro');
 }
 
 function showSuccess(text) {
-    statusMessage.classList.add('is-success');
-    statusMessage.textContent = text;
-    statusMessage.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    notify(text, 'sucesso');
 }
 
 function clearStatus() {
-    statusMessage.classList.remove('is-success');
-    statusMessage.textContent = '';
+    clearErrorNotifications();
 }
 
 function setupNavigation() {

@@ -7,7 +7,6 @@ const pageDetails = {
     perfil: ['Meu perfil', 'Consulte os dados da turma e seus horários.'],
     salvos: ['Comunicados salvos', 'Avisos guardados neste navegador.']
 };
-const statusMessage = document.querySelector('#status-message');
 const noticeList = document.querySelector('#notice-list');
 const searchInput = document.querySelector('#notice-search');
 let savedFolderKey;
@@ -87,7 +86,11 @@ async function initializePortal() {
 }
 
 function showError(text) {
-    statusMessage.textContent = text;
+    notify(text, 'erro');
+}
+
+function showSuccess(text) {
+    notify(text, 'sucesso');
 }
 
 function setupNavigation() {
@@ -387,7 +390,7 @@ function setupPasswordChange() {
                     nova_senha: document.querySelector('#new-password').value
                 })
             });
-            showError(result.mensagem);
+            showSuccess(result.mensagem);
             form.reset();
         } catch (error) {
             showError(error.message);

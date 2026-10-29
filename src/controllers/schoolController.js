@@ -359,7 +359,8 @@ async function changePassword(request, response, user) {
         'SELECT senha FROM usuarios WHERE id_usuario = ? AND ativo = 1'
     ).get(user.id_usuario);
     if (!account || !(await verifyPassword(body.senha_atual, account.senha))) {
-        throw new ApiError(401, 'A senha atual está incorreta.');
+        // 400, não 401: 401 significa sessão inválida e faria as telas encerrarem o login.
+        throw new ApiError(400, 'A senha atual está incorreta.');
     }
     const passwordHash = await hashPassword(body.nova_senha);
     database.exec('BEGIN IMMEDIATE');
