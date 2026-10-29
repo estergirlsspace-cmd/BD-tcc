@@ -2,3 +2,5 @@ node_modules/
 .DS_Store
 *.sqlite-wal
 *.sqlite-shm
+.senha-lucas.txt
+data/*.antes-exemplo.sqlite
