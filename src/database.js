@@ -2,7 +2,8 @@ const { mkdirSync } = require('node:fs');
 const path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
 
-const dataDirectory = path.join(__dirname, '..', 'data');
+// DATA_DIR permite guardar o banco fora do código (ex.: volume do Docker em produção).
+const dataDirectory = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
 const databasePath = path.join(dataDirectory, 'educacao.sqlite');
 
 mkdirSync(dataDirectory, { recursive: true });

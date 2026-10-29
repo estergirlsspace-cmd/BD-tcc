@@ -1,0 +1,9 @@
+.git
+node_modules
+.senha-lucas.txt
+data/*.antes-exemplo.sqlite
+data/alunos-exemplo.csv
+data/*.sqlite-wal
+data/*.sqlite-shm
+.DS_Store
+.vscode
