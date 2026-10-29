@@ -6,7 +6,8 @@ const notificacoes = require('../services/notificacoes');
 const { registrar } = require('../services/auditoria');
 const { studentNoticeScope, teacherNoticeScope, noticeAudienceFrom } = require('../utils/audience');
 const { assertOwnFile, attachmentColumns, attachmentFrom } = require('../utils/arquivos');
-const { readableClassLogin } = require('../utils/accounts');
+const { readableClassLogin, isClassAccount } = require('../utils/accounts');
+const { storagePath, unlinkQuietly } = require('../utils/arquivos');
 
 // Avisos com o anexo (metadados do arquivo) e, para quem acompanha as leituras, a contagem.
 const NOTICE_SELECT = `SELECT posts_avisos.*, ${attachmentColumns('arq')}
@@ -79,12 +80,6 @@ const HISTORY_CHECKS = {
             'SELECT COUNT(*) AS n FROM conversas WHERE ? IN (id_usuario_a, id_usuario_b)'],
         ['arquivos enviados', 'SELECT COUNT(*) AS n FROM arquivos WHERE id_usuario = ?']
     ],
-    alunos: [
-        ['frequências', 'SELECT COUNT(*) AS n FROM frequencias WHERE id_aluno = ?'],
-        ['entregas de atividades', 'SELECT COUNT(*) AS n FROM entregas_atividades WHERE id_aluno = ?'],
-        ['justificativas', 'SELECT COUNT(*) AS n FROM justificativas WHERE id_aluno = ?'],
-        ['ocorrências', 'SELECT COUNT(*) AS n FROM ocorrencias WHERE id_aluno = ?']
-    ],
     turmas: [
         ['alunos matriculados', 'SELECT COUNT(*) AS n FROM alunos WHERE id_turma = ?'],
         ['disciplinas', 'SELECT COUNT(*) AS n FROM disciplinas WHERE id_turma = ?'],
@@ -113,7 +108,7 @@ function assertDeletable(table, recordId) {
         .filter(([, count]) => count > 0);
     if (!found.length) return;
     const details = found.map(([label, count]) => `${count} ${label}`).join(', ');
-    const advice = ['usuarios', 'alunos'].includes(table)
+    const advice = table === 'usuarios'
         ? 'Desative a conta em vez de excluir.'
         : 'Remova ou transfira esses registros antes.';
     throw new ApiError(409, `Não é possível excluir: há histórico vinculado (${details}). ${advice}`);
@@ -205,6 +200,41 @@ function listRecords(resource, user) {
     return records;
 }
 
+// Exclusão DEFINITIVA da conta de um aluno (só a gestão, pela rota DELETE /api/alunos/:id):
+// apaga usuarios + alunos e, em cascata, sessões, frequências, entregas, justificativas,
+// ocorrências, leituras/salvos/pastas, conversas e mensagens. Os arquivos que o aluno enviou
+// (atestados) saem junto, do banco e do disco. Para só bloquear o acesso, use "Desativar".
+// Contas de sala (turma-<n>) são geridas em Turmas e não passam por aqui.
+function removeStudent(response, user, studentId) {
+    const student = database.prepare(`
+        SELECT u.id_usuario, u.login, u.tipo_usuario FROM alunos a
+        JOIN usuarios u ON u.id_usuario = a.id_usuario
+        WHERE a.id_aluno = ?
+    `).get(studentId);
+    if (!student || student.tipo_usuario !== 'aluno') {
+        throw new ApiError(404, 'Aluno não encontrado.');
+    }
+    if (isClassAccount(student)) {
+        throw new ApiError(400, 'A conta de acesso da sala é gerenciada na seção Turmas.');
+    }
+    const fileIds = database.prepare('SELECT id_arquivo FROM arquivos WHERE id_usuario = ?')
+        .all(student.id_usuario).map((row) => row.id_arquivo);
+    database.exec('BEGIN IMMEDIATE');
+    try {
+        // Arquivos antes da conta: arquivos.id_usuario não tem cascata (justificativas → SET NULL).
+        database.prepare('DELETE FROM arquivos WHERE id_usuario = ?').run(student.id_usuario);
+        database.prepare('DELETE FROM usuarios WHERE id_usuario = ?').run(student.id_usuario);
+        database.exec('COMMIT');
+    } catch (error) {
+        database.exec('ROLLBACK');
+        throw error;
+    }
+    for (const fileId of fileIds) unlinkQuietly(storagePath(fileId));
+    registrar(user, 'aluno.remover', `matricula:${student.login}`);
+    response.writeHead(204);
+    response.end();
+}
+
 // Criação/exclusão de contas e matrículas pela rota genérica entra no registro de auditoria.
 const AUDITED_TABLES = { usuarios: 'conta', alunos: 'aluno' };
 
@@ -291,6 +321,11 @@ async function handleRecord(request, response, resource, id, user) {
             throw new ApiError(404, 'Registro não encontrado.');
         }
         sendJson(response, 200, record);
+        return;
+    }
+
+    if (request.method === 'DELETE' && resource.table === 'alunos') {
+        removeStudent(response, user, recordId);
         return;
     }
 

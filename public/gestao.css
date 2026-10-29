@@ -597,6 +597,15 @@ i.ph-fill {
     font-size: 23px;
 }
 
+/* Botão de ação no cabeçalho do cartão, ao lado do ícone (ex.: "Novo cadastro" em Alunos). */
+.cartao-cabecalho > .cabecalho-acoes {
+    display: flex;
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    align-items: center;
+    gap: 14px;
+}
+
 .cartao h2 {
     color: var(--cw-texto-marca);
     font-family: var(--cw-fonte-titulo);
@@ -827,6 +836,24 @@ i.ph-fill {
 
 .confirmacao .botao-perigo {
     background: var(--cw-superficie);
+}
+
+/* Remoção definitiva: texto explicativo e campo para digitar a matrícula. */
+.confirmacao-remover {
+    display: flex;
+    max-width: 440px;
+    justify-content: flex-start;
+    text-align: left;
+}
+
+.confirmacao-remover .confirmacao-texto {
+    flex: 1 1 100%;
+    font-weight: 400;
+    line-height: 1.5;
+}
+
+.confirmacao-remover .campo-mini {
+    flex: 1 1 140px;
 }
 
 /* ------------------------------------------------------------ formulários (protótipo .field) */
@@ -2535,6 +2562,20 @@ a.kpi:hover {
     }
 
     .barra-acoes .botao {
+        flex: 1 1 auto;
+    }
+
+    .cartao-cabecalho > .cabecalho-acoes {
+        grid-column: 1 / -1;
+        grid-row: auto;
+        margin-top: 16px;
+    }
+
+    .cabecalho-acoes .icone-cabecalho {
+        display: none;
+    }
+
+    .cabecalho-acoes .botao {
         flex: 1 1 auto;
     }
 

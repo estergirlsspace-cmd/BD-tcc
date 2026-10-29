@@ -1,5 +1,5 @@
-// Portal da Gestão — pessoas e estrutura da escola: Alunos (matrícula com e-mail opcional e
-// redefinição da senha de primeiro acesso), Equipe (professor/gestão com senha provisória),
+// Portal da Gestão — pessoas e estrutura da escola: Alunos (matrícula com e-mail opcional,
+// redefinição da senha de primeiro acesso e remoção definitiva), Equipe (professor/gestão com senha provisória),
 // Turmas e disciplinas (criar e vincular professor) e desativar/reativar contas.
 
 (function () {
@@ -94,6 +94,10 @@ function studentRow(student) {
                 () => showStudentReset(student, actions, fillActions)));
         }
         actions.append(activeToggle(student, student.nome, actions, 'usuarios'));
+        if (student.login) {
+            actions.append(button([icon('trash'), 'Remover'], 'botao botao-texto botao-perigo-texto botao-pequeno',
+                () => showStudentRemoval(student, actions, fillActions)));
+        }
     };
     fillActions();
     return el('tr', {},
@@ -126,6 +130,56 @@ function showStudentReset(student, container, restore) {
     });
     container.replaceChildren(form);
     input.focus();
+}
+
+// Remoção DEFINITIVA (DELETE /api/alunos/:id): apaga a conta e todo o histórico. Para confirmar,
+// a gestão digita a matrícula do aluno; "Desativar" continua sendo o caminho para só bloquear.
+function showStudentRemoval(student, container, restore) {
+    const inputId = `remover-matricula-${student.id_aluno}`;
+    const input = el('input', {
+        id: inputId, type: 'text', inputmode: 'numeric', maxlength: 20, required: true,
+        placeholder: 'Digite a matrícula', autocomplete: 'off', spellcheck: 'false', class: 'campo-mini'
+    });
+    const submit = el('button', {
+        type: 'submit', class: 'botao botao-perigo botao-pequeno', disabled: true
+    }, [icon('trash'), 'Remover definitivamente']);
+    const cancel = () => {
+        restore(); // redesenha as ações: o foco volta para o novo botão "Remover"
+        container.querySelector('button:last-of-type')?.focus();
+    };
+    const textId = `remover-texto-${student.id_aluno}`;
+    const form = el('form', { class: 'confirmacao confirmacao-remover', 'aria-describedby': textId },
+        el('p', { id: textId, class: 'confirmacao-texto' },
+            el('strong', { text: `Remover ${student.nome} de vez? ` }),
+            'A conta e todo o histórico (frequência, entregas, justificativas, ocorrências e mensagens) serão apagados e não dá para desfazer. Para só bloquear o acesso, use “Desativar”. ',
+            `Para confirmar, digite a matrícula ${student.login}.`),
+        el('label', { for: inputId, class: 'visually-hidden', text: `Matrícula de ${student.nome} para confirmar a remoção` }),
+        input, submit,
+        button('Cancelar', 'botao botao-secundario botao-pequeno', cancel));
+    input.addEventListener('input', () => { submit.disabled = input.value.trim() !== student.login; });
+    form.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') { event.preventDefault(); cancel(); }
+    });
+    form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        if (input.value.trim() !== student.login) return;
+        G.runFormAction(form, submit, async () => {
+            await G.api(`/api/alunos/${student.id_aluno}`, { method: 'DELETE' });
+            G.showSuccess(`${student.nome} (matrícula ${student.login}) foi removido. A matrícula está livre para um novo cadastro.`);
+            await G.loadSources('usuarios', 'alunos', 'painel');
+        }, { fieldFor: () => input });
+    });
+    container.replaceChildren(form);
+    input.focus();
+}
+
+// "Novo cadastro" no cabeçalho da lista: abre o formulário de matrícula e leva o foco ao 1º campo.
+function openEnrollForm() {
+    const card = $('#cartao-matricula');
+    card.open = true;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    card.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    $('#aluno-nome').focus({ preventScroll: true });
 }
 
 async function enrollStudent(event) {
@@ -529,9 +583,10 @@ function fillClassSelects() {
 
 G.sections.alunos = {
     title: 'Alunos',
-    description: 'Matricule alunos, redefina a senha de primeiro acesso e desative contas.',
+    description: 'Matricule alunos, redefina a senha de primeiro acesso, desative ou remova contas.',
     setup() {
         $('#form-aluno').addEventListener('submit', enrollStudent);
+        $('#botao-novo-aluno').addEventListener('click', openEnrollForm);
         $('#busca-alunos').addEventListener('input', renderStudents);
         $('#filtro-turma-alunos').addEventListener('change', renderStudents);
         onSource(['alunos', 'usuarios', 'turmas'], renderStudents);

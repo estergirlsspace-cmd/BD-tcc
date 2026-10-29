@@ -21,6 +21,7 @@ const ACOES = {
     'conta.excluir': 'Excluiu uma conta',
     'aluno.criar': 'Vinculou um aluno a uma turma',
     'aluno.excluir': 'Excluiu a matrícula de um aluno',
+    'aluno.remover': 'Removeu definitivamente a conta de um aluno',
     'conta.desativar': 'Desativou uma conta',
     'conta.reativar': 'Reativou uma conta',
     'justificativa.analisar': 'Analisou uma justificativa de falta',

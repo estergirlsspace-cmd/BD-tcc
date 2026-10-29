@@ -241,6 +241,7 @@ module.exports = {
     FILE_TYPES,
     ensureDirectory,
     storagePath,
+    unlinkQuietly,
     detectFileType,
     sanitizeFileName,
     readUpload,
