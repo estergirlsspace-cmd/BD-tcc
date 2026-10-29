@@ -7,7 +7,7 @@ const { randomInt } = require('node:crypto');
 const { writeFileSync } = require('node:fs');
 const path = require('node:path');
 const database = require('../src/database');
-const { hashPassword } = require('../src/utils/password');
+const { hashPasswordSync: hashPassword } = require('../src/utils/password');
 const { SCHOOL_UTC_OFFSET_HOURS } = require('../src/utils/dates');
 
 const courses = {

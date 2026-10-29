@@ -84,7 +84,7 @@ const MATRICULA_PATTERN = /^\d{3,20}$/;
 const CPF_INICIO_PATTERN = /^\d{4}$/;
 
 // Senha de primeiro acesso: "ceep@" + 4 primeiros dígitos do CPF. O CPF não é armazenado.
-function initialPasswordHash(cpfStart) {
+async function initialPasswordHash(cpfStart) {
     if (typeof cpfStart !== 'string' || !CPF_INICIO_PATTERN.test(cpfStart)) {
         throw new ApiError(400, 'Informe em "cpf_inicio" os 4 primeiros dígitos do CPF.');
     }
@@ -103,7 +103,7 @@ async function enrollStudent(request, response, user) {
         throw new ApiError(400, 'Informe o nome do aluno com até 150 caracteres.');
     }
     const matricula = body.matricula.trim();
-    const passwordHash = initialPasswordHash(body.cpf_inicio);
+    const passwordHash = await initialPasswordHash(body.cpf_inicio);
     const classId = positiveId(body.id_turma, 'id_turma');
     const schoolClass = database.prepare(
         'SELECT id_turma, nome_turma, curso, serie FROM turmas WHERE id_turma = ?'
@@ -148,7 +148,7 @@ async function resetStudentPassword(request, response, user, studentId) {
     const body = await readBody(request);
     rejectUnknownFields(body, ['cpf_inicio']);
     requireFields(body, ['cpf_inicio']);
-    const passwordHash = initialPasswordHash(body.cpf_inicio);
+    const passwordHash = await initialPasswordHash(body.cpf_inicio);
     const student = database.prepare(`
         SELECT u.id_usuario FROM alunos a
         JOIN usuarios u ON u.id_usuario = a.id_usuario
@@ -208,12 +208,15 @@ async function createStaffMember(request, response, user) {
     }
 
     const password = provisionalPassword();
+    // O hash é calculado antes de abrir a transação: um await dentro dela deixaria outras
+    // requisições executarem SQL no meio da transação.
+    const passwordHash = await hashPassword(password);
     database.exec('BEGIN IMMEDIATE');
     try {
         const userId = Number(database.prepare(`
             INSERT INTO usuarios (login, nome, senha, tipo_usuario, ativo, deve_trocar_senha)
             VALUES (?, ?, ?, ?, 1, 1)
-        `).run(login, body.nome.trim(), hashPassword(password), body.tipo_usuario).lastInsertRowid);
+        `).run(login, body.nome.trim(), passwordHash, body.tipo_usuario).lastInsertRowid);
         let teacherId = null;
         if (body.tipo_usuario === 'professor') {
             teacherId = Number(database.prepare(
@@ -248,11 +251,12 @@ async function resetStaffPassword(request, response, user, userId) {
         throw new ApiError(400, 'Para trocar a sua própria senha, use "Alterar senha".');
     }
     const password = provisionalPassword();
+    const passwordHash = await hashPassword(password);
     database.exec('BEGIN IMMEDIATE');
     try {
         database.prepare(`
             UPDATE usuarios SET senha = ?, deve_trocar_senha = 1 WHERE id_usuario = ?
-        `).run(hashPassword(password), staff.id_usuario);
+        `).run(passwordHash, staff.id_usuario);
         database.prepare('DELETE FROM sessoes WHERE id_usuario = ?').run(staff.id_usuario);
         database.exec('COMMIT');
     } catch (error) {
@@ -282,10 +286,10 @@ async function changePassword(request, response, user) {
     const account = database.prepare(
         'SELECT senha FROM usuarios WHERE id_usuario = ? AND ativo = 1'
     ).get(user.id_usuario);
-    if (!account || !verifyPassword(body.senha_atual, account.senha)) {
+    if (!account || !(await verifyPassword(body.senha_atual, account.senha))) {
         throw new ApiError(401, 'A senha atual está incorreta.');
     }
-    const passwordHash = hashPassword(body.nova_senha);
+    const passwordHash = await hashPassword(body.nova_senha);
     database.exec('BEGIN IMMEDIATE');
     try {
         database.prepare(`

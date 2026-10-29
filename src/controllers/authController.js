@@ -8,9 +8,14 @@ const SESSION_LIFETIME_SECONDS = 8 * 60 * 60;
 const MAX_FAILED_ATTEMPTS = 5;
 const FAILURE_WINDOW_MS = 15 * 60 * 1000;
 const LOCK_DURATION_MS = 5 * 60 * 1000;
+const MAX_ATTEMPTS_PER_IP = 20;
+const IP_WINDOW_MS = 60 * 1000;
+const MAX_TRACKED_KEYS = 10000;
 
 // Tentativas de login malsucedidas por IP + usuário, mantidas em memória.
 const failedAttempts = new Map();
+// Todas as tentativas de login por IP (certas ou erradas) na janela atual de 1 minuto.
+const attemptsPerIp = new Map();
 // Hash usado quando o usuário não existe, para o tempo de resposta não revelar contas válidas.
 let dummyPasswordHash;
 
@@ -27,6 +32,38 @@ function clientAddress(request) {
 
 function attemptKey(request, login) {
     return `${clientAddress(request)}|${login.toLowerCase()}`;
+}
+
+// Remove registros vencidos para os mapas não crescerem sem limite.
+function pruneAttempts(now) {
+    if (attemptsPerIp.size > MAX_TRACKED_KEYS) {
+        for (const [ip, entry] of attemptsPerIp) {
+            if (now - entry.windowStart > IP_WINDOW_MS) attemptsPerIp.delete(ip);
+        }
+    }
+    if (failedAttempts.size > MAX_TRACKED_KEYS) {
+        for (const [key, entry] of failedAttempts) {
+            if (entry.lockedUntil < now && now - entry.firstFailure > FAILURE_WINDOW_MS) {
+                failedAttempts.delete(key);
+            }
+        }
+    }
+}
+
+// Limite geral por IP: barra quem testa muitos usuários diferentes antes de calcular qualquer hash.
+function assertIpRate(request) {
+    const now = Date.now();
+    pruneAttempts(now);
+    const ip = clientAddress(request);
+    const entry = attemptsPerIp.get(ip);
+    if (!entry || now - entry.windowStart > IP_WINDOW_MS) {
+        attemptsPerIp.set(ip, { count: 1, windowStart: now });
+        return;
+    }
+    entry.count += 1;
+    if (entry.count > MAX_ATTEMPTS_PER_IP) {
+        throw new ApiError(429, 'Muitas tentativas de login a partir desta rede. Aguarde 1 minuto.');
+    }
 }
 
 function assertNotLocked(key) {
@@ -74,6 +111,7 @@ async function handleLogin(request, response) {
     }
 
     const login = body.login.trim();
+    assertIpRate(request);
     const key = attemptKey(request, login);
     assertNotLocked(key);
 
@@ -90,10 +128,10 @@ async function handleLogin(request, response) {
     `).get(login);
 
     if (!user) {
-        dummyPasswordHash ??= hashPassword(randomBytes(16).toString('hex'));
-        verifyPassword(body.senha, dummyPasswordHash);
+        dummyPasswordHash ??= await hashPassword(randomBytes(16).toString('hex'));
+        await verifyPassword(body.senha, dummyPasswordHash);
     }
-    if (!user || !verifyPassword(body.senha, user.senha)) {
+    if (!user || !(await verifyPassword(body.senha, user.senha))) {
         registerFailure(key);
         throw new ApiError(401, 'Usuário ou senha inválidos.');
     }

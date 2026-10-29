@@ -1,5 +1,5 @@
 const database = require('../src/database');
-const { hashPassword } = require('../src/utils/password');
+const { hashPasswordSync: hashPassword } = require('../src/utils/password');
 
 const accounts = [
     {

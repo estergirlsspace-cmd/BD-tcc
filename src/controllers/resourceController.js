@@ -123,7 +123,7 @@ async function handleCollection(request, response, resource, user) {
         }
         body.id_usuario_autor = user.id_usuario;
     }
-    const values = parseBody(body, resource, true);
+    const values = await parseBody(body, resource, true);
     if (resource.table === 'alunos') {
         const student = database.prepare(
             'SELECT tipo_usuario, curso, serie FROM usuarios WHERE id_usuario = ?'
@@ -211,7 +211,7 @@ async function handleRecord(request, response, resource, id, user) {
         }
         delete body.id_usuario_autor;
     }
-    const values = parseBody(body, resource, false);
+    const values = await parseBody(body, resource, false);
     const fields = Object.keys(values);
     if (fields.length === 0) {
         throw new ApiError(400, 'Informe ao menos um campo para atualizar.');

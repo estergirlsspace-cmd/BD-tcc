@@ -3,7 +3,7 @@ const { ApiError } = require('../errors');
 const { hashPassword } = require('./password');
 const { parseSchoolDate } = require('./dates');
 
-function parseBody(body, resource, isCreate) {
+async function parseBody(body, resource, isCreate) {
     if (!body || typeof body !== 'object' || Array.isArray(body)) {
         throw new ApiError(400, 'O corpo da requisição deve ser um objeto JSON.');
     }
@@ -116,10 +116,11 @@ function parseBody(body, resource, isCreate) {
         }
     }
 
-    return Object.fromEntries(fields.map((field) => [
-        field,
-        field === resource.secret ? hashPassword(body[field]) : body[field]
-    ]));
+    const values = {};
+    for (const field of fields) {
+        values[field] = field === resource.secret ? await hashPassword(body[field]) : body[field];
+    }
+    return values;
 }
 
 module.exports = { parseBody };
