@@ -12,16 +12,16 @@ async function readBody(request) {
         chunks.push(chunk);
     }
 
+    let body;
     try {
-        const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-        if (!body || typeof body !== 'object' || Array.isArray(body)) {
-            throw new ApiError(400, 'O corpo da requisição deve ser um objeto JSON.');
-        }
-        return body;
+        body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
     } catch {
-        if (arguments[0] instanceof ApiError) throw arguments[0];
         throw new ApiError(400, 'O corpo da requisição deve conter JSON válido.');
     }
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        throw new ApiError(400, 'O corpo da requisição deve ser um objeto JSON.');
+    }
+    return body;
 }
 
 function sendJson(response, statusCode, data) {

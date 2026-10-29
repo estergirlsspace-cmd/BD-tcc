@@ -39,6 +39,25 @@ function rejectUnknownFields(body, allowed) {
     }
 }
 
+// Texto opcional: null/ausente vira null; qualquer outro tipo é recusado com 400.
+function optionalText(value, field, maxLength) {
+    if (value === undefined || value === null || value === '') return null;
+    if (typeof value !== 'string' || value.length > maxLength) {
+        throw new ApiError(400, `O campo "${field}" deve ser um texto com até ${maxLength} caracteres.`);
+    }
+    return value.trim() || null;
+}
+
+function requiredText(value, field, maxLength, label = field) {
+    if (typeof value !== 'string' || !value.trim()) {
+        throw new ApiError(400, `${label} não pode ficar vazio.`);
+    }
+    if (value.length > maxLength) {
+        throw new ApiError(400, `${label} pode ter no máximo ${maxLength} caracteres.`);
+    }
+    return value.trim();
+}
+
 function isTeacherAssignedToClass(user, classId, disciplineId) {
     if (!user.id_professor) return false;
     const assignment = database.prepare(`
@@ -439,7 +458,7 @@ async function createSchedule(request, response, user) {
             (id_turma, id_disciplina, dia_semana, hora_inicio, hora_fim, sala, carga_minutos)
         VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(classId, disciplineId, body.dia_semana, body.hora_inicio, body.hora_fim,
-        body.sala ?? null, duration);
+        optionalText(body.sala, 'sala', 50), duration);
     const schedule = database.prepare(`
         SELECT h.*, t.nome_turma, d.nome_disciplina
         FROM horarios h
@@ -499,7 +518,7 @@ async function handleScheduleRecord(request, response, user, scheduleId) {
             hora_fim = ?, sala = ?, carga_minutos = ?
         WHERE id_horario = ?
     `).run(classId, disciplineId, updated.dia_semana, updated.hora_inicio,
-        updated.hora_fim, updated.sala ?? null, duration, scheduleId);
+        updated.hora_fim, optionalText(updated.sala, 'sala', 50), duration, scheduleId);
     sendJson(response, 200, database.prepare(
         'SELECT * FROM horarios WHERE id_horario = ?'
     ).get(scheduleId));
@@ -543,10 +562,8 @@ async function createActivity(request, response, user) {
     const allowed = ['titulo', 'descricao', 'id_turma', 'id_disciplina', 'prazo', 'tipo'];
     rejectUnknownFields(body, allowed);
     requireFields(body, ['titulo', 'descricao', 'id_turma', 'id_disciplina']);
-    if (typeof body.titulo !== 'string' || !body.titulo.trim()
-        || typeof body.descricao !== 'string' || !body.descricao.trim()) {
-        throw new ApiError(400, 'Título e descrição não podem ficar vazios.');
-    }
+    body.titulo = requiredText(body.titulo, 'titulo', 200, 'O título');
+    body.descricao = requiredText(body.descricao, 'descricao', 10000, 'A descrição');
     const classId = positiveId(body.id_turma, 'id_turma');
     const disciplineId = positiveId(body.id_disciplina, 'id_disciplina');
     if (!canAccessClass(user, classId, disciplineId)) {
@@ -607,10 +624,8 @@ async function handleActivityRecord(request, response, user, activityId) {
     rejectUnknownFields(body, allowed);
     if (!Object.keys(body).length) throw new ApiError(400, 'Informe campos para atualizar.');
     const updated = { ...current, ...body };
-    if (typeof updated.titulo !== 'string' || !updated.titulo.trim()
-        || typeof updated.descricao !== 'string' || !updated.descricao.trim()) {
-        throw new ApiError(400, 'Título e descrição não podem ficar vazios.');
-    }
+    updated.titulo = requiredText(updated.titulo, 'titulo', 200, 'O título');
+    updated.descricao = requiredText(updated.descricao, 'descricao', 10000, 'A descrição');
     const classId = positiveId(updated.id_turma, 'id_turma');
     const disciplineId = positiveId(updated.id_disciplina, 'id_disciplina');
     if (!canAccessClass(user, classId, disciplineId)) {
@@ -657,9 +672,7 @@ async function submitActivity(request, response, user, activityId) {
     const body = await readBody(request);
     rejectUnknownFields(body, ['resposta']);
     requireFields(body, ['resposta']);
-    if (typeof body.resposta !== 'string' || !body.resposta.trim()) {
-        throw new ApiError(400, 'A resposta não pode ficar vazia.');
-    }
+    body.resposta = requiredText(body.resposta, 'resposta', 10000, 'A resposta');
     database.prepare(`
         INSERT INTO entregas_atividades (id_atividade, id_aluno, resposta)
         VALUES (?, ?, ?)
@@ -787,7 +800,7 @@ async function recordAttendance(request, response, user) {
             (id_aluno, id_disciplina, id_usuario_registro, data_aula, presente, observacao)
         VALUES (?, ?, ?, ?, ?, ?)
     `).run(studentId, disciplineId, user.id_usuario, body.data_aula,
-        body.presente ? 1 : 0, body.observacao ?? null);
+        body.presente ? 1 : 0, optionalText(body.observacao, 'observacao', 500));
     sendJson(response, 201, database.prepare(
         'SELECT * FROM frequencias WHERE id_frequencia = ?'
     ).get(Number(result.lastInsertRowid)));

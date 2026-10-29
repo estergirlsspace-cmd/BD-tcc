@@ -60,6 +60,20 @@ function assertDeletable(table, recordId) {
     throw new ApiError(409, `Não é possível excluir: há histórico vinculado (${details}). ${advice}`);
 }
 
+// Aviso para uma turma não pode indicar outro curso ou série: ficaria invisível para todos.
+function assertCoherentAudience(notice) {
+    if (!notice.id_turma) return;
+    const schoolClass = database.prepare(
+        'SELECT curso, serie FROM turmas WHERE id_turma = ?'
+    ).get(notice.id_turma);
+    if (!schoolClass) throw new ApiError(400, 'A turma informada não existe.');
+    if ((notice.curso != null && notice.curso !== schoolClass.curso)
+        || (notice.serie != null && notice.serie !== schoolClass.serie)) {
+        throw new ApiError(400,
+            'O público do aviso é contraditório: a turma escolhida é de outro curso ou série.');
+    }
+}
+
 function listRecords(resource, user) {
     let where = '';
     let params = [];
@@ -165,6 +179,7 @@ async function handleCollection(request, response, resource, user) {
         body.id_usuario_autor = user.id_usuario;
     }
     const values = await parseBody(body, resource, true);
+    if (resource.table === 'posts_avisos') assertCoherentAudience(values);
     if (resource.table === 'alunos') {
         const student = database.prepare(
             'SELECT tipo_usuario, curso, serie FROM usuarios WHERE id_usuario = ?'
@@ -254,6 +269,9 @@ async function handleRecord(request, response, resource, id, user) {
         delete body.id_usuario_autor;
     }
     const values = await parseBody(body, resource, false);
+    if (resource.table === 'posts_avisos' && currentRecord) {
+        assertCoherentAudience({ ...currentRecord, ...values });
+    }
     const fields = Object.keys(values);
     if (fields.length === 0) {
         throw new ApiError(400, 'Informe ao menos um campo para atualizar.');

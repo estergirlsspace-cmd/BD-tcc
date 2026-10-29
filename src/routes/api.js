@@ -33,7 +33,8 @@ function authorizeResource(user, resourceName, method) {
 }
 
 async function handleApiRequest(request, response) {
-    const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
+    // Base fixa: um cabeçalho Host malformado não pode derrubar a requisição.
+    const url = new URL(request.url, 'http://localhost');
     const parts = url.pathname.split('/').filter(Boolean);
 
     if (url.pathname === '/' && request.method === 'GET') {
