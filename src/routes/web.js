@@ -6,12 +6,15 @@ const pages = new Map([
     ['/', { file: 'index.html', contentType: 'text/html; charset=utf-8' }],
     ['/aluno', { file: 'aluno.html', contentType: 'text/html; charset=utf-8' }],
     ['/professor', { file: 'professor.html', contentType: 'text/html; charset=utf-8' }],
+    ['/gestao', { file: 'gestao.html', contentType: 'text/html; charset=utf-8' }],
     ['/styles.css', { file: 'styles.css', contentType: 'text/css; charset=utf-8' }],
     ['/app.js', { file: 'app.js', contentType: 'text/javascript; charset=utf-8' }],
     ['/aluno.css', { file: 'aluno.css', contentType: 'text/css; charset=utf-8' }],
     ['/aluno.js', { file: 'aluno.js', contentType: 'text/javascript; charset=utf-8' }],
     ['/professor.css', { file: 'professor.css', contentType: 'text/css; charset=utf-8' }],
-    ['/professor.js', { file: 'professor.js', contentType: 'text/javascript; charset=utf-8' }]
+    ['/professor.js', { file: 'professor.js', contentType: 'text/javascript; charset=utf-8' }],
+    ['/gestao.css', { file: 'gestao.css', contentType: 'text/css; charset=utf-8' }],
+    ['/gestao.js', { file: 'gestao.js', contentType: 'text/javascript; charset=utf-8' }]
 ]);
 
 async function handleWebRequest(request, response) {

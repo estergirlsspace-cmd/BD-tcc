@@ -191,6 +191,7 @@ ensureColumn('posts_avisos', 'serie', 'INTEGER CHECK (serie IS NULL OR serie BET
 ensureColumn('posts_avisos', 'tipo', "TEXT NOT NULL DEFAULT 'aviso' CHECK (tipo IN ('aviso', 'evento', 'avaliacao', 'atividade', 'comunicado'))");
 ensureColumn('posts_avisos', 'data_evento', 'TEXT');
 ensureColumn('horarios', 'carga_minutos', 'INTEGER');
+ensureColumn('usuarios', 'nome', 'TEXT');
 ensureColumn('professores', 'nome', 'TEXT');
 ensureColumn('professores', 'area', `TEXT CHECK (area IS NULL OR area IN
     ('natureza', 'humanas', 'linguagens', 'matematica', 'informatica', 'redes'))`);

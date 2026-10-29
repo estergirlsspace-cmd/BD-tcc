@@ -147,6 +147,11 @@ function enterPortal(usuario) {
         window.location.assign('/professor');
         return;
     }
+    if (usuario.tipo_usuario === 'gestao') {
+        sessionStorage.setItem('cwarning-token', state.token);
+        window.location.assign('/gestao');
+        return;
+    }
     showWelcome(usuario);
 }
 

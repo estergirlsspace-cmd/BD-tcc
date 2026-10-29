@@ -210,9 +210,9 @@ async function createStaffMember(request, response, user) {
     database.exec('BEGIN IMMEDIATE');
     try {
         const userId = Number(database.prepare(`
-            INSERT INTO usuarios (login, senha, tipo_usuario, ativo, deve_trocar_senha)
-            VALUES (?, ?, ?, 1, 1)
-        `).run(login, hashPassword(password), body.tipo_usuario).lastInsertRowid);
+            INSERT INTO usuarios (login, nome, senha, tipo_usuario, ativo, deve_trocar_senha)
+            VALUES (?, ?, ?, ?, 1, 1)
+        `).run(login, body.nome.trim(), hashPassword(password), body.tipo_usuario).lastInsertRowid);
         let teacherId = null;
         if (body.tipo_usuario === 'professor') {
             teacherId = Number(database.prepare(

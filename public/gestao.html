@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#2f5f8a">
+    <title>Portal da Gestão | C-Warning</title>
+    <link rel="stylesheet" href="/professor.css">
+    <link rel="stylesheet" href="/gestao.css">
+    <script src="/gestao.js" defer></script>
+</head>
+<body class="theme-gestao">
+    <div class="portal-layout">
+        <aside class="sidebar">
+            <a class="brand" href="/gestao" aria-label="C-Warning, início">
+                <span class="brand-icon" aria-hidden="true">🏫</span>
+                <span><strong>C-Warning</strong><small>Portal da Gestão</small></span>
+            </a>
+
+            <p class="sidebar-label">Menu principal</p>
+            <nav class="nav-list" aria-label="Navegação do portal">
+                <button class="nav-button active" type="button" data-page="comunicados" aria-current="page">
+                    <span aria-hidden="true">📢</span> Comunicados
+                </button>
+                <button class="nav-button" type="button" data-page="alunos">
+                    <span aria-hidden="true">🎓</span> Alunos
+                </button>
+                <button class="nav-button" type="button" data-page="equipe">
+                    <span aria-hidden="true">👥</span> Equipe
+                </button>
+                <button class="nav-button" type="button" data-page="turmas">
+                    <span aria-hidden="true">🏫</span> Turmas e disciplinas
+                </button>
+                <button class="nav-button" type="button" data-page="conta">
+                    <span aria-hidden="true">🔑</span> Minha conta
+                </button>
+            </nav>
+
+            <div class="sidebar-bottom">
+                <div class="teacher-card">
+                    <span class="teacher-avatar" id="manager-avatar" aria-hidden="true">G</span>
+                    <span><strong id="manager-name">Gestão</strong><small id="manager-login">Gestão escolar</small></span>
+                </div>
+                <button class="logout-button" id="logout-button" type="button">Sair do portal</button>
+            </div>
+        </aside>
+
+        <main class="main-area">
+            <header class="topbar">
+                <div>
+                    <p class="eyebrow">CEEP Lourdinha Guerra</p>
+                    <h1 id="topbar-title">Comunicados</h1>
+                    <p id="topbar-description">Publique avisos para a escola toda, um curso, uma série ou uma turma.</p>
+                </div>
+                <span class="cohort-badge">Portal da Gestão</span>
+            </header>
+
+            <div class="container">
+                <p class="status-message" id="status-message" role="status" aria-live="polite"></p>
+
+                <!-- Comunicados -->
+                <section class="tab-content active" id="page-comunicados">
+                    <section class="content-card">
+                        <h2 id="notice-form-title">Novo comunicado</h2>
+                        <p class="muted">Escolha quem deve receber. O aviso aparece para os alunos assim que é publicado.</p>
+                        <form class="notice-form" id="notice-form">
+                            <div class="form-row">
+                                <label>
+                                    Para quem
+                                    <select id="notice-audience" required>
+                                        <option value="escola">Escola toda</option>
+                                        <option value="curso">Um curso (todas as séries)</option>
+                                        <option value="curso-serie">Um curso e uma série</option>
+                                        <option value="turma">Uma turma</option>
+                                    </select>
+                                </label>
+                                <label id="audience-course-field" hidden>
+                                    Curso
+                                    <select id="notice-course">
+                                        <option value="informatica">Informática</option>
+                                        <option value="redes">Redes de Computadores</option>
+                                    </select>
+                                </label>
+                                <label id="audience-series-field" hidden>
+                                    Série
+                                    <select id="notice-series">
+                                        <option value="1">1ª Série</option>
+                                        <option value="2">2ª Série</option>
+                                        <option value="3">3ª Série</option>
+                                    </select>
+                                </label>
+                                <label id="audience-class-field" hidden>
+                                    Turma
+                                    <select id="notice-class"></select>
+                                </label>
+                            </div>
+                            <label>
+                                Título
+                                <input id="notice-title" type="text" maxlength="200" placeholder="Ex.: Reunião de pais" required>
+                            </label>
+                            <label>
+                                Mensagem
+                                <textarea id="notice-content" maxlength="10000" rows="5" placeholder="Escreva as informações do comunicado..." required></textarea>
+                            </label>
+                            <div class="form-row">
+                                <label>
+                                    Tipo
+                                    <select id="notice-type">
+                                        <option value="aviso">Aviso</option>
+                                        <option value="comunicado">Comunicado</option>
+                                        <option value="evento">Evento</option>
+                                        <option value="atividade">Atividade</option>
+                                        <option value="avaliacao">Avaliação</option>
+                                    </select>
+                                </label>
+                                <label>
+                                    Data do evento <span class="optional">(opcional)</span>
+                                    <input id="notice-date" type="datetime-local">
+                                </label>
+                            </div>
+                            <div class="button-row">
+                                <button class="primary-button" id="notice-submit" type="submit">Publicar comunicado</button>
+                                <button class="secondary-button" id="notice-cancel-edit" type="button" hidden>Cancelar edição</button>
+                            </div>
+                        </form>
+                    </section>
+
+                    <section class="content-card">
+                        <h2>Comunicados publicados</h2>
+                        <p class="muted">Todos os avisos do sistema, do mais recente para o mais antigo.</p>
+                        <label class="search-field">
+                            <span class="visually-hidden">Buscar comunicado</span>
+                            <input id="notice-search" type="search" placeholder="Buscar por título, texto ou público">
+                        </label>
+                        <div id="notice-list" class="notice-list"></div>
+                    </section>
+                </section>
+
+                <!-- Alunos -->
+                <section class="tab-content" id="page-alunos" hidden>
+                    <section class="content-card">
+                        <h2>Matricular aluno</h2>
+                        <p class="muted">
+                            O aluno entra com a matrícula. A senha do primeiro acesso é <strong>ceep@</strong> + os
+                            4 primeiros números do CPF, e ele é obrigado a criar uma senha própria. O CPF não é guardado.
+                        </p>
+                        <form class="notice-form" id="student-form">
+                            <div class="form-row">
+                                <label>
+                                    Nome completo
+                                    <input id="student-name" type="text" maxlength="150" autocomplete="off" required>
+                                </label>
+                                <label>
+                                    Matrícula
+                                    <input id="student-matricula" type="text" inputmode="numeric" pattern="[0-9]{3,20}"
+                                        maxlength="20" autocomplete="off" required>
+                                </label>
+                                <label>
+                                    Turma
+                                    <select id="student-class" required></select>
+                                </label>
+                                <label>
+                                    4 primeiros números do CPF
+                                    <input id="student-cpf" type="text" inputmode="numeric" pattern="[0-9]{4}"
+                                        maxlength="4" autocomplete="off" required>
+                                </label>
+                            </div>
+                            <button class="primary-button" type="submit">Matricular</button>
+                        </form>
+                    </section>
+
+                    <section class="content-card">
+                        <h2>Alunos matriculados</h2>
+                        <div class="list-toolbar">
+                            <label class="search-field">
+                                <span class="visually-hidden">Buscar aluno</span>
+                                <input id="student-search" type="search" placeholder="Buscar por nome ou matrícula">
+                            </label>
+                            <label>
+                                <span class="visually-hidden">Filtrar por turma</span>
+                                <select id="student-class-filter"></select>
+                            </label>
+                        </div>
+                        <p class="muted" id="student-count"></p>
+                        <div class="table-wrap">
+                            <table class="data-table">
+                                <thead>
+                                    <tr><th scope="col">Nome</th><th scope="col">Matrícula</th><th scope="col">Turma</th><th scope="col">Situação</th><th scope="col"><span class="visually-hidden">Ações</span></th></tr>
+                                </thead>
+                                <tbody id="student-list"></tbody>
+                            </table>
+                        </div>
+                    </section>
+                </section>
+
+                <!-- Equipe -->
+                <section class="tab-content" id="page-equipe" hidden>
+                    <section class="content-card">
+                        <h2>Cadastrar professor ou gestão</h2>
+                        <p class="muted">
+                            Use como usuário a matrícula de servidor ou <strong>nome.sobrenome</strong> (não use CPF).
+                            O sistema gera uma senha provisória, mostrada uma única vez, que deve ser trocada no primeiro acesso.
+                        </p>
+                        <form class="notice-form" id="staff-form">
+                            <div class="form-row">
+                                <label>
+                                    Nome completo
+                                    <input id="staff-name" type="text" maxlength="150" autocomplete="off" required>
+                                </label>
+                                <label>
+                                    Usuário
+                                    <input id="staff-login" type="text" maxlength="50" pattern="[A-Za-z0-9][A-Za-z0-9._\-]{2,49}"
+                                        autocomplete="off" autocapitalize="none" spellcheck="false" required>
+                                </label>
+                                <label>
+                                    Perfil
+                                    <select id="staff-type">
+                                        <option value="professor">Professor</option>
+                                        <option value="gestao">Gestão</option>
+                                    </select>
+                                </label>
+                                <label id="staff-area-field">
+                                    Área
+                                    <select id="staff-area">
+                                        <option value="natureza">Natureza</option>
+                                        <option value="humanas">Humanas</option>
+                                        <option value="linguagens">Linguagens</option>
+                                        <option value="matematica">Matemática</option>
+                                        <option value="informatica">Base Técnica - Informática</option>
+                                        <option value="redes">Base Técnica - Redes</option>
+                                    </select>
+                                </label>
+                            </div>
+                            <button class="primary-button" type="submit">Cadastrar</button>
+                        </form>
+                    </section>
+
+                    <section class="password-reveal" id="password-reveal" hidden aria-live="polite">
+                        <h2>Senha provisória</h2>
+                        <p id="password-reveal-text"></p>
+                        <p class="password-reveal-value"><code id="password-reveal-value"></code></p>
+                        <p class="muted">Anote e entregue à pessoa. Esta senha não será exibida de novo.</p>
+                        <button class="secondary-button" id="password-reveal-close" type="button">Já anotei</button>
+                    </section>
+
+                    <section class="content-card">
+                        <h2>Equipe cadastrada</h2>
+                        <div class="table-wrap">
+                            <table class="data-table">
+                                <thead>
+                                    <tr><th scope="col">Nome</th><th scope="col">Usuário</th><th scope="col">Perfil</th><th scope="col">Situação</th><th scope="col"><span class="visually-hidden">Ações</span></th></tr>
+                                </thead>
+                                <tbody id="staff-list"></tbody>
+                            </table>
+                        </div>
+                    </section>
+                </section>
+
+                <!-- Turmas e disciplinas -->
+                <section class="tab-content" id="page-turmas" hidden>
+                    <section class="content-card">
+                        <h2>Nova turma</h2>
+                        <form class="notice-form" id="class-form">
+                            <div class="form-row">
+                                <label>
+                                    Curso
+                                    <select id="class-course">
+                                        <option value="informatica">Informática</option>
+                                        <option value="redes">Redes de Computadores</option>
+                                    </select>
+                                </label>
+                                <label>
+                                    Série
+                                    <select id="class-series">
+                                        <option value="1">1ª Série</option>
+                                        <option value="2">2ª Série</option>
+                                        <option value="3">3ª Série</option>
+                                    </select>
+                                </label>
+                                <label>
+                                    Nome da turma
+                                    <input id="class-name" type="text" maxlength="100" placeholder="Ex.: 1ª Série — Informática B" required>
+                                </label>
+                            </div>
+                            <button class="primary-button" type="submit">Criar turma</button>
+                        </form>
+                    </section>
+
+                    <div id="class-list"></div>
+                </section>
+
+                <!-- Minha conta -->
+                <section class="tab-content" id="page-conta" hidden>
+                    <section class="content-card">
+                        <h2>Alterar minha senha</h2>
+                        <p class="muted">Sua senha é pessoal. Ao trocar, as outras sessões abertas são encerradas.</p>
+                        <form class="notice-form narrow-form" id="password-form">
+                            <label>
+                                Senha atual
+                                <input id="current-password" type="password" autocomplete="current-password" required>
+                            </label>
+                            <label>
+                                Nova senha
+                                <input id="new-password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required>
+                            </label>
+                            <label>
+                                Repita a nova senha
+                                <input id="confirm-password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required>
+                            </label>
+                            <button class="primary-button" type="submit">Salvar nova senha</button>
+                        </form>
+                    </section>
+                </section>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

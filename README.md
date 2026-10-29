@@ -105,7 +105,7 @@ O login retorna um token válido por 8 horas e o campo `deve_trocar_senha`. Use 
 - `POST /api/auth/logout` revoga o token atual.
 - `GET /api/me` consulta o perfil.
 
-Após autenticar, alunos e professores são direcionados aos respectivos portais (`/aluno` e `/professor`). O portal do professor carrega turmas e disciplinas vinculadas, horários e comunicados pela API; a publicação só permite escolher uma disciplina associada ao perfil autenticado. Comunicados salvos em pastas ficam no armazenamento local do navegador.
+Após autenticar, cada perfil é direcionado ao seu portal: `/aluno`, `/professor` ou `/gestao`. O portal da gestão tem Comunicados (publicar para a escola toda, um curso, uma série ou uma turma; editar e excluir), Alunos (matricular e redefinir senha), Equipe (cadastrar professores e gestão com senha provisória), Turmas e disciplinas (criar turmas e disciplinas e vincular professores) e Minha conta. O portal do professor carrega turmas e disciplinas vinculadas, horários e comunicados pela API; a publicação só permite escolher uma disciplina associada ao perfil autenticado. Comunicados salvos em pastas ficam no armazenamento local do navegador.
 
 ## Recursos e operações
 
