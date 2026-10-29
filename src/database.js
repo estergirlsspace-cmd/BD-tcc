@@ -191,6 +191,14 @@ ensureColumn('posts_avisos', 'serie', 'INTEGER CHECK (serie IS NULL OR serie BET
 ensureColumn('posts_avisos', 'tipo', "TEXT NOT NULL DEFAULT 'aviso' CHECK (tipo IN ('aviso', 'evento', 'avaliacao', 'atividade', 'comunicado'))");
 ensureColumn('posts_avisos', 'data_evento', 'TEXT');
 ensureColumn('horarios', 'carga_minutos', 'INTEGER');
+ensureColumn('usuarios', 'deve_trocar_senha',
+    'INTEGER NOT NULL DEFAULT 0 CHECK (deve_trocar_senha IN (0, 1))');
+
+// O acesso compartilhado por turma foi substituído por contas individuais (matrícula).
+database.prepare(`
+    UPDATE usuarios SET ativo = 0
+    WHERE tipo_usuario = 'aluno' AND login GLOB '__aluno_compartilhado_*' AND ativo = 1
+`).run();
 
 database.exec(`
     CREATE UNIQUE INDEX IF NOT EXISTS usuarios_login_aluno_ativo_unique

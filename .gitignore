@@ -4,3 +4,4 @@ node_modules/
 *.sqlite-shm
 .senha-lucas.txt
 data/*.antes-exemplo.sqlite
+data/alunos-exemplo.csv

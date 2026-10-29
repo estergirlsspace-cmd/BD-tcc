@@ -50,21 +50,26 @@ async function api(path, options = {}) {
 
 async function initializePortal() {
     currentUser = await api('/api/me');
-    if (currentUser.tipo_usuario !== 'aluno' || !currentUser.conta_compartilhada) {
+    if (currentUser.tipo_usuario !== 'aluno' || currentUser.deve_trocar_senha) {
         sessionStorage.removeItem('cwarning-token');
         window.location.replace('/');
         return;
     }
     const courseName = courseNames[currentUser.curso] || currentUser.curso;
     const seriesName = seriesNames[currentUser.serie] || `${currentUser.serie}ª Série`;
-    const cohortName = `${seriesName} — ${courseName}`;
+    const cohortName = currentUser.nome_turma || `${seriesName} — ${courseName}`;
+    const studentName = currentUser.nome || 'Aluno(a)';
     document.body.classList.toggle('theme-red', currentUser.curso === 'redes');
-    savedFolderKey = `cwarning-student-folders-v1-${currentUser.curso}-${currentUser.serie}`;
+    savedFolderKey = `cwarning-student-folders-v2-${currentUser.id_usuario}`;
     folders = loadFolders();
     currentFolder = folders[0]?.id;
     document.querySelector('#sidebar-course').textContent = courseName;
     document.querySelector('#cohort-badge').textContent = cohortName;
-    document.querySelector('#welcome-heading').textContent = `Bem-vindo(a) à ${seriesName}!`;
+    document.querySelector('#welcome-heading').textContent = `Olá, ${studentName.split(' ')[0]}!`;
+    document.querySelector('#sidebar-name').textContent = studentName;
+    document.querySelector('#student-avatar').textContent = studentName.charAt(0).toUpperCase();
+    document.querySelector('#profile-name').textContent = studentName;
+    document.querySelector('#profile-matricula').textContent = currentUser.login;
     document.querySelector('#profile-course').textContent = courseName;
     document.querySelector('#profile-series').textContent = seriesName;
     setupNavigation();

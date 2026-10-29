@@ -1,13 +1,13 @@
 // Cadastra turmas, disciplinas, horários, alunos, atividades, avisos e frequências de exemplo.
-// Uso: EXEMPLO_SENHA="..." node scripts/seed-exemplo.js
+// Cada aluno recebe matrícula e um "início de CPF" fictício; a senha inicial é ceep@ + esses
+// 4 dígitos e precisa ser trocada no primeiro acesso. A lista sai em data/alunos-exemplo.csv
+// (fora do git), para testes.
+// Uso: node scripts/seed-exemplo.js
+const { randomInt } = require('node:crypto');
+const { writeFileSync } = require('node:fs');
+const path = require('node:path');
 const database = require('../src/database');
 const { hashPassword } = require('../src/utils/password');
-const { sharedStudentLogin } = require('../src/utils/accounts');
-
-const password = process.env.EXEMPLO_SENHA;
-if (typeof password !== 'string' || password.length < 8) {
-    throw new Error('Defina EXEMPLO_SENHA com uma senha de pelo menos 8 caracteres.');
-}
 
 const courses = {
     informatica: {
@@ -32,10 +32,6 @@ function isoDate(offsetDays) {
     return date.toISOString().slice(0, 10);
 }
 
-function slug(text) {
-    return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-}
-
 const professor = database.prepare(`
     SELECT p.id_professor, u.id_usuario FROM professores p
     JOIN usuarios u ON u.id_usuario = p.id_usuario
@@ -44,8 +40,8 @@ const professor = database.prepare(`
 const gestao = database.prepare("SELECT id_usuario FROM usuarios WHERE login = 'lucas'").get();
 if (!professor || !gestao) throw new Error('Crie antes os usuários lucas e lucas.professor.');
 
-const passwordHash = hashPassword(password);
 let studentIndex = 0;
+const studentList = [['matricula', 'nome', 'turma', 'senha_inicial']];
 
 database.exec('BEGIN IMMEDIATE');
 try {
@@ -55,13 +51,6 @@ try {
             const classId = Number(database.prepare(
                 'INSERT INTO turmas (nome_turma, curso, serie) VALUES (?, ?, ?)'
             ).run(nomeTurma, curso, serie).lastInsertRowid);
-
-            database.prepare(`
-                INSERT INTO senhas_iniciais_turma (curso, serie, senha_hash) VALUES (?, ?, ?)
-                ON CONFLICT (curso, serie) DO UPDATE SET senha_hash = excluded.senha_hash
-            `).run(curso, serie, passwordHash);
-            database.prepare('UPDATE usuarios SET senha = ? WHERE login = ?')
-                .run(passwordHash, sharedStudentLogin(curso, serie));
 
             const disciplineIds = info.disciplinas.map((nome, index) => Number(database.prepare(`
                 INSERT INTO disciplinas (id_turma, id_professor, nome_disciplina) VALUES (?, ?, ?)
@@ -81,12 +70,14 @@ try {
             const studentIds = [];
             for (let i = 0; i < 6; i += 1) {
                 const nome = `${firstNames[studentIndex % firstNames.length]} ${lastNames[(studentIndex * 3) % lastNames.length]}`;
-                const login = `${slug(nome).replace(' ', '.')}.${curso}${serie}`;
                 studentIndex += 1;
+                const matricula = String(20260000 + studentIndex);
+                const initialPassword = `ceep@${String(randomInt(0, 10000)).padStart(4, '0')}`;
+                studentList.push([matricula, nome, nomeTurma, initialPassword]);
                 const userId = Number(database.prepare(`
-                    INSERT INTO usuarios (login, senha, tipo_usuario, curso, serie, ativo)
-                    VALUES (?, ?, 'aluno', ?, ?, 1)
-                `).run(login, passwordHash, curso, serie).lastInsertRowid);
+                    INSERT INTO usuarios (login, senha, tipo_usuario, curso, serie, ativo, deve_trocar_senha)
+                    VALUES (?, ?, 'aluno', ?, ?, 1, 1)
+                `).run(matricula, hashPassword(initialPassword), curso, serie).lastInsertRowid);
                 studentIds.push(Number(database.prepare(
                     'INSERT INTO alunos (id_usuario, nome, id_turma) VALUES (?, ?, ?)'
                 ).run(userId, nome, classId).lastInsertRowid));
@@ -136,4 +127,6 @@ try {
     throw error;
 }
 
+writeFileSync(path.join(__dirname, '..', 'data', 'alunos-exemplo.csv'),
+    `${studentList.map((row) => row.join(';')).join('\n')}\n`, { mode: 0o600 });
 console.log(`Exemplo criado: 6 turmas, 24 disciplinas, ${studentIndex} alunos.`);

@@ -27,29 +27,12 @@
             </div>
 
             <form class="login-form" id="login-form">
-                <section class="selection-panel" id="student-options" aria-label="Dados do aluno">
-                    <div class="field-group">
-                        <span class="field-label">Série</span>
-                        <div class="option-grid series-options" role="group" aria-label="Série">
-                            <button class="option-button is-selected" type="button"
-                                aria-pressed="true" data-series="1">1ª Série</button>
-                            <button class="option-button" type="button"
-                                aria-pressed="false" data-series="2">2ª Série</button>
-                            <button class="option-button" type="button"
-                                aria-pressed="false" data-series="3">3ª Série</button>
-                        </div>
-                    </div>
-
-                    <div class="field-group">
-                        <span class="field-label">Curso</span>
-                        <div class="option-grid course-options" role="group" aria-label="Curso">
-                            <button class="option-button" type="button"
-                                aria-pressed="false" data-course="redes">📡 Redes</button>
-                            <button class="option-button is-selected" type="button"
-                                aria-pressed="true" data-course="informatica">💻 Informática</button>
-                        </div>
-                    </div>
-                </section>
+                <label class="field-group" for="matricula" id="student-options">
+                    <span class="field-label">Matrícula</span>
+                    <input class="text-input" id="matricula" name="matricula" type="text"
+                        inputmode="numeric" autocomplete="username" pattern="[0-9]{3,20}"
+                        placeholder="Digite o número da sua matrícula" required>
+                </label>
 
                 <section class="selection-panel is-hidden" id="teacher-options"
                     aria-label="Área de atuação do professor" hidden>
@@ -87,8 +70,32 @@
                     </span>
                 </label>
 
+                <p class="field-hint" id="first-access-hint">
+                    Primeiro acesso? Use <strong>ceep@</strong> seguido dos 4 primeiros números do seu CPF.
+                </p>
+
                 <p class="form-message" id="form-message" role="status" aria-live="polite"></p>
                 <button class="submit-button" id="submit-button" type="submit">Entrar</button>
+            </form>
+
+            <form class="login-form is-hidden" id="first-access-form" hidden>
+                <h2 class="first-access-title">Crie sua senha</h2>
+                <p class="field-hint">
+                    Este é o seu primeiro acesso. Crie uma senha só sua, com pelo menos 8 caracteres.
+                    Ela substitui a senha inicial.
+                </p>
+                <label class="field-group" for="first-new-password">
+                    <span class="field-label">Nova senha</span>
+                    <input class="text-input" id="first-new-password" type="password"
+                        minlength="8" maxlength="128" autocomplete="new-password" required>
+                </label>
+                <label class="field-group" for="first-confirm-password">
+                    <span class="field-label">Repita a nova senha</span>
+                    <input class="text-input" id="first-confirm-password" type="password"
+                        minlength="8" maxlength="128" autocomplete="new-password" required>
+                </label>
+                <p class="form-message" id="first-access-message" role="status" aria-live="polite"></p>
+                <button class="submit-button" id="first-access-button" type="submit">Salvar e entrar</button>
             </form>
 
             <section class="welcome-panel is-hidden" id="welcome-panel" aria-live="polite" hidden>

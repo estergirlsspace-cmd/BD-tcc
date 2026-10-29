@@ -74,6 +74,12 @@ async function handleApiRequest(request, response) {
         return;
     }
 
+    const isPasswordRoute = parts[1] === 'auth' && parts[2] === 'password' && parts.length === 3;
+    const isProfileRoute = parts[1] === 'me' && parts.length === 2;
+    if (user.deve_trocar_senha && !isPasswordRoute && !isProfileRoute) {
+        throw new ApiError(403, 'Crie sua nova senha antes de continuar.');
+    }
+
     if (await handleSchoolRequest(request, response, user, parts, url.searchParams)) {
         return;
     }

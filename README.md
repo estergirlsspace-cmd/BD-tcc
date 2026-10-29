@@ -42,7 +42,7 @@ src/
     validation.js
 scripts/
   seed-accounts.js
-  configure-class-passwords.js
+  seed-exemplo.js
 public/
   index.html
   styles.css
@@ -59,9 +59,7 @@ data/
 
 ## Contas iniciais
 
-As contas de professor e Gestão usam os logins `professor` e `gestao`. O acesso de aluno na tela é compartilhado por curso e série: informa-se somente curso, série e senha. Todos os alunos daquela combinação usam a mesma conta. A tela avisa que esse acesso não identifica quem enviou uma atividade e não permite consultar notas ou frequência individuais. A senha alterada nessa conta passa a valer para toda a turma.
-
-Atualize os logins e senhas de professor e Gestão:
+As contas de professor e Gestão usam os logins `professor` e `gestao`. Atualize as senhas:
 
 ```powershell
 $env:PROFESSOR_SENHA = Read-Host "Senha de professor"
@@ -70,34 +68,33 @@ node .\scripts\seed-accounts.js
 Remove-Item Env:PROFESSOR_SENHA, Env:GESTAO_SENHA
 ```
 
-Configure as senhas compartilhadas para o acesso de aluno. Cada uma corresponde a um curso e série:
+### Acesso do aluno
 
-```powershell
-$env:REDES_TURMA_1_SENHA = Read-Host "Senha compartilhada de Redes, turma 1"
-$env:REDES_TURMA_2_SENHA = Read-Host "Senha compartilhada de Redes, turma 2"
-$env:REDES_TURMA_3_SENHA = Read-Host "Senha compartilhada de Redes, turma 3"
-$env:INFORMATICA_TURMA_1_SENHA = Read-Host "Senha compartilhada de Informática, turma 1"
-$env:INFORMATICA_TURMA_2_SENHA = Read-Host "Senha compartilhada de Informática, turma 2"
-$env:INFORMATICA_TURMA_3_SENHA = Read-Host "Senha compartilhada de Informática, turma 3"
-node .\scripts\configure-class-passwords.js
-Remove-Item Env:REDES_TURMA_1_SENHA, Env:REDES_TURMA_2_SENHA, Env:REDES_TURMA_3_SENHA, Env:INFORMATICA_TURMA_1_SENHA, Env:INFORMATICA_TURMA_2_SENHA, Env:INFORMATICA_TURMA_3_SENHA
-```
+Cada aluno tem conta própria:
 
-As duas rotinas salvam somente hashes `scrypt`, não imprimem senhas e não gravam segredos no código. Todas as senhas devem ter pelo menos 8 caracteres.
+- **Usuário:** número de matrícula.
+- **Senha de primeiro acesso:** `ceep@` + 4 primeiros dígitos do CPF (ex.: `ceep@1234`).
+- **Primeiro acesso:** o aluno é obrigado a criar uma senha pessoal antes de usar o sistema. Até lá, a API recusa qualquer rota além de `/api/me` e `/api/auth/password`.
+- **CPF:** não é armazenado. A Gestão informa os 4 dígitos só no cadastro ou na redefinição, e o sistema guarda apenas o hash `scrypt` da senha.
+- **Proteção contra tentativas:** 5 senhas erradas para o mesmo usuário bloqueiam o login por 5 minutos.
+
+O acesso compartilhado por curso e série foi desativado.
+
+Para gerar dados de exemplo (turmas, disciplinas, horários, 36 alunos, atividades, avisos e frequência), rode `node scripts/seed-exemplo.js`. A lista de matrículas e senhas iniciais de teste sai em `data/alunos-exemplo.csv`, fora do git.
 
 ## Autenticação
 
-`POST /api/auth/login` aceita JSON. Para aluno, envie curso, série e senha, sem usuário. Professor e Gestão enviam login e senha, sem curso ou série.
+`POST /api/auth/login` recebe `login` (matrícula do aluno ou usuário de professor/Gestão) e `senha`:
 
 ```json
-{
-  "senha": "SUA_SENHA",
-  "curso": "redes",
-  "serie": 1
-}
+{ "login": "20260001", "senha": "SUA_SENHA" }
 ```
 
-O login retorna um token valido por 8 horas e indica `conta_compartilhada`. Use o token nas rotas protegidas. `POST /api/auth/logout` revoga o token atual, `POST /api/auth/password` altera a senha compartilhada de todo o curso e serie, e `GET /api/me` consulta o perfil. As contas compartilhadas antigas sao desativadas; os dados administrativos e as contas individuais existentes sao preservados.
+O login retorna um token válido por 8 horas e o campo `deve_trocar_senha`. Use o token nas rotas protegidas.
+
+- `POST /api/auth/password` (`senha_atual`, `nova_senha`) troca a própria senha e encerra as outras sessões. A nova senha deve ter de 8 a 128 caracteres, ser diferente da atual e não seguir o padrão `ceep@` + 4 dígitos.
+- `POST /api/auth/logout` revoga o token atual.
+- `GET /api/me` consulta o perfil.
 
 Após autenticar, alunos e professores são direcionados aos respectivos portais (`/aluno` e `/professor`). O portal do professor carrega turmas e disciplinas vinculadas, horários e comunicados pela API; a publicação só permite escolher uma disciplina associada ao perfil autenticado. Comunicados salvos em pastas ficam no armazenamento local do navegador.
 
@@ -110,7 +107,7 @@ Todos os corpos e respostas usam JSON. IDs são inteiros positivos. Erros usam `
 | Usuários | `GET/POST /api/usuarios`, `GET/PATCH/DELETE /api/usuarios/:id` | Gestão |
 | Turmas | CRUD `/api/turmas` | Consulta de acordo com o perfil; alterações pela Gestão |
 | Alunos/matrículas | CRUD `/api/alunos` | Gestão; matrícula exige usuário aluno e turma do mesmo curso |
-| Cadastro individual | `POST /api/matriculas` | Gestão mantém registros individuais de matrícula, mesmo com o login compartilhado |
+| Matrícula de aluno | `POST /api/matriculas`, `POST /api/matriculas/:id_aluno/senha` | Gestão cadastra o aluno e redefine a senha para a de primeiro acesso |
 | Professores | CRUD `/api/professores` | Gestão |
 | Disciplinas | CRUD `/api/disciplinas` | Consulta de acordo com o perfil; alterações pela Gestão |
 | Avisos/comunicados | CRUD `/api/avisos` ou `/api/posts-avisos` | Aluno consulta os destinados à turma; professor publica para turma vinculada; Gestão administra |
@@ -131,14 +128,21 @@ POST /api/turmas
 {"nome_turma":"1A Informática","curso":"informatica","serie":1}
 ```
 
-Para cadastrar um aluno individualmente para controle administrativo de matrícula, a Gestão envia login, nome e turma:
+Matricule um aluno (a senha inicial será `ceep@` + `cpf_inicio`):
 
 ```json
 POST /api/matriculas
-{"login":"aluno.001","nome":"Nome do aluno","id_turma":1}
+{"matricula":"20260001","nome":"Nome do aluno","id_turma":1,"cpf_inicio":"1234"}
 ```
 
-O login da tela não usa esses nomes individuais: todos os alunos do mesmo curso/série compartilham a conta e senha configuradas. Por isso, a conta de turma não pode ser usada para identificar autorias individuais de entregas, notas ou frequência. Crie o usuário professor, seu perfil em `/api/professores` e depois as disciplinas da turma com `id_professor`. A associação professor-disciplina é a autorização usada para limitar a publicação de atividades, horários, avisos e frequência.
+Se o aluno esquecer a senha, a Gestão a redefine para a de primeiro acesso:
+
+```json
+POST /api/matriculas/ID_DO_ALUNO/senha
+{"cpf_inicio":"1234"}
+```
+
+Crie o usuário professor, seu perfil em `/api/professores` e depois as disciplinas da turma com `id_professor`. A associação professor-disciplina é a autorização usada para limitar a publicação de atividades, horários, avisos e frequência.
 
 ### Exemplo de publicação
 
@@ -154,7 +158,6 @@ Tipos aceitos: `atividade`, `avaliacao`, `evento` e `comunicado`. Para avisos, u
 ## Regras de segurança e dados
 
 - A Gestão é o único perfil que administra usuários, turmas, matrículas e disciplinas e que altera notas.
-- A conta compartilhada de aluno acessa conteúdo da combinação curso/série, mas não representa uma pessoa. Ela não pode consultar dados individuais nem enviar uma entrega atribuída a um aluno específico.
 - Contas individuais e dados administrativos existentes são preservados; não são o método de login apresentado na tela do aluno.
 - O professor só atua em turmas e disciplinas vinculadas ao próprio perfil. O autor de um aviso é determinado pelo token, não pelo corpo enviado pelo cliente.
 - Senhas são armazenadas com `scrypt`; tokens aleatórios são armazenados no banco como hash e expiram em 8 horas.

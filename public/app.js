@@ -16,13 +16,17 @@ const logoutButton = document.querySelector('#logout-button');
 const changePasswordToggle = document.querySelector('#change-password-toggle');
 const passwordChangeForm = document.querySelector('#password-change-form');
 const passwordChangeMessage = document.querySelector('#password-change-message');
+const matriculaInput = document.querySelector('#matricula');
+const firstAccessHint = document.querySelector('#first-access-hint');
+const firstAccessForm = document.querySelector('#first-access-form');
+const firstAccessMessage = document.querySelector('#first-access-message');
+const firstAccessButton = document.querySelector('#first-access-button');
 
 const state = {
     role: 'aluno',
-    series: '1',
-    course: 'informatica',
     area: 'natureza',
-    token: null
+    token: null,
+    pendingLogin: null
 };
 
 const seriesNames = {
@@ -46,14 +50,11 @@ const areaNames = {
 };
 
 function updateSelectionSummary() {
-    const isStudent = state.role === 'aluno';
-    selectionSummary.hidden = state.role === 'gestao';
-    selectionSummary.classList.toggle('is-hidden', state.role === 'gestao');
+    const hideSummary = state.role !== 'professor';
+    selectionSummary.hidden = hideSummary;
+    selectionSummary.classList.toggle('is-hidden', hideSummary);
 
-    if (isStudent) {
-        selectionSummary.querySelector('span[aria-hidden="true"]').textContent = '🎓';
-        selectionValue.textContent = `${seriesNames[state.series]} — ${courseNames[state.course]}`;
-    } else if (state.role === 'professor') {
+    if (state.role === 'professor') {
         selectionSummary.querySelector('span[aria-hidden="true"]').textContent = '👩‍🏫';
         selectionValue.textContent = areaNames[state.area];
     }
@@ -85,25 +86,11 @@ document.querySelectorAll('[data-role]').forEach((button) => {
         const isTeacher = state.role === 'professor';
         studentOptions.hidden = !isStudent;
         studentOptions.classList.toggle('is-hidden', !isStudent);
+        matriculaInput.required = isStudent;
+        firstAccessHint.hidden = !isStudent;
         teacherOptions.hidden = !isTeacher;
         teacherOptions.classList.toggle('is-hidden', !isTeacher);
         clearMessage();
-        updateSelectionSummary();
-    });
-});
-
-document.querySelectorAll('[data-series]').forEach((button) => {
-    button.addEventListener('click', () => {
-        state.series = button.dataset.series;
-        selectExclusive(button, '[data-series]');
-        updateSelectionSummary();
-    });
-});
-
-document.querySelectorAll('[data-course]').forEach((button) => {
-    button.addEventListener('click', () => {
-        state.course = button.dataset.course;
-        selectExclusive(button, '[data-course]');
         updateSelectionSummary();
     });
 });
@@ -155,13 +142,13 @@ form.addEventListener('submit', async (event) => {
     submitButton.disabled = true;
     submitButton.textContent = 'Entrando...';
 
-    const payload = { senha: passwordInput.value };
-    if (state.role === 'aluno') {
-        payload.curso = state.course;
-        payload.serie = Number(state.series);
-    } else {
-        payload.login = state.role === 'professor' ? 'professor' : 'gestao';
-    }
+    const typedPassword = passwordInput.value;
+    const payload = {
+        login: state.role === 'aluno'
+            ? matriculaInput.value.trim()
+            : state.role === 'professor' ? 'professor' : 'gestao',
+        senha: typedPassword
+    };
 
     try {
         const response = await fetch('/api/auth/login', {
@@ -177,18 +164,12 @@ form.addEventListener('submit', async (event) => {
 
         state.token = result.token;
         passwordInput.value = '';
-        if (result.usuario.tipo_usuario === 'aluno') {
-            sessionStorage.setItem('cwarning-token', result.token);
-            window.location.assign('/aluno');
+        if (result.usuario.deve_trocar_senha) {
+            state.pendingLogin = { usuario: result.usuario, senha: typedPassword };
+            showFirstAccess();
             return;
         }
-        if (result.usuario.tipo_usuario === 'professor') {
-            sessionStorage.setItem('cwarning-token', result.token);
-            sessionStorage.setItem('cwarning-professor-area', state.area);
-            window.location.assign('/professor');
-            return;
-        }
-        showWelcome(result.usuario);
+        enterPortal(result.usuario);
     } catch (error) {
         message.textContent = error instanceof TypeError
             ? 'Não foi possível conectar ao servidor. Confira se a API está em execução.'
@@ -197,6 +178,74 @@ form.addEventListener('submit', async (event) => {
     } finally {
         submitButton.disabled = false;
         submitButton.textContent = 'Entrar';
+    }
+});
+
+function enterPortal(usuario) {
+    if (usuario.tipo_usuario === 'aluno') {
+        sessionStorage.setItem('cwarning-token', state.token);
+        window.location.assign('/aluno');
+        return;
+    }
+    if (usuario.tipo_usuario === 'professor') {
+        sessionStorage.setItem('cwarning-token', state.token);
+        sessionStorage.setItem('cwarning-professor-area', state.area);
+        window.location.assign('/professor');
+        return;
+    }
+    showWelcome(usuario);
+}
+
+function showFirstAccess() {
+    form.hidden = true;
+    form.classList.add('is-hidden');
+    firstAccessForm.hidden = false;
+    firstAccessForm.classList.remove('is-hidden');
+    firstAccessMessage.textContent = '';
+    document.querySelector('#first-new-password').focus();
+}
+
+firstAccessForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    firstAccessMessage.textContent = '';
+    const newPassword = document.querySelector('#first-new-password');
+    const confirmPassword = document.querySelector('#first-confirm-password');
+    if (newPassword.value !== confirmPassword.value) {
+        firstAccessMessage.textContent = 'As duas senhas não são iguais. Digite novamente.';
+        confirmPassword.focus();
+        return;
+    }
+
+    firstAccessButton.disabled = true;
+    firstAccessButton.textContent = 'Salvando...';
+    try {
+        const response = await fetch('/api/auth/password', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${state.token}`
+            },
+            body: JSON.stringify({
+                senha_atual: state.pendingLogin.senha,
+                nova_senha: newPassword.value
+            })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.erro || 'Não foi possível salvar a senha.');
+        const { usuario } = state.pendingLogin;
+        state.pendingLogin = null;
+        newPassword.value = '';
+        confirmPassword.value = '';
+        firstAccessForm.hidden = true;
+        firstAccessForm.classList.add('is-hidden');
+        enterPortal({ ...usuario, deve_trocar_senha: false });
+    } catch (error) {
+        firstAccessMessage.textContent = error instanceof TypeError
+            ? 'Não foi possível conectar ao servidor.'
+            : error.message;
+    } finally {
+        firstAccessButton.disabled = false;
+        firstAccessButton.textContent = 'Salvar e entrar';
     }
 });
 

@@ -65,7 +65,9 @@ function getProfile(request, response, user) {
         id_usuario: user.id_usuario,
         login: user.conta_compartilhada ? null : user.login,
         tipo_usuario: user.tipo_usuario,
+        nome: user.nome,
         conta_compartilhada: user.conta_compartilhada,
+        deve_trocar_senha: user.deve_trocar_senha,
         curso: user.curso,
         serie: user.serie,
         id_turma: user.id_turma,
@@ -75,35 +77,45 @@ function getProfile(request, response, user) {
     });
 }
 
+const MATRICULA_PATTERN = /^\d{3,20}$/;
+const CPF_INICIO_PATTERN = /^\d{4}$/;
+
+// Senha de primeiro acesso: "ceep@" + 4 primeiros dígitos do CPF. O CPF não é armazenado.
+function initialPasswordHash(cpfStart) {
+    if (typeof cpfStart !== 'string' || !CPF_INICIO_PATTERN.test(cpfStart)) {
+        throw new ApiError(400, 'Informe em "cpf_inicio" os 4 primeiros dígitos do CPF.');
+    }
+    return hashPassword(`ceep@${cpfStart}`);
+}
+
 async function enrollStudent(request, response, user) {
     requireRole(user, ['gestao']);
     const body = await readBody(request);
-    rejectUnknownFields(body, ['login', 'nome', 'id_turma']);
-    requireFields(body, ['login', 'nome', 'id_turma']);
-    if (typeof body.login !== 'string' || !body.login.trim() || body.login.length > 100) {
-        throw new ApiError(400, 'Informe um usuário individual com até 100 caracteres.');
+    rejectUnknownFields(body, ['matricula', 'nome', 'id_turma', 'cpf_inicio']);
+    requireFields(body, ['matricula', 'nome', 'id_turma', 'cpf_inicio']);
+    if (typeof body.matricula !== 'string' || !MATRICULA_PATTERN.test(body.matricula.trim())) {
+        throw new ApiError(400, 'A matrícula deve conter apenas números (3 a 20 dígitos).');
     }
     if (typeof body.nome !== 'string' || !body.nome.trim() || body.nome.length > 150) {
         throw new ApiError(400, 'Informe o nome do aluno com até 150 caracteres.');
     }
+    const matricula = body.matricula.trim();
+    const passwordHash = initialPasswordHash(body.cpf_inicio);
     const classId = positiveId(body.id_turma, 'id_turma');
     const schoolClass = database.prepare(
         'SELECT id_turma, nome_turma, curso, serie FROM turmas WHERE id_turma = ?'
     ).get(classId);
     if (!schoolClass) throw new ApiError(404, 'Turma não encontrada.');
-    const initialPassword = database.prepare(`
-        SELECT senha_hash FROM senhas_iniciais_turma WHERE curso = ? AND serie = ?
-    `).get(schoolClass.curso, schoolClass.serie);
-    if (!initialPassword) {
-        throw new ApiError(409, 'A senha provisória desta turma ainda não foi configurada.');
+    if (database.prepare('SELECT 1 FROM usuarios WHERE login = ?').get(matricula)) {
+        throw new ApiError(409, 'Já existe um usuário com essa matrícula.');
     }
 
     database.exec('BEGIN IMMEDIATE');
     try {
         const result = database.prepare(`
-            INSERT INTO usuarios (login, senha, tipo_usuario, curso, serie, ativo)
-            VALUES (?, ?, 'aluno', ?, ?, 1)
-        `).run(body.login.trim(), initialPassword.senha_hash, schoolClass.curso, schoolClass.serie);
+            INSERT INTO usuarios (login, senha, tipo_usuario, curso, serie, ativo, deve_trocar_senha)
+            VALUES (?, ?, 'aluno', ?, ?, 1, 1)
+        `).run(matricula, passwordHash, schoolClass.curso, schoolClass.serie);
         const userId = Number(result.lastInsertRowid);
         const studentResult = database.prepare(`
             INSERT INTO alunos (id_usuario, nome, id_turma)
@@ -113,13 +125,14 @@ async function enrollStudent(request, response, user) {
         sendJson(response, 201, {
             id_aluno: Number(studentResult.lastInsertRowid),
             id_usuario: userId,
-            login: body.login.trim(),
+            matricula,
             nome: body.nome.trim(),
             id_turma: classId,
             nome_turma: schoolClass.nome_turma,
             curso: schoolClass.curso,
             serie: schoolClass.serie,
-            senha_temporaria: true
+            senha_inicial: 'ceep@ + 4 primeiros dígitos do CPF',
+            deve_trocar_senha: true
         });
     } catch (error) {
         database.exec('ROLLBACK');
@@ -127,13 +140,47 @@ async function enrollStudent(request, response, user) {
     }
 }
 
+async function resetStudentPassword(request, response, user, studentId) {
+    requireRole(user, ['gestao']);
+    const body = await readBody(request);
+    rejectUnknownFields(body, ['cpf_inicio']);
+    requireFields(body, ['cpf_inicio']);
+    const passwordHash = initialPasswordHash(body.cpf_inicio);
+    const student = database.prepare(`
+        SELECT u.id_usuario FROM alunos a
+        JOIN usuarios u ON u.id_usuario = a.id_usuario
+        WHERE a.id_aluno = ?
+    `).get(studentId);
+    if (!student) throw new ApiError(404, 'Aluno não encontrado.');
+    database.exec('BEGIN IMMEDIATE');
+    try {
+        database.prepare(`
+            UPDATE usuarios SET senha = ?, deve_trocar_senha = 1 WHERE id_usuario = ?
+        `).run(passwordHash, student.id_usuario);
+        database.prepare('DELETE FROM sessoes WHERE id_usuario = ?').run(student.id_usuario);
+        database.exec('COMMIT');
+    } catch (error) {
+        database.exec('ROLLBACK');
+        throw error;
+    }
+    sendJson(response, 200, {
+        mensagem: 'Senha redefinida. No próximo acesso o aluno deverá criar uma nova senha.'
+    });
+}
+
 async function changePassword(request, response, user) {
     const body = await readBody(request);
     rejectUnknownFields(body, ['senha_atual', 'nova_senha']);
     requireFields(body, ['senha_atual', 'nova_senha']);
     if (typeof body.senha_atual !== 'string' || typeof body.nova_senha !== 'string'
-        || body.nova_senha.length < 8) {
-        throw new ApiError(400, 'A nova senha deve conter pelo menos 8 caracteres.');
+        || body.nova_senha.length < 8 || body.nova_senha.length > 128) {
+        throw new ApiError(400, 'A nova senha deve ter entre 8 e 128 caracteres.');
+    }
+    if (body.nova_senha === body.senha_atual) {
+        throw new ApiError(400, 'A nova senha precisa ser diferente da senha atual.');
+    }
+    if (/^ceep@\d{4}$/i.test(body.nova_senha)) {
+        throw new ApiError(400, 'Escolha uma senha diferente do padrão do primeiro acesso.');
     }
     const account = database.prepare(
         'SELECT senha FROM usuarios WHERE id_usuario = ? AND ativo = 1'
@@ -144,18 +191,9 @@ async function changePassword(request, response, user) {
     const passwordHash = hashPassword(body.nova_senha);
     database.exec('BEGIN IMMEDIATE');
     try {
-        database.prepare('UPDATE usuarios SET senha = ? WHERE id_usuario = ?')
-            .run(passwordHash, user.id_usuario);
-        if (user.conta_compartilhada) {
-            const updatedCohortPassword = database.prepare(`
-                UPDATE senhas_iniciais_turma
-                SET senha_hash = ?, atualizado_em = CURRENT_TIMESTAMP
-                WHERE curso = ? AND serie = ?
-            `).run(passwordHash, user.curso, user.serie);
-            if (updatedCohortPassword.changes !== 1) {
-                throw new ApiError(409, 'A senha compartilhada desta turma não está configurada.');
-            }
-        }
+        database.prepare(`
+            UPDATE usuarios SET senha = ?, deve_trocar_senha = 0 WHERE id_usuario = ?
+        `).run(passwordHash, user.id_usuario);
         database.prepare(`
             DELETE FROM sessoes
             WHERE id_usuario = ? AND token_hash != ?
@@ -713,6 +751,12 @@ async function handleSchoolRequest(request, response, user, parts, searchParams)
 
     if (parts[1] === 'matriculas' && parts.length === 2 && request.method === 'POST') {
         await enrollStudent(request, response, user);
+        return true;
+    }
+
+    if (parts[1] === 'matriculas' && parts.length === 4 && parts[3] === 'senha'
+        && request.method === 'POST') {
+        await resetStudentPassword(request, response, user, getRecordId(parts[2]));
         return true;
     }
 
