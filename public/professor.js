@@ -194,7 +194,7 @@ async function publishNotice(event) {
             tipo: document.querySelector('#notice-type').value
         };
         const date = document.querySelector('#notice-date').value;
-        if (date) payload.data_evento = new Date(date).toISOString();
+        if (date) payload.data_evento = date;
         const created = await api('/api/avisos', {
             method: 'POST',
             body: JSON.stringify(payload)
@@ -239,12 +239,6 @@ function noticeMatches(notice, query, type) {
     return matchesType && text.includes(query);
 }
 
-function formatDate(value) {
-    if (!value) return '';
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString('pt-BR');
-}
-
 function targetLabel(notice) {
     const schoolClass = classes.find((item) => item.id_turma === notice.id_turma);
     if (schoolClass) {
@@ -279,11 +273,8 @@ function buildNoticeCard(notice, { saved = false, allowDelete = false } = {}) {
     labels.append(origin);
     const date = document.createElement('time');
     date.className = 'notice-date';
-    const dateValue = notice.data_evento || notice.criado_em;
-    if (dateValue) {
-        date.dateTime = dateValue;
-        date.textContent = formatDate(dateValue);
-    }
+    date.dateTime = isoDateTime(notice);
+    date.textContent = noticeDateLabel(notice);
     top.append(labels, date);
 
     const title = document.createElement('h3');

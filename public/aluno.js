@@ -141,14 +141,8 @@ function buildNoticeCard(notice, { saved = false } = {}) {
     badge.textContent = type;
     const date = document.createElement('time');
     date.className = 'notice-date';
-    if (notice.data_evento || notice.criado_em) {
-        const value = notice.data_evento || notice.criado_em;
-        const parsed = new Date(value);
-        date.dateTime = value;
-        date.textContent = Number.isNaN(parsed.getTime())
-            ? value
-            : parsed.toLocaleDateString('pt-BR');
-    }
+    date.dateTime = isoDateTime(notice);
+    date.textContent = noticeDateLabel(notice);
     top.append(badge, date);
 
     const title = document.createElement('h3');

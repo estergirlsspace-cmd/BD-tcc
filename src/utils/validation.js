@@ -1,6 +1,7 @@
 
 const { ApiError } = require('../errors');
 const { hashPassword } = require('./password');
+const { parseSchoolDate } = require('./dates');
 
 function parseBody(body, resource, isCreate) {
     if (!body || typeof body !== 'object' || Array.isArray(body)) {
@@ -93,7 +94,7 @@ function parseBody(body, resource, isCreate) {
         }
 
         const isTextField = ['login', 'tipo_usuario', 'nome', 'nome_turma', 'titulo', 'conteudo',
-            'nome_disciplina', 'tipo', 'data_evento', 'curso']
+            'nome_disciplina', 'tipo', 'curso']
             .includes(field);
         if (isTextField && (typeof value !== 'string' || value.trim().length === 0)) {
             throw new ApiError(400, `O campo "${field}" deve ser um texto não vazio.`);
@@ -102,6 +103,11 @@ function parseBody(body, resource, isCreate) {
         if (field === 'area' && !['natureza', 'humanas', 'linguagens', 'matematica',
             'informatica', 'redes'].includes(value)) {
             throw new ApiError(400, 'Área inválida. Use natureza, humanas, linguagens, matematica, informatica ou redes.');
+        }
+
+        if (field === 'data_evento') {
+            body[field] = parseSchoolDate(value, 'data_evento');
+            continue;
         }
 
         const isIdField = field.startsWith('id_');

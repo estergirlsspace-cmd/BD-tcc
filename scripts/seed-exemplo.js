@@ -8,6 +8,7 @@ const { writeFileSync } = require('node:fs');
 const path = require('node:path');
 const database = require('../src/database');
 const { hashPassword } = require('../src/utils/password');
+const { SCHOOL_UTC_OFFSET_HOURS } = require('../src/utils/dates');
 
 const courses = {
     informatica: {
@@ -26,9 +27,9 @@ const lastNames = ['Silva', 'Souza', 'Oliveira', 'Santos', 'Lima', 'Pereira', 'C
 
 const slots = [['07:30', '08:20'], ['08:20', '09:10'], ['09:30', '10:20'], ['10:20', '11:10']];
 
+// Data "AAAA-MM-DD" no horário de Brasília, deslocada em dias a partir de hoje.
 function isoDate(offsetDays) {
-    const date = new Date();
-    date.setDate(date.getDate() + offsetDays);
+    const date = new Date(Date.now() + (SCHOOL_UTC_OFFSET_HOURS * 60 + offsetDays * 24 * 60) * 60000);
     return date.toISOString().slice(0, 10);
 }
 

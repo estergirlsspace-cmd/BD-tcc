@@ -189,33 +189,6 @@ function className(classId) {
     return classes.find((item) => item.id_turma === classId)?.nome_turma || 'Sem turma';
 }
 
-// "2026-11-08" ou "2026-11-08T19:00" são datas locais; criado_em do SQLite vem em UTC sem "Z".
-function parseDate(value, { utc = false } = {}) {
-    if (!value) return null;
-    const match = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?$/.exec(value);
-    if (!match) {
-        const parsed = new Date(value);
-        return Number.isNaN(parsed.getTime()) ? null : parsed;
-    }
-    const [, y, m, d, hh = '00', mm = '00', ss = '00'] = match;
-    return utc
-        ? new Date(Date.UTC(+y, +m - 1, +d, +hh, +mm, +ss))
-        : new Date(+y, +m - 1, +d, +hh, +mm, +ss);
-}
-
-function formatDateTime(value, options = {}) {
-    const date = parseDate(value, options);
-    if (!date) return value || '';
-    const hasTime = options.utc || /[T ]\d{2}:\d{2}/.test(value);
-    return date.toLocaleString('pt-BR', {
-        timeZone: 'America/Sao_Paulo',
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        ...(hasTime ? { hour: '2-digit', minute: '2-digit' } : {})
-    });
-}
-
 function fillClassSelects() {
     const noticeClass = document.querySelector('#notice-class');
     const studentClass = document.querySelector('#student-class');
@@ -359,7 +332,7 @@ function buildNoticeCard(notice) {
 
     const top = element('div', 'notice-topline');
     top.append(element('span', 'notice-type', typeNames[notice.tipo] || 'Aviso'));
-    top.append(element('span', 'notice-date', `Publicado em ${formatDateTime(notice.criado_em, { utc: true })}`));
+    top.append(element('span', 'notice-date', `Publicado em ${formatSchoolDate(notice.criado_em, { utc: true })}`));
     card.append(top);
 
     card.append(element('h3', '', notice.titulo));
@@ -367,7 +340,7 @@ function buildNoticeCard(notice) {
 
     const footer = element('div', 'notice-footer');
     const info = element('span', 'notice-audience', audienceLabel(notice));
-    if (notice.data_evento) info.textContent += ` · Data: ${formatDateTime(notice.data_evento)}`;
+    if (notice.data_evento) info.textContent += ` · Data: ${formatSchoolDate(notice.data_evento)}`;
     footer.append(info);
 
     const actions = element('div', 'card-actions');

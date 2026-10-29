@@ -13,6 +13,7 @@ const pages = new Map([
     ['/aluno.js', { file: 'aluno.js', contentType: 'text/javascript; charset=utf-8' }],
     ['/professor.css', { file: 'professor.css', contentType: 'text/css; charset=utf-8' }],
     ['/professor.js', { file: 'professor.js', contentType: 'text/javascript; charset=utf-8' }],
+    ['/datas.js', { file: 'datas.js', contentType: 'text/javascript; charset=utf-8' }],
     ['/gestao.css', { file: 'gestao.css', contentType: 'text/css; charset=utf-8' }],
     ['/gestao.js', { file: 'gestao.js', contentType: 'text/javascript; charset=utf-8' }]
 ]);

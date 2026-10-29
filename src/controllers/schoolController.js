@@ -3,6 +3,7 @@ const { ApiError } = require('../errors');
 const { readBody, sendJson } = require('../utils/http');
 const { randomInt } = require('node:crypto');
 const { hashPassword, verifyPassword } = require('../utils/password');
+const { parseSchoolDate, deadlineTimestamp } = require('../utils/dates');
 
 function requireRole(user, roles) {
     if (!roles.includes(user.tipo_usuario)) {
@@ -416,6 +417,9 @@ async function handleScheduleRecord(request, response, user, scheduleId) {
     const allowed = ['id_turma', 'id_disciplina', 'dia_semana', 'hora_inicio', 'hora_fim', 'sala'];
     rejectUnknownFields(body, allowed);
     if (!Object.keys(body).length) throw new ApiError(400, 'Informe campos para atualizar.');
+    if (body.prazo !== undefined && body.prazo !== null && body.prazo !== '') {
+        body.prazo = parseSchoolDate(body.prazo, 'prazo');
+    }
     const updated = { ...current, ...body };
     const classId = positiveId(updated.id_turma, 'id_turma');
     const disciplineId = positiveId(updated.id_disciplina, 'id_disciplina');
@@ -490,6 +494,9 @@ async function createActivity(request, response, user) {
     const disciplineId = positiveId(body.id_disciplina, 'id_disciplina');
     if (!canAccessClass(user, classId, disciplineId)) {
         throw new ApiError(403, 'Você não está vinculado a essa turma e disciplina.');
+    }
+    if (body.prazo !== undefined && body.prazo !== null && body.prazo !== '') {
+        body.prazo = parseSchoolDate(body.prazo, 'prazo');
     }
     const type = body.tipo || 'atividade';
     if (!['atividade', 'avaliacao', 'evento', 'comunicado'].includes(type)) {
@@ -586,7 +593,7 @@ async function submitActivity(request, response, user, activityId) {
     if (!activity || activity.id_turma !== user.id_turma) {
         throw new ApiError(404, 'Atividade não encontrada para sua turma.');
     }
-    if (activity.prazo && Date.parse(activity.prazo) < Date.now()) {
+    if (activity.prazo && deadlineTimestamp(activity.prazo) < Date.now()) {
         throw new ApiError(409, 'O prazo para envio desta atividade terminou.');
     }
 
@@ -702,11 +709,7 @@ async function recordAttendance(request, response, user) {
     requireFields(body, allowed.slice(0, 4));
     const studentId = positiveId(body.id_aluno, 'id_aluno');
     const disciplineId = positiveId(body.id_disciplina, 'id_disciplina');
-    if (typeof body.data_aula !== 'string'
-        || !/^\d{4}-\d{2}-\d{2}$/.test(body.data_aula)
-        || Number.isNaN(Date.parse(`${body.data_aula}T00:00:00Z`))) {
-        throw new ApiError(400, 'A data da aula deve usar o formato AAAA-MM-DD.');
-    }
+    body.data_aula = parseSchoolDate(body.data_aula, 'data_aula', { allowTime: false });
     if (typeof body.presente !== 'boolean') {
         throw new ApiError(400, 'O campo "presente" deve ser verdadeiro ou falso.');
     }
