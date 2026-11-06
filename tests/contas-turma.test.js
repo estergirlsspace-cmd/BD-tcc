@@ -204,7 +204,7 @@ test('conta da turma: 403 no que é pessoal; mural, salvos, atividades e horári
         ['GET', '/api/conta/sessoes'], ['DELETE', '/api/conta/sessoes'],
         ['GET', '/api/privacidade/meus-dados'],
         ['POST', '/api/auth/password'],
-        ['POST', '/api/atividades/1/entregas'], ['GET', '/api/atividades/1/entregas'],
+        ['GET', '/api/atividades/1/entregas'],
         ['POST', '/api/arquivos']
     ];
     for (const [method, rota] of pessoais) {
@@ -274,4 +274,43 @@ test('DELETE /api/turmas/:id/senha desativa a conta e encerra as sessões', asyn
     assert.equal((await definirSenha(id, gestao)).status, 200);
     assert.equal(s.db.prepare('SELECT COUNT(*) AS n FROM usuarios WHERE login = ?').get(`turma-${id}`).n, 1);
     await entrarTurma(id);
+});
+
+test('conta da turma: envia atividade identificando o aluno com matrícula + senha pessoal', async () => {
+    const aluno = await s.alunoPronto(1);
+    const { token } = await entrarTurma(aluno.id_turma);
+    const atividade = s.db.prepare(`
+        SELECT id_atividade FROM atividades
+        WHERE id_turma = ? AND tipo = 'atividade' AND prazo > date('now') ORDER BY id_atividade LIMIT 1
+    `).get(aluno.id_turma);
+    const rota = `/api/atividades/${atividade.id_atividade}/entregas`;
+    const enviar = (body) => s.api(rota, { method: 'POST', token, body });
+
+    assert.equal((await enviar({ resposta: 'Sem identificação' })).status, 400);
+    const errada = await enviar({ resposta: 'x', matricula: aluno.matricula, senha: 'senha-errada-123' });
+    assert.equal(errada.status, 400, 'senha errada não derruba a sessão da turma (nada de 401)');
+
+    const ok = await enviar({ resposta: 'Resposta enviada pela sala', matricula: aluno.matricula, senha: aluno.senha });
+    assert.equal(ok.status, 201, ok.text);
+    assert.equal(ok.body.id_aluno, aluno.id_aluno);
+    const gravada = s.db.prepare('SELECT resposta FROM entregas_atividades WHERE id_entrega = ?').get(ok.body.id_entrega);
+    assert.equal(gravada.resposta, 'Resposta enviada pela sala');
+    // A conta da turma continua sem ver as entregas pessoais.
+    assert.equal((await s.api(rota, { token })).status, 403);
+
+    // Aluno de outra turma não envia por esta turma; quem não fez o primeiro acesso também não
+    // (índices 0 a 2 já criaram a senha pessoal nos testes acima).
+    const outraTurma = s.db.prepare(`
+        SELECT u.login FROM usuarios u JOIN alunos a ON a.id_usuario = u.id_usuario
+        WHERE u.tipo_usuario = 'aluno' AND a.id_turma <> ? AND u.login NOT LIKE 'turma-%' LIMIT 1
+    `).get(aluno.id_turma);
+    if (outraTurma) {
+        assert.equal((await enviar({ resposta: 'x', matricula: outraTurma.login, senha: aluno.senha })).status, 400);
+    }
+    const semPrimeiroAcesso = s.alunos.find((a, i) => i > 2
+        && s.db.prepare('SELECT a.id_turma FROM alunos a JOIN usuarios u ON u.id_usuario = a.id_usuario WHERE u.login = ?').get(a.matricula)?.id_turma === aluno.id_turma);
+    if (semPrimeiroAcesso) {
+        const r = await enviar({ resposta: 'x', matricula: semPrimeiroAcesso.matricula, senha: semPrimeiroAcesso.senha_inicial });
+        assert.equal(r.status, 403, r.text);
+    }
 });

@@ -127,7 +127,8 @@ async function handleClassPasswordRequest(request, response, user, parts) {
 function isPersonalRoute(parts, method) {
     const [, section, second, third] = parts;
     if (['justificativas', 'mensagens', 'frequencias', 'desempenho', 'entregas'].includes(section)) return true;
-    if (section === 'atividades' && third === 'entregas') return true;
+    // Envio de atividade pela turma é permitido: o aluno se identifica com matrícula + senha.
+    if (section === 'atividades' && third === 'entregas') return method !== 'POST';
     if (section === 'auth' && second === 'password') return true;
     if (section === 'conta' && ['email', 'sessoes'].includes(second)) return true;
     if (section === 'privacidade' && second === 'meus-dados') return true;

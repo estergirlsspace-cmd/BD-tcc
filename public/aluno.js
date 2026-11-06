@@ -73,7 +73,7 @@ const FAQ = [
         'Na tela de entrada, toque em "Esqueci minha senha". Se você tiver um e-mail cadastrado em Perfil, enviamos um link para criar uma senha nova. Sem e-mail, procure a secretaria.']
 ];
 
-// Perguntas que valem para a conta da turma (sem entregas, faltas nem senha própria).
+// Perguntas que valem para a conta da turma (sem faltas nem senha própria; entrega só com matrícula + senha).
 const CLASS_ACCOUNT_FAQ = new Set([
     'Como confirmo que li um aviso?',
     'Onde encontro os avisos que salvei?',
@@ -1728,9 +1728,7 @@ function activityCard(activity, status) {
         info ? el('p', { class: 'atividade-info', text: truncate(info, 200) }) : null,
         el('div', { class: 'atividade-rodape' },
             el('span', { class: 'atividade-quando' }, icon('clock'), when),
-            isClassAccount()
-                ? el('span', { class: 'atividade-encerrada', text: overdue ? 'Prazo encerrado' : 'Entrega pela matrícula' })
-                : overdue
+            overdue
                 ? el('span', { class: 'atividade-encerrada', text: 'Envio encerrado' })
                 : el('button', {
                     class: `botao botao-pequeno ${status === 'pendentes' ? 'botao-primario' : 'botao-contorno'}`, type: 'button',
@@ -1762,12 +1760,27 @@ function openSubmitDialog(activity, previousAnswer = '') {
     });
     textarea.value = previousAnswer;
     const submit = el('button', { class: 'botao botao-primario', type: 'submit' }, icon('paper-plane-tilt'), 'Enviar resposta');
+    // Acesso da turma: o login é da sala, então quem envia se identifica com a matrícula e a senha pessoal.
+    const fromClass = isClassAccount();
+    const matricula = fromClass ? el('input', {
+        id: 'entrega-matricula', name: 'matricula', type: 'text', inputmode: 'numeric', autocomplete: 'off',
+        maxlength: '20', required: true, 'aria-describedby': 'entrega-identificacao'
+    }) : null;
+    const senha = fromClass ? el('input', {
+        id: 'entrega-senha', name: 'senha', type: 'password', autocomplete: 'off', maxlength: '128', required: true,
+        'aria-describedby': 'entrega-identificacao'
+    }) : null;
     const form = el('form', { class: 'formulario', novalidate: true },
         el('p', { class: 'meta', text: `${activity.nome_disciplina || 'Atividade'} · ${deadlineLabel(activity.prazo)}` }),
         activity.descricao ? el('p', { class: 'dialogo-descricao', text: activity.descricao }) : null,
         el('label', { class: 'campo-rotulo', for: 'resposta-atividade', text: 'Sua resposta' }),
         textarea,
         el('p', { class: 'meta', id: 'resposta-ajuda', text: 'Até 10.000 caracteres. Você pode reenviar até o prazo terminar.' }),
+        fromClass ? el('fieldset', { class: 'entrega-identificacao' },
+            el('legend', { class: 'campo-rotulo', text: 'Quem está enviando?' }),
+            el('p', { class: 'meta', id: 'entrega-identificacao', text: 'Este é o acesso da sala: confirme com a sua matrícula e a sua senha pessoal para a atividade ir para o seu nome.' }),
+            el('label', { class: 'campo-rotulo', for: 'entrega-matricula', text: 'Matrícula' }), matricula,
+            el('label', { class: 'campo-rotulo', for: 'entrega-senha', text: 'Senha pessoal' }), senha) : null,
         el('div', { class: 'acoes' },
             el('button', { class: 'botao botao-contorno', type: 'button', on: { click: () => $('#dialogo').close() } }, 'Cancelar'),
             submit));
@@ -1778,15 +1791,27 @@ function openSubmitDialog(activity, previousAnswer = '') {
             fieldError(textarea, 'Escreva sua resposta antes de enviar.');
             return;
         }
+        if (fromClass && !matricula.value.trim()) {
+            fieldError(matricula, 'Digite a sua matrícula.');
+            return;
+        }
+        if (fromClass && !senha.value) {
+            fieldError(senha, 'Digite a sua senha pessoal.');
+            return;
+        }
+        const payload = fromClass
+            ? { resposta: answer, matricula: matricula.value.trim(), senha: senha.value }
+            : { resposta: answer };
         submit.disabled = true;
         try {
             const result = await api(`/api/atividades/${activity.id_atividade}/entregas`, {
-                method: 'POST', body: JSON.stringify({ resposta: answer })
+                method: 'POST', body: JSON.stringify(payload)
             });
-            activity.entrega = { enviado_em: result?.enviado_em || null, nota: null, feedback: null };
+            // Pela sala a entrega fica no nome do aluno, não na conta compartilhada.
+            if (!fromClass) activity.entrega = { enviado_em: result?.enviado_em || null, nota: null, feedback: null };
             $('#dialogo').close();
             clearErrorNotifications();
-            notify('Atividade enviada!', 'sucesso');
+            notify(fromClass && result?.nome ? `Atividade enviada no nome de ${result.nome}!` : 'Atividade enviada!', 'sucesso');
             loadSource('atividades');
         } catch (error) {
             if (error.status === 409) {
@@ -1795,7 +1820,8 @@ function openSubmitDialog(activity, previousAnswer = '') {
                 loadSource('atividades');
                 return;
             }
-            CwFormulario.mostrar(form, error, textarea);
+            if (fromClass) senha.value = '';
+            CwFormulario.mostrar(form, error, fromClass && error.status !== 409 ? matricula : textarea);
             submit.disabled = false;
         }
     });
@@ -2170,7 +2196,7 @@ function renderClassProfile() {
             el('h2', { class: 'cartao-titulo', text: 'Informações da turma' }),
             el('dl', { class: 'dados' }, rows.map(([key, value]) => el('div', { class: 'dado' },
                 el('dt', { text: key }), el('dd', { text: value })))),
-            el('p', { class: 'meta', text: 'Frequência, entregas e justificativas ficam na sua conta individual: entre com a sua matrícula. A senha da turma é trocada pela gestão.' })),
+            el('p', { class: 'meta', text: 'Frequência e justificativas ficam na sua conta individual: entre com a sua matrícula. Atividades podem ser enviadas por aqui, confirmando com a sua matrícula e senha. A senha da turma é trocada pela gestão.' })),
         logoutCard()
     ];
 }

@@ -8,7 +8,8 @@ const { parseClassDate } = require('../utils/calendario');
 const notificacoes = require('../services/notificacoes');
 const { optionalAccountEmail } = require('../services/email');
 const { registrar } = require('../services/auditoria');
-const { assertCurrentPassword } = require('./authController');
+const { assertCurrentPassword, beginPasswordAttempt } = require('./authController');
+const { isClassAccount } = require('../utils/accounts');
 const { issueEmailConfirmation } = require('./contaController');
 
 function requireRole(user, roles) {
@@ -723,9 +724,13 @@ async function submitActivity(request, response, user, activityId) {
     }
 
     const body = await readBody(request);
-    rejectUnknownFields(body, ['resposta']);
-    requireFields(body, ['resposta']);
+    const fromClassAccount = isClassAccount(user);
+    rejectUnknownFields(body, fromClassAccount ? ['resposta', 'matricula', 'senha'] : ['resposta']);
+    requireFields(body, fromClassAccount ? ['resposta', 'matricula', 'senha'] : ['resposta']);
     body.resposta = requiredText(body.resposta, 'resposta', 10000, 'A resposta');
+    const studentId = fromClassAccount
+        ? (await identifyClassStudent(user, body.matricula, body.senha)).id_aluno
+        : user.id_aluno;
     // Reenvio só enquanto não houver nota: a resposta corrigida não pode mudar depois.
     const result = database.prepare(`
         INSERT INTO entregas_atividades (id_atividade, id_aluno, resposta)
@@ -733,15 +738,43 @@ async function submitActivity(request, response, user, activityId) {
         ON CONFLICT (id_atividade, id_aluno)
         DO UPDATE SET resposta = excluded.resposta, enviado_em = CURRENT_TIMESTAMP
         WHERE entregas_atividades.nota IS NULL
-    `).run(activityId, user.id_aluno, body.resposta.trim());
+    `).run(activityId, studentId, body.resposta.trim());
     if (result.changes === 0) {
         throw new ApiError(409, 'Esta entrega já foi corrigida e não pode mais ser reenviada.');
     }
+    if (fromClassAccount) registrar(user, 'entrega.enviar_pela_turma', `aluno:${studentId}`);
     const submission = database.prepare(`
-        SELECT id_entrega, id_atividade, id_aluno, resposta, enviado_em
-        FROM entregas_atividades WHERE id_atividade = ? AND id_aluno = ?
-    `).get(activityId, user.id_aluno);
+        SELECT e.id_entrega, e.id_atividade, e.id_aluno, a.nome, e.resposta, e.enviado_em
+        FROM entregas_atividades e JOIN alunos a ON a.id_aluno = e.id_aluno
+        WHERE e.id_atividade = ? AND e.id_aluno = ?
+    `).get(activityId, studentId);
     sendJson(response, 201, submission);
+}
+
+// Acesso da turma (login compartilhado): quem envia se identifica com a matrícula e a senha
+// pessoal, com o mesmo bloqueio progressivo do login. Só vale para aluno da própria turma que
+// já fez o primeiro acesso (a senha inicial ceep@ + CPF não serve aqui).
+async function identifyClassStudent(classUser, matricula, password) {
+    if (typeof matricula !== 'string' || !MATRICULA_PATTERN.test(matricula.trim())
+        || typeof password !== 'string' || !password || password.length > 128) {
+        throw new ApiError(400, 'Informe sua matrícula e sua senha pessoal.');
+    }
+    const login = matricula.trim();
+    const passwordAccepted = beginPasswordAttempt(login);
+    const student = database.prepare(`
+        SELECT u.senha, u.deve_trocar_senha, a.id_aluno, a.nome
+        FROM usuarios u JOIN alunos a ON a.id_usuario = u.id_usuario
+        WHERE u.login = ? AND u.tipo_usuario = 'aluno' AND u.ativo = 1 AND a.id_turma = ?
+    `).get(login, classUser.id_turma);
+    if (!student || !(await verifyPassword(password, student.senha))) {
+        // 400, não 401: 401 encerraria a sessão da turma no aparelho.
+        throw new ApiError(400, 'Matrícula ou senha incorreta, ou a matrícula não é desta turma.');
+    }
+    passwordAccepted();
+    if (student.deve_trocar_senha) {
+        throw new ApiError(403, 'Faça seu primeiro acesso entrando com a sua matrícula e crie sua senha antes de enviar pela turma.');
+    }
+    return student;
 }
 
 function getSubmissions(activityId, user) {
