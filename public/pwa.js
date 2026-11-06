@@ -4,6 +4,17 @@
         return;
     }
 
+    // Deploy novo: quando o service worker novo assume uma página que já era controlada pelo antigo,
+    // recarrega uma vez para não misturar HTML novo com CSS/JS guardados da versão anterior.
+    if (navigator.serviceWorker.controller) {
+        var recarregou = false;
+        navigator.serviceWorker.addEventListener('controllerchange', function () {
+            if (recarregou) return;
+            recarregou = true;
+            window.location.reload();
+        });
+    }
+
     function register() {
         navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function () {
             /* sem service worker: segue online normalmente */
