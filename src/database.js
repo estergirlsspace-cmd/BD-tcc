@@ -360,6 +360,10 @@ database.exec(`
 `);
 ensureColumn('avisos_usuarios', 'id_pasta', 'INTEGER REFERENCES pastas(id_pasta) ON DELETE SET NULL');
 
+// ---- Sprint 6: arquivo anexo na atividade (professor) e na entrega (aluno) ----
+ensureColumn('atividades', 'id_arquivo', 'INTEGER REFERENCES arquivos(id_arquivo) ON DELETE SET NULL');
+ensureColumn('entregas_atividades', 'id_arquivo', 'INTEGER REFERENCES arquivos(id_arquivo) ON DELETE SET NULL');
+
 // ---- Sprint 5: 12 turmas (série 1–3 × curso × letra A/B), sem mudar a estrutura ----
 // Idempotente: "1ª Série — Informática" vira "1ª Série — Informática A" (mesmo id, nada se perde)
 // e as que faltarem são criadas. Banco sem nenhuma turma (instalação nova / seed de exemplo)

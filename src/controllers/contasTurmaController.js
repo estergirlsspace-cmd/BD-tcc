@@ -128,11 +128,12 @@ function isPersonalRoute(parts, method) {
     const [, section, second, third] = parts;
     if (['justificativas', 'mensagens', 'frequencias', 'desempenho', 'entregas'].includes(section)) return true;
     // Envio de atividade pela turma é permitido: o aluno se identifica com matrícula + senha.
+    // O upload do arquivo da entrega (POST /api/arquivos) também, dentro da cota da conta da
+    // turma; baixar arquivo de entrega ela não pode (canReadFile).
     if (section === 'atividades' && third === 'entregas') return method !== 'POST';
     if (section === 'auth' && second === 'password') return true;
     if (section === 'conta' && ['email', 'sessoes'].includes(second)) return true;
     if (section === 'privacidade' && second === 'meus-dados') return true;
-    if (section === 'arquivos' && method === 'POST') return true;
     return false;
 }
 

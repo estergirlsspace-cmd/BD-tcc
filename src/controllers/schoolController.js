@@ -10,6 +10,7 @@ const { optionalAccountEmail } = require('../services/email');
 const { registrar } = require('../services/auditoria');
 const { assertCurrentPassword, beginPasswordAttempt } = require('./authController');
 const { isClassAccount } = require('../utils/accounts');
+const { assertOwnFile, attachmentColumns, attachmentFrom } = require('../utils/arquivos');
 const { issueEmailConfirmation } = require('./contaController');
 
 function requireRole(user, roles) {
@@ -53,6 +54,11 @@ function optionalText(value, field, maxLength) {
         throw new ApiError(400, `O campo "${field}" deve ser um texto com até ${maxLength} caracteres.`);
     }
     return value.trim() || null;
+}
+
+// Anexo opcional: ausente ou null vira null; senão, um id positivo.
+function optionalFileId(value) {
+    return value === undefined || value === null ? null : positiveId(value, 'id_arquivo');
 }
 
 function requiredText(value, field, maxLength, label = field) {
@@ -583,28 +589,41 @@ function getActivities(user) {
         SELECT a.id_atividade, a.titulo, a.descricao, a.id_turma,
                a.id_disciplina, a.prazo, a.tipo, a.criado_em,
                t.nome_turma, d.nome_disciplina,
-               e.id_entrega, e.enviado_em, e.nota, e.feedback
+               e.id_entrega, e.enviado_em, e.nota, e.feedback, ${attachmentColumns('arq')}
         FROM atividades a
         JOIN turmas t ON t.id_turma = a.id_turma
         JOIN disciplinas d ON d.id_disciplina = a.id_disciplina
+        LEFT JOIN arquivos arq ON arq.id_arquivo = a.id_arquivo
         LEFT JOIN alunos al ON al.id_usuario = ?
         LEFT JOIN entregas_atividades e
             ON e.id_atividade = a.id_atividade AND e.id_aluno = al.id_aluno
         ${where}
         ORDER BY a.prazo, a.criado_em DESC
     `).all(user.id_usuario, ...params);
-    return rows.map(({ id_entrega: submissionId, enviado_em, nota, feedback, ...activity }) => ({
-        ...activity,
-        entrega: submissionId ? { enviado_em, nota, feedback } : null
-    }));
+    return rows.map(({ id_entrega: submissionId, enviado_em, nota, feedback, ...activity }) =>
+        Object.assign(activity, {
+            anexo: attachmentFrom(activity),
+            entrega: submissionId ? { enviado_em, nota, feedback } : null
+        }));
+}
+
+// Registro da atividade com o anexo no formato dos avisos ({ ..., id_arquivo, anexo }).
+function activityRecord(activityId) {
+    const record = database.prepare(`
+        SELECT a.*, ${attachmentColumns('arq')}
+        FROM atividades a LEFT JOIN arquivos arq ON arq.id_arquivo = a.id_arquivo
+        WHERE a.id_atividade = ?
+    `).get(activityId);
+    return Object.assign(record, { anexo: attachmentFrom(record) });
 }
 
 async function createActivity(request, response, user) {
     requireRole(user, ['professor', 'gestao']);
     const body = await readBody(request);
-    const allowed = ['titulo', 'descricao', 'id_turma', 'id_disciplina', 'prazo', 'tipo'];
+    const allowed = ['titulo', 'descricao', 'id_turma', 'id_disciplina', 'prazo', 'tipo', 'id_arquivo'];
     rejectUnknownFields(body, allowed);
     requireFields(body, ['titulo', 'descricao', 'id_turma', 'id_disciplina']);
+    const fileId = optionalFileId(body.id_arquivo);
     body.titulo = requiredText(body.titulo, 'titulo', 200, 'O título');
     body.descricao = requiredText(body.descricao, 'descricao', 10000, 'A descrição');
     const classId = positiveId(body.id_turma, 'id_turma');
@@ -625,16 +644,15 @@ async function createActivity(request, response, user) {
     if (!discipline || discipline.id_turma !== classId) {
         throw new ApiError(400, 'A disciplina informada não pertence à turma.');
     }
+    assertOwnFile(user, fileId);
 
     const result = database.prepare(`
         INSERT INTO atividades
-            (titulo, descricao, id_turma, id_disciplina, id_usuario_autor, prazo, tipo)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+            (titulo, descricao, id_turma, id_disciplina, id_usuario_autor, prazo, tipo, id_arquivo)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(body.titulo.trim(), body.descricao.trim(), classId, disciplineId,
-        user.id_usuario, body.prazo || null, type);
-    sendJson(response, 201, database.prepare(
-        'SELECT * FROM atividades WHERE id_atividade = ?'
-    ).get(Number(result.lastInsertRowid)));
+        user.id_usuario, body.prazo || null, type, fileId);
+    sendJson(response, 201, activityRecord(Number(result.lastInsertRowid)));
 }
 
 async function handleActivityRecord(request, response, user, activityId) {
@@ -645,11 +663,12 @@ async function handleActivityRecord(request, response, user, activityId) {
         throw new ApiError(404, 'Atividade não encontrada.');
     }
     if (request.method === 'GET') {
+        const view = activityRecord(activityId);
         if (user.tipo_usuario === 'aluno') {
-            const { id_usuario_autor: _author, ...studentView } = current;
+            const { id_usuario_autor: _author, ...studentView } = view;
             sendJson(response, 200, studentView);
         } else {
-            sendJson(response, 200, current);
+            sendJson(response, 200, view);
         }
         return;
     }
@@ -663,9 +682,14 @@ async function handleActivityRecord(request, response, user, activityId) {
     if (request.method !== 'PATCH') throw new ApiError(405, 'Método não permitido.');
 
     const body = await readBody(request);
-    const allowed = ['titulo', 'descricao', 'id_turma', 'id_disciplina', 'prazo', 'tipo'];
+    const allowed = ['titulo', 'descricao', 'id_turma', 'id_disciplina', 'prazo', 'tipo', 'id_arquivo'];
     rejectUnknownFields(body, allowed);
     if (!Object.keys(body).length) throw new ApiError(400, 'Informe campos para atualizar.');
+    // Trocar ou remover (null) o anexo; ausente mantém o atual, mesmo se de outro autor.
+    if (body.id_arquivo !== undefined) {
+        body.id_arquivo = optionalFileId(body.id_arquivo);
+        assertOwnFile(user, body.id_arquivo, current.id_arquivo);
+    }
     if (body.prazo === '') body.prazo = null;
     if (body.prazo !== undefined && body.prazo !== null) {
         body.prazo = parseSchoolDate(body.prazo, 'prazo');
@@ -689,13 +713,12 @@ async function handleActivityRecord(request, response, user, activityId) {
     }
     database.prepare(`
         UPDATE atividades
-        SET titulo = ?, descricao = ?, id_turma = ?, id_disciplina = ?, prazo = ?, tipo = ?
+        SET titulo = ?, descricao = ?, id_turma = ?, id_disciplina = ?, prazo = ?, tipo = ?,
+            id_arquivo = ?
         WHERE id_atividade = ?
     `).run(updated.titulo.trim(), updated.descricao.trim(), classId, disciplineId,
-        updated.prazo || null, updated.tipo, activityId);
-    sendJson(response, 200, database.prepare(
-        'SELECT * FROM atividades WHERE id_atividade = ?'
-    ).get(activityId));
+        updated.prazo || null, updated.tipo, updated.id_arquivo ?? null, activityId);
+    sendJson(response, 200, activityRecord(activityId));
 }
 
 async function submitActivity(request, response, user, activityId) {
@@ -725,30 +748,50 @@ async function submitActivity(request, response, user, activityId) {
 
     const body = await readBody(request);
     const fromClassAccount = isClassAccount(user);
-    rejectUnknownFields(body, fromClassAccount ? ['resposta', 'matricula', 'senha'] : ['resposta']);
-    requireFields(body, fromClassAccount ? ['resposta', 'matricula', 'senha'] : ['resposta']);
-    body.resposta = requiredText(body.resposta, 'resposta', 10000, 'A resposta');
+    rejectUnknownFields(body, fromClassAccount
+        ? ['resposta', 'id_arquivo', 'matricula', 'senha'] : ['resposta', 'id_arquivo']);
+    if (fromClassAccount) requireFields(body, ['matricula', 'senha']);
+    // Resposta escrita, arquivo ou os dois (a coluna guarda '' quando só há arquivo).
+    const fileId = optionalFileId(body.id_arquivo);
+    const answer = fileId
+        ? optionalText(body.resposta, 'resposta', 10000) || ''
+        : requiredText(body.resposta, 'resposta', 10000, 'A resposta (ou um arquivo)');
     const studentId = fromClassAccount
         ? (await identifyClassStudent(user, body.matricula, body.senha)).id_aluno
         : user.id_aluno;
-    // Reenvio só enquanto não houver nota: a resposta corrigida não pode mudar depois.
+    // O arquivo é de quem enviou; no reenvio, o arquivo atual da entrega pode ser mantido.
+    const current = database.prepare(
+        'SELECT id_arquivo FROM entregas_atividades WHERE id_atividade = ? AND id_aluno = ?'
+    ).get(activityId, studentId);
+    assertOwnFile(user, fileId, current?.id_arquivo ?? null);
+    // Na conta da turma o mesmo usuário envia por vários alunos: um arquivo já usado na entrega
+    // de outro aluno não pode ser reaproveitado (daria acesso a ele).
+    if (fileId && database.prepare(
+        'SELECT 1 FROM entregas_atividades WHERE id_arquivo = ? AND id_aluno <> ?'
+    ).get(fileId, studentId)) {
+        throw new ApiError(400, 'O anexo informado não está entre os arquivos que você enviou.');
+    }
+    // Reenvio (substitui resposta e arquivo) só enquanto não houver nota.
     const result = database.prepare(`
-        INSERT INTO entregas_atividades (id_atividade, id_aluno, resposta)
-        VALUES (?, ?, ?)
+        INSERT INTO entregas_atividades (id_atividade, id_aluno, resposta, id_arquivo)
+        VALUES (?, ?, ?, ?)
         ON CONFLICT (id_atividade, id_aluno)
-        DO UPDATE SET resposta = excluded.resposta, enviado_em = CURRENT_TIMESTAMP
+        DO UPDATE SET resposta = excluded.resposta, id_arquivo = excluded.id_arquivo,
+            enviado_em = CURRENT_TIMESTAMP
         WHERE entregas_atividades.nota IS NULL
-    `).run(activityId, studentId, body.resposta.trim());
+    `).run(activityId, studentId, answer, fileId);
     if (result.changes === 0) {
         throw new ApiError(409, 'Esta entrega já foi corrigida e não pode mais ser reenviada.');
     }
     if (fromClassAccount) registrar(user, 'entrega.enviar_pela_turma', `aluno:${studentId}`);
     const submission = database.prepare(`
-        SELECT e.id_entrega, e.id_atividade, e.id_aluno, a.nome, e.resposta, e.enviado_em
+        SELECT e.id_entrega, e.id_atividade, e.id_aluno, a.nome, e.resposta, e.enviado_em,
+               ${attachmentColumns('arq')}
         FROM entregas_atividades e JOIN alunos a ON a.id_aluno = e.id_aluno
+        LEFT JOIN arquivos arq ON arq.id_arquivo = e.id_arquivo
         WHERE e.id_atividade = ? AND e.id_aluno = ?
     `).get(activityId, studentId);
-    sendJson(response, 201, submission);
+    sendJson(response, 201, Object.assign(submission, { anexo: attachmentFrom(submission) }));
 }
 
 // Acesso da turma (login compartilhado): quem envia se identifica com a matrícula e a senha
@@ -787,9 +830,11 @@ function getSubmissions(activityId, user) {
             throw new ApiError(404, 'Atividade não encontrada.');
         }
         return database.prepare(`
-            SELECT id_entrega, id_atividade, id_aluno, resposta, enviado_em
-            FROM entregas_atividades WHERE id_atividade = ? AND id_aluno = ?
-        `).all(activityId, user.id_aluno);
+            SELECT e.id_entrega, e.id_atividade, e.id_aluno, e.resposta, e.enviado_em,
+                   ${attachmentColumns('arq')}
+            FROM entregas_atividades e LEFT JOIN arquivos arq ON arq.id_arquivo = e.id_arquivo
+            WHERE e.id_atividade = ? AND e.id_aluno = ?
+        `).all(activityId, user.id_aluno).map((row) => Object.assign(row, { anexo: attachmentFrom(row) }));
     }
     requireRole(user, ['professor', 'gestao']);
     // Professor: só o da disciplina (404 fora do escopo, sem revelar que a atividade existe).
@@ -798,12 +843,13 @@ function getSubmissions(activityId, user) {
     }
     return database.prepare(`
         SELECT e.id_entrega, e.id_atividade, e.id_aluno, e.resposta, e.enviado_em,
-               e.nota, e.feedback, a.nome
+               e.nota, e.feedback, a.nome, ${attachmentColumns('arq')}
         FROM entregas_atividades e
         JOIN alunos a ON a.id_aluno = e.id_aluno
+        LEFT JOIN arquivos arq ON arq.id_arquivo = e.id_arquivo
         WHERE e.id_atividade = ?
         ORDER BY a.nome
-    `).all(activityId);
+    `).all(activityId).map((row) => Object.assign(row, { anexo: attachmentFrom(row) }));
 }
 
 // Correção: gestão ou o professor da disciplina da atividade.

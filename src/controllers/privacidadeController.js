@@ -48,10 +48,11 @@ function studentData(studentId) {
         `, studentId).map((row) => ({ ...row, presente: row.presente === 1 })),
         entregas: all(`
             SELECT at.titulo AS atividade, d.nome_disciplina AS disciplina, e.resposta,
-                   e.enviado_em, e.nota, e.feedback
+                   e.enviado_em, e.nota, e.feedback, arq.nome AS anexo_nome, arq.tipo_mime AS anexo_tipo
             FROM entregas_atividades e
             JOIN atividades at ON at.id_atividade = e.id_atividade
             JOIN disciplinas d ON d.id_disciplina = at.id_disciplina
+            LEFT JOIN arquivos arq ON arq.id_arquivo = e.id_arquivo
             WHERE e.id_aluno = ? ORDER BY e.enviado_em
         `, studentId),
         justificativas: all(`

@@ -1642,8 +1642,67 @@ function reminderButton(activity, group) {
     } } }, icon('bell-simple'), 'Criar aviso de lembrete');
 }
 
+// Arquivos aceitos em atividades e entregas (o servidor confere o conteúdo).
+const ACTIVITY_FILE_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
+
+// Botão que baixa um anexo ({ id_arquivo, nome, tipo_mime }) com o token no cabeçalho.
+function attachmentButton(file, label = file.nome || 'Anexo') {
+    const button = el('button', { class: 'link-botao', type: 'button' },
+        icon(file.tipo_mime === 'application/pdf' ? 'file-pdf' : 'file-image'), label);
+    button.addEventListener('click', () => downloadFile(file.id_arquivo, file.nome, button));
+    return button;
+}
+
+// Campo de anexo da atividade: mostra o anexo atual (com "Remover") e valida o arquivo escolhido.
+// `value()` → undefined (manter), null (remover) ou o File novo.
+function activityFileField(current) {
+    let removed = false;
+    const input = el('input', { type: 'file', name: 'anexo', id: 'atividade-anexo', accept: ACTIVITY_FILE_TYPES.join(',') });
+    const info = el('div', { class: 'campo-dica', id: 'atividade-anexo-dica', 'aria-live': 'polite' });
+    input.setAttribute('aria-describedby', 'atividade-anexo-dica');
+    const showInfo = () => {
+        const chosen = input.files[0];
+        if (chosen) {
+            info.replaceChildren(`${chosen.name} · ${formatSize(chosen.size)}`);
+        } else if (current && !removed) {
+            const remove = el('button', { class: 'link-botao', type: 'button' }, icon('trash'), 'Remover anexo');
+            remove.addEventListener('click', () => { removed = true; showInfo(); input.focus(); });
+            info.replaceChildren(el('span', { text: 'Anexo atual: ' }), attachmentButton(current), ' ', remove);
+        } else {
+            info.replaceChildren(current ? 'O anexo atual será removido ao salvar. ' : '',
+                'Opcional · PDF, JPG ou PNG de até 5 MB.');
+        }
+    };
+    input.addEventListener('change', () => {
+        CwFormulario.limpar(input);
+        const chosen = input.files[0];
+        const problem = !chosen ? null
+            : chosen.size > ANEXO_MAX_BYTES ? 'O arquivo passa de 5 MB. Escolha um arquivo menor.'
+                : chosen.type && !ACTIVITY_FILE_TYPES.includes(chosen.type) ? 'Envie um arquivo PDF, JPG ou PNG.' : null;
+        if (problem) {
+            input.value = '';
+            CwFormulario.erro(input, problem);
+        }
+        showInfo();
+    });
+    showInfo();
+    const wrapper = el('div', { class: 'campo' }, el('label', { for: 'atividade-anexo', text: 'Arquivo para os alunos' }), input, info);
+    return {
+        input,
+        wrapper,
+        value: () => input.files[0] || (removed ? null : undefined)
+    };
+}
+
+// Prazo gravado ("AAAA-MM-DD" ou "AAAA-MM-DDTHH:MM") → [data, hora].
+function splitDeadline(prazo) {
+    const [date = '', time = ''] = String(prazo || '').split(/[T ]/);
+    return [date, time.slice(0, 5)];
+}
+
 // only: vínculos oferecidos (tela de uma disciplina); sem ele, todos (o clique passa o evento).
-function openActivityForm(only) {
+// editing: atividade existente (editar, inclusive o anexo).
+function openActivityForm(only, editing = null) {
     const assignments = Array.isArray(only) ? only : teachingAssignments();
     if (!assignments.length) {
         notify('Nenhuma disciplina vinculada ao seu perfil.', 'erro');
@@ -1657,6 +1716,19 @@ function openActivityForm(only) {
     const description = el('textarea', { name: 'descricao', rows: 5, maxlength: 10000, required: true });
     const dueDate = el('input', { type: 'date', name: 'prazo', required: true, min: todayYmd() });
     const dueTime = el('input', { type: 'time', name: 'hora', value: '23:59' });
+    const attachment = activityFileField(editing?.anexo || null);
+    const [savedDate, savedTime] = splitDeadline(editing?.prazo);
+    if (editing) {
+        selectAssignment.value = String(editing.id_disciplina);
+        typeAvaliacao.checked = editing.tipo === 'avaliacao';
+        typeAtividade.checked = !typeAvaliacao.checked;
+        title.value = editing.titulo || '';
+        description.value = editing.descricao || '';
+        dueDate.value = savedDate;
+        dueTime.value = savedTime;
+        // Um prazo que já passou pode continuar como está ao editar outros campos.
+        if (savedDate && savedDate < todayYmd()) dueDate.min = savedDate;
+    }
 
     const form = el('form', { class: 'formulario', novalidate: true },
         field('Disciplina e turma', selectAssignment),
@@ -1669,9 +1741,10 @@ function openActivityForm(only) {
         el('div', { class: 'campos-linha' },
             field('Prazo (data)', dueDate),
             field('Horário', dueTime, { hint: 'Padrão: 23h59.' })),
+        attachment.wrapper,
         el('div', { class: 'dialogo-acoes' },
             el('button', { class: 'botao botao-contorno', type: 'button', on: { click: closeDialog } }, 'Cancelar'),
-            el('button', { class: 'botao botao-primario', type: 'submit' }, icon('check'), 'Criar')));
+            el('button', { class: 'botao botao-primario', type: 'submit' }, icon('check'), editing ? 'Salvar' : 'Criar')));
 
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -1684,31 +1757,38 @@ function openActivityForm(only) {
         ].filter(([input]) => !input.value.trim());
         missing.forEach(([input, message]) => CwFormulario.erro(input, message));
         if (missing.length) { missing[0][0].focus(); return; }
-        if (dueDate.value < todayYmd()) {
+        const keptOldDate = editing && dueDate.value === savedDate;
+        if (dueDate.value < todayYmd() && !keptOldDate) {
             CwFormulario.erro(dueDate, 'O prazo não pode ser uma data que já passou.', { focar: true });
             return;
         }
         const assignment = findAssignment(selectAssignment.value);
         await withBusy(button, async () => {
             try {
-                await api('/api/atividades', json('POST', {
+                const body = {
                     titulo: title.value.trim(),
                     descricao: description.value.trim(),
                     id_turma: assignment.id_turma,
                     id_disciplina: assignment.id_disciplina,
                     tipo: typeAvaliacao.checked ? 'avaliacao' : 'atividade',
                     prazo: dueTime.value ? `${dueDate.value}T${dueTime.value}` : dueDate.value
-                }));
+                };
+                const file = attachment.value();
+                if (file) body.id_arquivo = (await uploadFile(file)).id_arquivo;
+                else if (file === null) body.id_arquivo = null;
+                if (editing) await api(`/api/atividades/${editing.id_atividade}`, json('PATCH', body));
+                else await api('/api/atividades', json('POST', body));
                 closeDialog();
-                notify(typeAvaliacao.checked ? 'Avaliação criada.' : 'Atividade criada.');
+                const label = typeAvaliacao.checked ? 'Avaliação' : 'Atividade';
+                notify(editing ? `${label} atualizada.` : `${label} criada.`);
                 reload('atividades');
                 if (source('painel').status !== 'idle') reload('painel');
             } catch (error) {
-                showFormError(form, error, [[/t[íi]tulo/i, title], [/descri/i, description], [/prazo|data/i, dueDate], [/disciplina|turma/i, selectAssignment]]);
+                showFormError(form, error, [[/anexo|arquivo/i, attachment.input], [/t[íi]tulo/i, title], [/descri/i, description], [/prazo|data/i, dueDate], [/disciplina|turma/i, selectAssignment]]);
             }
         });
     });
-    openDialog('Nova atividade', form);
+    openDialog(editing ? 'Editar atividade' : 'Nova atividade', form);
     title.focus();
 }
 
@@ -1745,14 +1825,21 @@ function renderActivityDetail(activityId) {
         ? rosterEntry.alunos.filter((student) => !entry.data.some((item) => item.id_aluno === student.id_aluno))
         : [];
 
+    const ownAssignment = teachingAssignments().filter((item) => item.id_disciplina === activity.id_disciplina);
+    const edit = ownAssignment.length
+        ? el('button', { class: 'botao botao-contorno', type: 'button', on: { click: () => openActivityForm(ownAssignment, activity) } },
+            icon('pencil-simple'), 'Editar')
+        : null;
     return {
         title: activity.titulo,
         trail: `Atividades · ${activity.nome_disciplina || ''} · ${activity.nome_turma || className(activity.id_turma)}`,
+        actions: edit ? [edit] : [],
         content: [
             back,
             card('resumo-atividade',
                 el('p', { class: 'meta' }, el('span', { class: 'chip', text: activityType(activity).label }), ` ${deadlineLabel(activity.prazo)}${deadlinePassed(activity.prazo) ? ' · encerrada' : ''}`),
                 el('p', { class: 'texto-longo', text: activity.descricao || '' }),
+                activity.anexo ? el('p', { class: 'meta' }, icon('paperclip'), ' Arquivo para os alunos: ', attachmentButton(activity.anexo)) : null,
                 sent !== null ? el('div', { class: 'linha-selos' },
                     el('span', { class: 'selo selo-azul' }, icon('tray-arrow-down'), total !== null ? `${sent} de ${total} enviaram` : plural(sent, 'entrega', 'entregas')),
                     el('span', { class: 'selo' }, icon('seal-check'), plural(graded, 'corrigida', 'corrigidas'))) : null),
@@ -1791,7 +1878,7 @@ function submissionRow(submission) {
                 formHost.querySelector('input').focus();
             }
         });
-        item.replaceChildren(
+        item.replaceChildren(...[
             el('div', { class: 'entrega-cabecalho' },
                 avatar(submission.nome),
                 el('span', { class: 'linha-texto' },
@@ -1802,8 +1889,10 @@ function submissionRow(submission) {
             el('details', { class: 'entrega-resposta' },
                 el('summary', { text: 'Ver resposta' }),
                 el('p', { class: 'texto-longo', text: submission.resposta || '(sem texto)' })),
+            submission.anexo ? el('p', { class: 'meta' }, icon('paperclip'), ' Arquivo enviado: ',
+                attachmentButton(submission.anexo, `Baixar ${submission.anexo.nome || 'arquivo'}`)) : null,
             submission.feedback ? el('p', { class: 'entrega-feedback' }, icon('chat-text'), ` ${submission.feedback}`) : null,
-            formHost);
+            formHost].filter(Boolean));
     };
     fill();
     return item;

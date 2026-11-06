@@ -5,7 +5,7 @@
 // - Respostas com Cache-Control no-store/private nunca são guardadas.
 // Ao mudar a casca (ou esta lista), suba a versão de CACHE para descartar o cache antigo.
 
-const CACHE = 'cw-v8';
+const CACHE = 'cw-v9';
 const OFFLINE_URL = '/offline.html';
 
 // Obrigatórios: sem eles a página offline não funciona, então a instalação falha.

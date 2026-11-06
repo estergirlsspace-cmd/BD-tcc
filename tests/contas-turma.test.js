@@ -204,8 +204,7 @@ test('conta da turma: 403 no que é pessoal; mural, salvos, atividades e horári
         ['GET', '/api/conta/sessoes'], ['DELETE', '/api/conta/sessoes'],
         ['GET', '/api/privacidade/meus-dados'],
         ['POST', '/api/auth/password'],
-        ['GET', '/api/atividades/1/entregas'],
-        ['POST', '/api/arquivos']
+        ['GET', '/api/atividades/1/entregas']
     ];
     for (const [method, rota] of pessoais) {
         const r = await s.api(rota, { method, token, body: method === 'GET' ? undefined : {} });

@@ -694,7 +694,7 @@
     border-color: var(--cw-vermelho-texto);
 }
 
-.campo:has(#just-anexo:focus-visible) .zona-anexo {
+.campo:has(input[type="file"]:focus-visible) .zona-anexo {
     outline: 3px solid var(--cw-foco);
     outline-offset: 2px;
     box-shadow: 0 0 0 7px var(--cw-anel-foco);
@@ -1292,6 +1292,19 @@
     color: var(--cw-texto-2);
     font-size: .875rem;
     overflow-wrap: anywhere;
+}
+
+.atividade-anexo {
+    justify-self: start;
+    max-width: 100%;
+    text-align: left;
+    overflow-wrap: anywhere;
+}
+
+.anexo-mantido {
+    display: grid;
+    justify-items: start;
+    gap: 4px;
 }
 
 .atividade-quando,

@@ -1282,7 +1282,7 @@ function renderNoticeDetail(id) {
         closeNoticeButton());
 }
 
-function attachmentButton(file) {
+function attachmentButton(file, label = 'Anexo') {
     const isPdf = /pdf/i.test(file.tipo_mime || file.nome || '');
     const kind = isPdf ? 'PDF' : /png/i.test(file.tipo_mime || '') ? 'PNG' : 'Imagem';
     const button = el('button', {
@@ -1295,7 +1295,7 @@ function attachmentButton(file) {
         el('span', { class: 'anexo-nome', text: file.nome || 'Anexo' }),
         el('span', { class: 'meta', text: `${kind} · ${formatSize(file.tamanho)}` })),
     el('span', { class: 'anexo-baixar' }, icon('download-simple')));
-    return el('div', { class: 'anexos' }, el('p', { class: 'campo-rotulo', text: 'Anexo' }), button);
+    return el('div', { class: 'anexos' }, el('p', { class: 'campo-rotulo', text: label }), button);
 }
 
 // Atualização otimista: aplica, chama a API e desfaz em caso de erro.
@@ -1726,6 +1726,7 @@ function activityCard(activity, status) {
             el('span', { class: `selo${overdue ? ' selo-vermelho' : ''}` }, icon(overdue ? 'warning' : config.icon, true), tag)),
         el('h2', { class: 'atividade-titulo', id: titleId, text: activity.titulo }),
         info ? el('p', { class: 'atividade-info', text: truncate(info, 200) }) : null,
+        activity.anexo ? activityFileLink(activity.anexo) : null,
         el('div', { class: 'atividade-rodape' },
             el('span', { class: 'atividade-quando' }, icon('clock'), when),
             overdue
@@ -1735,6 +1736,16 @@ function activityCard(activity, status) {
                     'aria-describedby': titleId,
                     on: { click: () => (status === 'pendentes' ? openSubmitDialog(activity) : openSubmissionDialog(activity, status)) }
                 }, icon(config.buttonIcon), config.button)));
+}
+
+// Anexo do professor no cartão: link compacto que baixa o arquivo.
+function activityFileLink(file) {
+    const button = el('button', {
+        class: 'link-botao atividade-anexo', type: 'button',
+        'aria-label': `Baixar arquivo da atividade: ${file.nome || 'anexo'} (${formatSize(file.tamanho)})`,
+        on: { click: () => downloadFile(file, button) }
+    }, icon('paperclip'), el('span', { text: file.nome || 'Arquivo da atividade' }));
+    return button;
 }
 
 function formatGrade(value) {
@@ -1753,12 +1764,28 @@ function openDialog(title, ...content) {
     return dialog;
 }
 
-function openSubmitDialog(activity, previousAnswer = '') {
+// previous: entrega atual ({ resposta, anexo }) ao reenviar. Resposta escrita, arquivo ou os dois.
+function openSubmitDialog(activity, previous = null) {
     const textarea = el('textarea', {
-        id: 'resposta-atividade', name: 'resposta', rows: '8', maxlength: '10000', required: true,
+        id: 'resposta-atividade', name: 'resposta', rows: '8', maxlength: '10000',
         'aria-describedby': 'resposta-ajuda'
     });
-    textarea.value = previousAnswer;
+    textarea.value = previous?.resposta || '';
+    const picker = filePicker({
+        id: 'entrega-anexo', title: 'Arquivo (PDF, JPG ou PNG, até 5 MB)',
+        help: 'Opcional. Toque para escolher o arquivo ou tirar uma foto.',
+        accept: 'application/pdf,image/jpeg,image/png'
+    });
+    // Reenvio: o arquivo já enviado continua, salvo se for removido ou trocado por outro.
+    let keptFile = previous?.anexo || null;
+    const keptBox = keptFile ? el('div', { class: 'anexo-mantido' },
+        attachmentButton(keptFile, 'Arquivo enviado'),
+        el('button', {
+            class: 'link-botao link-perigo', type: 'button',
+            on: { click: () => { keptFile = null; keptBox.remove(); picker.input.focus(); } }
+        }, icon('trash'), 'Remover arquivo enviado'),
+        el('p', { class: 'meta', text: 'Para trocar, escolha outro arquivo abaixo.' })) : null;
+    let uploaded = null; // { file, id }: não reenvia o mesmo arquivo se só a senha estava errada
     const submit = el('button', { class: 'botao botao-primario', type: 'submit' }, icon('paper-plane-tilt'), 'Enviar resposta');
     // Acesso da turma: o login é da sala, então quem envia se identifica com a matrícula e a senha pessoal.
     const fromClass = isClassAccount();
@@ -1773,9 +1800,12 @@ function openSubmitDialog(activity, previousAnswer = '') {
     const form = el('form', { class: 'formulario', novalidate: true },
         el('p', { class: 'meta', text: `${activity.nome_disciplina || 'Atividade'} · ${deadlineLabel(activity.prazo)}` }),
         activity.descricao ? el('p', { class: 'dialogo-descricao', text: activity.descricao }) : null,
+        activity.anexo ? attachmentButton(activity.anexo, 'Arquivo do professor') : null,
         el('label', { class: 'campo-rotulo', for: 'resposta-atividade', text: 'Sua resposta' }),
         textarea,
-        el('p', { class: 'meta', id: 'resposta-ajuda', text: 'Até 10.000 caracteres. Você pode reenviar até o prazo terminar.' }),
+        el('p', { class: 'meta', id: 'resposta-ajuda', text: 'Escreva a resposta, envie um arquivo ou os dois. Até 10.000 caracteres; você pode reenviar até o prazo terminar.' }),
+        keptBox,
+        picker.node,
         fromClass ? el('fieldset', { class: 'entrega-identificacao' },
             el('legend', { class: 'campo-rotulo', text: 'Quem está enviando?' }),
             el('p', { class: 'meta', id: 'entrega-identificacao', text: 'Este é o acesso da sala: confirme com a sua matrícula e a sua senha pessoal para a atividade ir para o seu nome.' }),
@@ -1786,9 +1816,15 @@ function openSubmitDialog(activity, previousAnswer = '') {
             submit));
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
+        CwFormulario.limparTudo(form);
         const answer = textarea.value.trim();
-        if (!answer) {
-            fieldError(textarea, 'Escreva sua resposta antes de enviar.');
+        if (picker.error()) {
+            picker.input.focus();
+            return;
+        }
+        const file = picker.file();
+        if (!answer && !file && !keptFile) {
+            fieldError(textarea, 'Escreva sua resposta ou anexe um arquivo antes de enviar.');
             return;
         }
         if (fromClass && !matricula.value.trim()) {
@@ -1799,11 +1835,17 @@ function openSubmitDialog(activity, previousAnswer = '') {
             fieldError(senha, 'Digite a sua senha pessoal.');
             return;
         }
-        const payload = fromClass
-            ? { resposta: answer, matricula: matricula.value.trim(), senha: senha.value }
-            : { resposta: answer };
+        const payload = fromClass ? { matricula: matricula.value.trim(), senha: senha.value } : {};
+        if (answer) payload.resposta = answer;
         submit.disabled = true;
         try {
+            if (file && uploaded?.file !== file) {
+                submit.replaceChildren(icon('upload-simple'), 'Enviando arquivo…');
+                uploaded = { file, id: (await uploadFile(file))?.id_arquivo };
+            }
+            const fileId = file ? uploaded.id : keptFile?.id_arquivo;
+            if (fileId) payload.id_arquivo = fileId;
+            submit.replaceChildren(icon('paper-plane-tilt'), 'Enviando…');
             const result = await api(`/api/atividades/${activity.id_atividade}/entregas`, {
                 method: 'POST', body: JSON.stringify(payload)
             });
@@ -1814,6 +1856,7 @@ function openSubmitDialog(activity, previousAnswer = '') {
             notify(fromClass && result?.nome ? `Atividade enviada no nome de ${result.nome}!` : 'Atividade enviada!', 'sucesso');
             loadSource('atividades');
         } catch (error) {
+            submit.replaceChildren(icon('paper-plane-tilt'), 'Enviar resposta');
             if (error.status === 409) {
                 // A atividade já foi corrigida: não dá mais para reenviar.
                 CwFormulario.erro(textarea, error.message || 'Esta atividade já foi corrigida. Não é possível reenviar.', { focar: true });
@@ -1821,11 +1864,16 @@ function openSubmitDialog(activity, previousAnswer = '') {
                 return;
             }
             if (fromClass) senha.value = '';
-            CwFormulario.mostrar(form, error, fromClass && error.status !== 409 ? matricula : textarea);
             submit.disabled = false;
+            if (/anexo|arquivo/i.test(error.message)) {
+                notify(error.message, 'erro');
+                picker.input.focus();
+                return;
+            }
+            CwFormulario.mostrar(form, error, fromClass ? matricula : textarea);
         }
     });
-    openDialog(previousAnswer ? `Reenviar: ${activity.titulo}` : activity.titulo, form);
+    openDialog(previous ? `Reenviar: ${activity.titulo}` : activity.titulo, form);
     textarea.focus();
 }
 
@@ -1850,8 +1898,12 @@ async function openSubmissionDialog(activity, status) {
             el('div', {}, el('p', { class: 'campo-rotulo', text: 'Comentário do professor' }),
                 el('p', { class: 'texto-livre', text: submission.feedback || 'Sem comentário.' }))));
     }
-    nodes.push(el('p', { class: 'campo-rotulo', text: 'Sua resposta' }),
-        el('p', { class: 'texto-livre caixa-resposta', text: answer?.resposta || 'Resposta não encontrada.' }));
+    if (activity.anexo) nodes.push(attachmentButton(activity.anexo, 'Arquivo do professor'));
+    if (answer?.resposta || !answer?.anexo) {
+        nodes.push(el('p', { class: 'campo-rotulo', text: 'Sua resposta' }),
+            el('p', { class: 'texto-livre caixa-resposta', text: answer?.resposta || 'Resposta não encontrada.' }));
+    }
+    if (answer?.anexo) nodes.push(attachmentButton(answer.anexo, 'Arquivo enviado'));
     const actions = el('div', { class: 'acoes' },
         el('button', { class: 'botao botao-contorno', type: 'button', on: { click: () => $('#dialogo').close() } }, 'Fechar'));
     // Entrega com nota não pode ser reenviada (o servidor responde 409).
@@ -1859,7 +1911,7 @@ async function openSubmissionDialog(activity, status) {
     if (status === 'entregues' && !graded && !isOverdue(activity)) {
         actions.append(el('button', {
             class: 'botao botao-primario', type: 'button',
-            on: { click: () => openSubmitDialog(activity, answer?.resposta || '') }
+            on: { click: () => openSubmitDialog(activity, answer || { resposta: '' }) }
         }, icon('pencil-simple'), 'Reenviar'));
     }
     nodes.push(actions);
@@ -2066,20 +2118,22 @@ function renderJustify() {
     return form;
 }
 
-// Campo de anexo opcional (PDF, JPG ou PNG até 5 MB), com arrastar e soltar.
-function filePicker() {
+// Campo de anexo opcional (PDF, JPG ou PNG até 5 MB), com arrastar e soltar. `id` nomeia o
+// input (e a ajuda/erro ligados a ele); `accept` só com tipos MIME deixa o celular oferecer a câmera.
+function filePicker({ id = 'just-anexo', title = 'Anexar atestado ou declaração (opcional)',
+    help = 'PDF, JPG ou PNG · até 5 MB. Toque para escolher ou arraste o arquivo.',
+    accept = '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png' } = {}) {
     let chosen = null;
     let problem = null;
     const input = el('input', {
-        class: 'visually-hidden', id: 'just-anexo', type: 'file', name: 'anexo',
-        accept: '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png', 'aria-describedby': 'just-anexo-ajuda'
+        class: 'visually-hidden', id, type: 'file', name: 'anexo', accept, 'aria-describedby': `${id}-ajuda`
     });
     const info = el('div', { class: 'anexo-escolhido', 'aria-live': 'polite' });
-    const zone = el('label', { class: 'zona-anexo', for: 'just-anexo' },
+    const zone = el('label', { class: 'zona-anexo', for: id },
         el('span', { class: 'icone-quadrado' }, icon('file-arrow-up')),
         el('span', { class: 'zona-anexo-texto' },
-            el('span', { class: 'zona-anexo-titulo', text: 'Anexar atestado ou declaração (opcional)' }),
-            el('span', { class: 'meta', id: 'just-anexo-ajuda', text: 'PDF, JPG ou PNG · até 5 MB. Toque para escolher ou arraste o arquivo.' })));
+            el('span', { class: 'zona-anexo-titulo', text: title }),
+            el('span', { class: 'meta', id: `${id}-ajuda`, text: help })));
 
     function choose(file) {
         chosen = null;
@@ -2097,12 +2151,12 @@ function filePicker() {
         // O erro do anexo fica junto da zona (o input é escondido) e é ligado por aria-describedby.
         if (problem) {
             input.setAttribute('aria-invalid', 'true');
-            input.setAttribute('aria-describedby', 'just-anexo-ajuda just-anexo-erro');
-            info.replaceChildren(el('p', { class: 'cw-campo-erro', id: 'just-anexo-erro' }, icon('warning-circle'), el('span', { text: problem })));
+            input.setAttribute('aria-describedby', `${id}-ajuda ${id}-erro`);
+            info.replaceChildren(el('p', { class: 'cw-campo-erro', id: `${id}-erro` }, icon('warning-circle'), el('span', { text: problem })));
             return;
         }
         input.removeAttribute('aria-invalid');
-        input.setAttribute('aria-describedby', 'just-anexo-ajuda');
+        input.setAttribute('aria-describedby', `${id}-ajuda`);
         if (!chosen) {
             info.replaceChildren();
             return;

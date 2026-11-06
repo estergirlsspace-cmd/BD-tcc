@@ -3,6 +3,7 @@ const path = require('node:path');
 const database = require('../database');
 const { ApiError } = require('../errors');
 const { studentNoticeScope, teacherNoticeScope } = require('./audience');
+const { isClassAccount } = require('./accounts');
 
 // Arquivos enviados (PDF, JPG, PNG até 5 MB). Os metadados ficam na tabela `arquivos`; o conteúdo
 // fica em DATA_DIR/arquivos/<id_arquivo>. O caminho em disco é derivado só do id inteiro — o nome
@@ -27,10 +28,13 @@ const FILE_TYPES = {
     }
 };
 
-// Arquivo sem vínculo: não é anexo de aviso, atestado de justificativa nem horário publicado.
+// Arquivo sem vínculo: não é anexo de aviso, atestado de justificativa, horário publicado,
+// anexo de atividade nem arquivo de entrega.
 const UNLINKED = `NOT EXISTS (SELECT 1 FROM posts_avisos WHERE id_arquivo = arq.id_arquivo)
     AND NOT EXISTS (SELECT 1 FROM justificativas WHERE id_arquivo = arq.id_arquivo)
-    AND NOT EXISTS (SELECT 1 FROM horarios_pdf WHERE id_arquivo = arq.id_arquivo)`;
+    AND NOT EXISTS (SELECT 1 FROM horarios_pdf WHERE id_arquivo = arq.id_arquivo)
+    AND NOT EXISTS (SELECT 1 FROM atividades WHERE id_arquivo = arq.id_arquivo)
+    AND NOT EXISTS (SELECT 1 FROM entregas_atividades WHERE id_arquivo = arq.id_arquivo)`;
 
 function ensureDirectory() {
     mkdirSync(FILES_DIRECTORY, { recursive: true, mode: 0o700 });
@@ -179,12 +183,48 @@ function canReadSchedulePdf(user, fileId) {
     ).get(fileId, user.id_turma));
 }
 
+// Anexo de atividade: alunos da turma (inclusive a conta da turma) e o professor da disciplina.
+// Arquivo de entrega: o aluno dono da entrega e o professor da disciplina da atividade.
+function canReadActivityFile(user, fileId) {
+    if (user.tipo_usuario === 'professor') {
+        return Boolean(user.id_professor && database.prepare(`
+            SELECT 1 FROM atividades a JOIN disciplinas d ON d.id_disciplina = a.id_disciplina
+            WHERE d.id_professor = ? AND (a.id_arquivo = ? OR EXISTS (
+                SELECT 1 FROM entregas_atividades e
+                WHERE e.id_atividade = a.id_atividade AND e.id_arquivo = ?
+            ))
+        `).get(user.id_professor, fileId, fileId));
+    }
+    if (user.tipo_usuario !== 'aluno') return false;
+    if (user.conta_compartilhada) {
+        return Boolean(database.prepare(`
+            SELECT 1 FROM atividades a JOIN turmas t ON t.id_turma = a.id_turma
+            WHERE a.id_arquivo = ? AND t.curso = ? AND t.serie = ?
+        `).get(fileId, user.curso, user.serie));
+    }
+    if (user.id_turma && database.prepare(
+        'SELECT 1 FROM atividades WHERE id_arquivo = ? AND id_turma = ?'
+    ).get(fileId, user.id_turma)) {
+        return true;
+    }
+    return Boolean(user.id_aluno && !isClassAccount(user) && database.prepare(
+        'SELECT 1 FROM entregas_atividades WHERE id_arquivo = ? AND id_aluno = ?'
+    ).get(fileId, user.id_aluno));
+}
+
 // Quem pode baixar: quem enviou; a gestão; quem pode ver o aviso do qual é anexo; quem é público
-// do horário publicado; e, se for atestado de justificativa, só o aluno dono (além da gestão) —
-// o professor não vê atestados.
+// do horário publicado; quem pode ver a atividade ou a entrega (veja acima); e, se for atestado de
+// justificativa, só o aluno dono (além da gestão) — o professor não vê atestados. A conta da
+// turma nunca baixa arquivo de entrega, nem o que ela mesma enviou: o aparelho é compartilhado.
 function canReadFile(user, file) {
+    if (isClassAccount(user) && database.prepare(
+        'SELECT 1 FROM entregas_atividades WHERE id_arquivo = ?'
+    ).get(file.id_arquivo)) {
+        return false;
+    }
     if (file.id_usuario === user.id_usuario || user.tipo_usuario === 'gestao') return true;
     if (canReadSchedulePdf(user, file.id_arquivo)) return true;
+    if (canReadActivityFile(user, file.id_arquivo)) return true;
 
     const noticeScope = user.tipo_usuario === 'aluno'
         ? studentNoticeScope(user, 'p')
