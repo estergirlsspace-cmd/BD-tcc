@@ -276,8 +276,8 @@ function showTab(tab) {
 }
 
 G.sections.configuracoes = {
-    title: 'Configurações',
-    description: 'Seu perfil, senha e segurança, notificações, aparência e privacidade.',
+    title: 'Perfil da Gestão',
+    description: 'Seus dados, senha e segurança, notificações e aparência.',
     setup() {
         renderProfile();
         setupPasswordForm();

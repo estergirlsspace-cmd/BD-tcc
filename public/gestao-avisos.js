@@ -1,5 +1,6 @@
-// Portal da Gestão — Avisos: publicar, editar e excluir (público escola/curso/curso+série/turma),
-// tipo, data do evento, urgente, anexo PDF e contador de leituras.
+// Portal da Gestão — Comunicados (avisos): publicar, editar e excluir (público escola/curso/
+// curso+série/turma), tipo, data do evento, urgente, anexo PDF e contador de leituras.
+// Também a seção "Comunicados urgentes" (só os marcados como urgentes).
 
 (function () {
 'use strict';
@@ -64,31 +65,31 @@ function renderCurrentAttachment() {
         }));
 }
 
-function openForm({ focus = true } = {}) {
-    $('#cartao-aviso').hidden = false;
-    $('#botao-novo-aviso').hidden = true;
-    if (focus) {
-        $('#cartao-aviso').scrollIntoView({ behavior: 'smooth', block: 'start' });
-        $('#aviso-titulo').focus();
-    }
+// O formulário fica sempre aberto (protótipo): "abrir" é levar o foco até ele.
+function focusForm() {
+    $('#cartao-aviso').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    $('#aviso-titulo').focus({ preventScroll: true });
 }
 
-function closeForm() {
+function setFormLabels() {
+    $('#titulo-form-aviso').textContent = editing ? 'Editar comunicado' : 'Novo comunicado';
+    $('#aviso-enviar').textContent = editing ? 'Salvar alterações' : 'Publicar comunicado';
+    $('#aviso-cancelar').textContent = editing ? 'Cancelar edição' : 'Limpar campos';
+}
+
+function resetForm() {
     window.CwFormulario?.limparTudo($('#form-aviso'));
     editing = null;
     removeAttachment = false;
     $('#form-aviso').reset();
     updateAudienceFields();
     renderCurrentAttachment();
-    $('#titulo-form-aviso').textContent = 'Novo aviso';
-    $('#aviso-enviar').textContent = 'Publicar aviso';
-    $('#cartao-aviso').hidden = true;
-    $('#botao-novo-aviso').hidden = false;
+    setFormLabels();
 }
 
 function startNew() {
-    if (editing) closeForm();
-    openForm();
+    if (editing) resetForm();
+    focusForm();
 }
 
 function startEdit(notice) {
@@ -112,9 +113,8 @@ function startEdit(notice) {
         ? date.slice(0, 16).replace(' ', 'T')
         : /^\d{4}-\d{2}-\d{2}$/.test(date) ? `${date}T00:00` : '';
     renderCurrentAttachment();
-    $('#titulo-form-aviso').textContent = 'Editar aviso';
-    $('#aviso-enviar').textContent = 'Salvar alterações';
-    openForm();
+    setFormLabels();
+    focusForm();
 }
 
 async function submitNotice(event) {
@@ -141,12 +141,12 @@ async function submitNotice(event) {
         }
         if (editing) {
             await G.sendJson(`/api/avisos/${editing.id_post}`, 'PATCH', body);
-            G.showSuccess('Aviso atualizado.');
+            G.showSuccess('Comunicado atualizado.');
         } else {
             await G.sendJson('/api/avisos', 'POST', body);
-            G.showSuccess(`Aviso publicado para: ${audienceLabel(body)}.`);
+            G.showSuccess(`Comunicado publicado para: ${audienceLabel(body)}.`);
         }
-        closeForm();
+        resetForm();
         await G.loadSource('avisos', { silent: true });
     }, {
         fieldFor: G.fieldByMessage([
@@ -160,7 +160,7 @@ async function submitNotice(event) {
             [/tipo/i, $('#aviso-tipo')]
         ])
     });
-    submit.textContent = editing ? 'Salvar alterações' : 'Publicar aviso';
+    setFormLabels();
 }
 
 // ---------------------------------------------------------------- lista
@@ -177,7 +177,7 @@ function readsBlock(notice) {
         icon('eye'),
         el('span', { text: total
             ? `${confirmed} de ${total} ${total === 1 ? 'leitura confirmada' : 'leituras confirmadas'} (${percent}%)`
-            : 'Nenhum aluno no público deste aviso' }),
+            : 'Nenhum aluno no público deste comunicado' }),
         bar);
 }
 
@@ -204,25 +204,37 @@ function noticeCard(notice) {
     const actions = el('div', { class: 'acoes' });
     const remove = button([icon('trash'), 'Excluir'], 'botao botao-perigo botao-pequeno', () =>
         G.confirmInline(actions, {
-            question: 'Excluir este aviso de vez?',
+            question: 'Excluir este comunicado de vez?',
             confirmLabel: 'Sim, excluir',
             onConfirm: async () => {
                 await G.api(`/api/avisos/${notice.id_post}`, { method: 'DELETE' });
-                if (editing?.id_post === notice.id_post) closeForm();
-                G.showSuccess(`Aviso "${notice.titulo}" excluído.`);
-                await G.loadSource('avisos', { silent: true });
+                if (editing?.id_post === notice.id_post) resetForm();
+                G.showSuccess(`Comunicado "${notice.titulo}" excluído.`);
+                await Promise.all([G.loadSource('avisos', { silent: true }), G.loadSource('salvos', { silent: true })]);
             }
         }));
     actions.append(
-        button([icon('pencil-simple'), 'Editar'], 'botao botao-primario botao-pequeno', () => startEdit(notice)),
+        button([icon('pencil-simple'), 'Editar'], 'botao botao-primario botao-pequeno', () => editFromAnySection(notice)),
+        G.saveButton?.(notice),
         remove);
     card.append(actions);
     return card;
 }
 
+// Editar a partir de "Comunicados urgentes": abre a seção Comunicados com o formulário preenchido.
+let pendingEdit = null;
+function editFromAnySection(notice) {
+    if (G.state.route.section === 'avisos') {
+        startEdit(notice);
+        return;
+    }
+    pendingEdit = notice;
+    window.location.hash = '#/avisos';
+}
+
 function renderNotices() {
     const list = $('#lista-avisos');
-    if (!renderStatusInto(list, ['avisos', 'turmas'], 'Carregando avisos…')) return;
+    if (!renderStatusInto(list, ['avisos', 'turmas'], 'Carregando comunicados…')) return;
     const notices = sourceData('avisos');
     const query = $('#busca-avisos').value;
     const filtered = notices
@@ -230,11 +242,20 @@ function renderNotices() {
         .sort((a, b) => b.id_post - a.id_post);
     if (!filtered.length) {
         list.replaceChildren(emptyState(notices.length
-            ? 'Nenhum aviso corresponde à busca.'
-            : 'Nenhum aviso publicado ainda.', 'megaphone-simple'));
+            ? 'Nenhum comunicado corresponde à busca.'
+            : 'Nenhum comunicado publicado. Os comunicados publicados aparecerão aqui.', 'megaphone-simple'));
         return;
     }
     list.replaceChildren(...filtered.map(noticeCard));
+}
+
+function renderUrgent() {
+    const list = $('#lista-urgentes');
+    if (!renderStatusInto(list, ['avisos', 'turmas'], 'Carregando comunicados…')) return;
+    const urgent = sourceData('avisos').filter((notice) => notice.urgente).sort((a, b) => b.id_post - a.id_post);
+    list.replaceChildren(...(urgent.length
+        ? urgent.map(noticeCard)
+        : [emptyState('Nenhum comunicado urgente. Marque “urgente” ao publicar para ele aparecer aqui.', 'warning-circle')]));
 }
 
 function fillClassSelect() {
@@ -247,10 +268,9 @@ function setup() {
     updateAudienceFields();
     $('#form-aviso').addEventListener('submit', submitNotice);
     $('#aviso-cancelar').addEventListener('click', () => {
-        closeForm();
-        $('#botao-novo-aviso').focus();
+        resetForm();
+        $('#aviso-titulo').focus();
     });
-    $('#botao-novo-aviso').addEventListener('click', startNew);
     $('#busca-avisos').addEventListener('input', renderNotices);
     $('#aviso-anexo').addEventListener('change', (event) => {
         const file = event.target.files[0];
@@ -259,20 +279,40 @@ function setup() {
             window.CwFormulario?.erro(event.target, 'O anexo passa de 5 MB. Escolha um PDF menor.');
         }
     });
-    onSource(['avisos', 'turmas'], renderNotices);
+    onSource(['avisos', 'turmas', 'salvos'], renderNotices);
+    onSource(['avisos', 'turmas', 'salvos'], renderUrgent);
     onSource(['turmas'], fillClassSelect);
 }
 
+// show() devolve true quando já levou o foco a um campo (a casca então não foca o título).
 G.sections.avisos = {
-    title: 'Avisos',
-    description: 'Publique avisos para a escola toda, um curso, uma série ou uma turma.',
+    title: 'Central de Comunicados',
+    description: 'Gerencie as informações e mantenha a comunidade escolar informada.',
     setup,
     show(sub) {
         G.ensureSource('avisos');
+        G.ensureSource('salvos');
+        if (pendingEdit) {
+            const notice = pendingEdit;
+            pendingEdit = null;
+            startEdit(notice);
+            return true;
+        }
         if (sub === 'novo') {
             history.replaceState(null, '', '#/avisos');
             startNew();
+            return true;
         }
+        return false;
+    }
+};
+
+G.sections.urgentes = {
+    title: 'Comunicados urgentes',
+    description: 'Os comunicados marcados como urgentes, do mais recente ao mais antigo.',
+    show() {
+        G.ensureSource('avisos');
+        G.ensureSource('salvos');
     }
 };
 }());

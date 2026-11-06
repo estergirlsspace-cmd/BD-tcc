@@ -237,12 +237,12 @@
 }
 
 .cwm-botao--primario {
-    background: var(--cw-indigo);
+    background: var(--cw-marinho);
     color: #FFFFFF;
 }
 
 .cwm-botao--primario:hover {
-    background: var(--cw-indigo-hover);
+    background: var(--cw-marinho-hover);
 }
 
 .cwm-botao--contorno {
@@ -271,12 +271,12 @@
 }
 
 .cwm-botao-icone--primario {
-    background: var(--cw-indigo);
+    background: var(--cw-marinho);
     color: #FFFFFF;
 }
 
 .cwm-botao-icone--primario:hover {
-    background: var(--cw-indigo-hover);
+    background: var(--cw-marinho-hover);
 }
 
 .cwm :focus-visible {
@@ -451,9 +451,9 @@
 }
 
 .cwm-msg--minha .cwm-balao {
-    border-color: var(--cw-indigo);
+    border-color: var(--cw-marinho);
     border-radius: 16px 16px 4px 16px;
-    background: var(--cw-indigo);
+    background: var(--cw-marinho);
     color: #FFFFFF;
 }
 
@@ -515,13 +515,13 @@
     width: 44px;
     height: 44px;
     border-radius: 50%;
-    background: var(--cw-indigo);
+    background: var(--cw-marinho);
     color: #FFFFFF;
     font-size: 20px;
 }
 
 .cwm-enviar:hover:not(:disabled) {
-    background: var(--cw-indigo-hover);
+    background: var(--cw-marinho-hover);
 }
 
 .cwm-enviar:disabled {

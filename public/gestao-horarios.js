@@ -1,4 +1,4 @@
-// Portal da Gestão — horários em PDF (seção Turmas): um PDF por turma e um para os professores.
+// Portal da Gestão — horários em PDF (seção Horários): um PDF por turma e um para os professores.
 // Publicar/substituir = POST /api/arquivos (binário) + PUT /api/horarios-pdf/...; remover = DELETE
 // com confirmação inline. Alunos veem o da própria turma; professores, o deles e o das turmas.
 
@@ -143,15 +143,14 @@ function focusRow(path) {
     row?.querySelector('button')?.focus();
 }
 
-const turmas = G.sections.turmas;
-const originalSetup = turmas.setup;
-const originalShow = turmas.show;
-turmas.setup = function setup() {
-    originalSetup?.call(this);
-    onSource(['horarios', 'turmas'], renderSchedules);
-};
-turmas.show = function show(sub) {
-    originalShow?.call(this, sub);
-    G.ensureSource('horarios');
+G.sections.horarios = {
+    title: 'Horários',
+    description: 'Gerencie os horários das turmas e dos professores.',
+    setup() {
+        onSource(['horarios', 'turmas'], renderSchedules);
+    },
+    show() {
+        G.ensureSource('horarios');
+    }
 };
 }());

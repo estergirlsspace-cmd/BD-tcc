@@ -1,81 +1,83 @@
 /* C-Warning - tokens de identidade visual e base comum a todas as paginas.
-   Ordem de carga: /vendor/fontes.css, /vendor/phosphor/regular.css,
+   Ordem de carga: /vendor/phosphor/regular.css,
    /vendor/phosphor/fill.css, /tema.css, CSS da pagina. */
 
+/* Paleta dos protótipos da equipe (pasta "Códigos Interface", 2026-11): azul-marinho + vermelho. */
 :root {
-  --cw-indigo: #312782;      /* marca, titulos, botao principal (branco sobre ele 11,5:1) */
-  --cw-indigo-hover: #3d33a0;
-  --cw-indigo-escuro: #261e6b;
-  --cw-azul: #4A5BD6;        /* destaque, links, ativo (branco sobre ele 5,3:1) */
-  --cw-azul-suave: #E8EAFB;
-  --cw-vermelho: #E40913;    /* ponto do C-Warning, urgente, erro */
-  --cw-vermelho-suave: #fde7e8;
-  --cw-fundo: #f5f6fb;
+  --cw-marinho: #192F52;     /* marca, títulos, botão principal (branco sobre ele 12,9:1) */
+  --cw-marinho-hover: #203d61;
+  --cw-marinho-escuro: #102440;
+  --cw-azul: #2D5A94;        /* destaque, ativo (branco sobre ele 6,8:1) */
+  --cw-azul-suave: #EAF1FA;
+  --cw-vermelho: #C9233A;    /* ponto do C-Warning, urgente, erro, ação de destaque (branco 5,6:1) */
+  --cw-vermelho-hover: #B01E32;
+  --cw-vermelho-suave: #FFF0F2;
+  --cw-fundo: #F3F6FB;
   --cw-superficie: #FFFFFF;
-  --cw-borda: #e4e5f0;
-  --cw-borda-campo: #8a8fa8; /* bordas de inputs: >=3:1 (WCAG 1.4.11) */
-  --cw-texto: #1f2033;
-  --cw-texto-2: #4b4d66;
-  --cw-texto-suave: #5f6178; /* metadados; NUNCA usar #8b8da6 para texto (3,3:1) */
-  --cw-chip: #f2f3f7;
+  --cw-borda: #DCE5F1;
+  --cw-borda-campo: #8494AD; /* bordas de inputs: >=3:1 (WCAG 1.4.11) */
+  --cw-texto: #172B4D;
+  --cw-texto-2: #3E5272;
+  --cw-texto-suave: #586B88; /* metadados: 5,4:1 sobre branco */
+  --cw-chip: #EEF3F9;
   --cw-foco: #f5a300;        /* contorno de foco 3px (meio do anel duplo) */
-  --cw-anel-foco: #1f2033;   /* anel em volta do âmbar: 16:1 sobre branco, 14,8:1 sobre --cw-fundo;
-                                âmbar sobre ele 7,7:1 */
-  --cw-fonte: 'Figtree', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --cw-fonte-titulo: 'Sora', 'Figtree', system-ui, sans-serif;
+  --cw-anel-foco: #172B4D;   /* anel em volta do âmbar */
+  --cw-fonte: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+  --cw-fonte-titulo: var(--cw-fonte);
+  --cw-fonte-marca: Georgia, "Times New Roman", serif; /* título "C-Warning" do login */
   --cw-raio: 16px; --cw-raio-sm: 10px;
-  /* Texto colorido (sprint 2): use estes para TEXTO; --cw-indigo/--cw-azul/--cw-vermelho para fundos. */
-  --cw-texto-marca: #312782;    /* títulos e textos na cor da marca */
-  --cw-link: #3a4bc4;           /* links e ícones ativos: 6,3:1 sobre branco */
-  --cw-vermelho-texto: #c4070f; /* textos de alerta: 5,9:1 sobre branco */
-  --cw-sombra: 0 8px 24px -12px rgba(49, 39, 130, .25);
+  /* Texto colorido: use estes para TEXTO; --cw-marinho/--cw-azul/--cw-vermelho para fundos. */
+  --cw-texto-marca: #192F52;
+  --cw-link: #2D5A94;           /* 6,8:1 sobre branco */
+  --cw-vermelho-texto: #B01E32; /* 6,6:1 sobre branco */
+  --cw-sombra: 0 8px 24px -12px rgba(16, 36, 64, .25);
   color-scheme: light;
 }
 
 /* Modo escuro: <html data-tema="escuro">, ou data-tema="auto" seguindo o sistema.
    Todas as combinações texto/fundo abaixo passam AA (≥ 4,5:1) sobre --cw-superficie. */
 :root[data-tema="escuro"] {
-  --cw-indigo: #4a3fc0;
-  --cw-indigo-hover: #5b51d0;
-  --cw-indigo-escuro: #1a1546;
-  --cw-azul: #6c7cf0;
-  --cw-azul-suave: #262b63;
-  --cw-vermelho-suave: #3b1520;
-  --cw-fundo: #11102a;
-  --cw-superficie: #1b1a3b;
-  --cw-borda: #2f2c5e;
-  --cw-borda-campo: #7f7bbd;
-  --cw-texto: #eceafb;
-  --cw-texto-2: #cfcdec;
-  --cw-texto-suave: #aeabd8;
-  --cw-chip: #26244e;
-  --cw-texto-marca: #cdc9f5;
-  --cw-link: #9fabff;
-  --cw-vermelho-texto: #ff8a8f;
-  --cw-anel-foco: #eceafb;   /* anel claro: 14,1:1 sobre --cw-superficie, 15,7:1 sobre --cw-fundo */
+  --cw-marinho: #2D5A94;
+  --cw-marinho-hover: #3A6BA8;
+  --cw-marinho-escuro: #0B1A30;
+  --cw-azul: #5B8BD0;
+  --cw-azul-suave: #1C3354;
+  --cw-vermelho-suave: #3B1520;
+  --cw-fundo: #0B1424;
+  --cw-superficie: #13213A;
+  --cw-borda: #263A5C;
+  --cw-borda-campo: #6F87AD;
+  --cw-texto: #EAF0F8;
+  --cw-texto-2: #C9D5E6;
+  --cw-texto-suave: #A3B4CD;
+  --cw-chip: #1C2C49;
+  --cw-texto-marca: #D4E2F5;
+  --cw-link: #9CC0F2;
+  --cw-vermelho-texto: #FF8A97;
+  --cw-anel-foco: #EAF0F8;
   --cw-sombra: 0 8px 24px -12px rgba(0, 0, 0, .6);
   color-scheme: dark;
 }
 @media (prefers-color-scheme: dark) {
   :root[data-tema="auto"] {
-    --cw-indigo: #4a3fc0;
-    --cw-indigo-hover: #5b51d0;
-    --cw-indigo-escuro: #1a1546;
-    --cw-azul: #6c7cf0;
-    --cw-azul-suave: #262b63;
-    --cw-vermelho-suave: #3b1520;
-    --cw-fundo: #11102a;
-    --cw-superficie: #1b1a3b;
-    --cw-borda: #2f2c5e;
-    --cw-borda-campo: #7f7bbd;
-    --cw-texto: #eceafb;
-    --cw-texto-2: #cfcdec;
-    --cw-texto-suave: #aeabd8;
-    --cw-chip: #26244e;
-    --cw-texto-marca: #cdc9f5;
-    --cw-link: #9fabff;
-    --cw-vermelho-texto: #ff8a8f;
-    --cw-anel-foco: #eceafb;   /* anel claro: 14,1:1 sobre --cw-superficie, 15,7:1 sobre --cw-fundo */
+    --cw-marinho: #2D5A94;
+    --cw-marinho-hover: #3A6BA8;
+    --cw-marinho-escuro: #0B1A30;
+    --cw-azul: #5B8BD0;
+    --cw-azul-suave: #1C3354;
+    --cw-vermelho-suave: #3B1520;
+    --cw-fundo: #0B1424;
+    --cw-superficie: #13213A;
+    --cw-borda: #263A5C;
+    --cw-borda-campo: #6F87AD;
+    --cw-texto: #EAF0F8;
+    --cw-texto-2: #C9D5E6;
+    --cw-texto-suave: #A3B4CD;
+    --cw-chip: #1C2C49;
+    --cw-texto-marca: #D4E2F5;
+    --cw-link: #9CC0F2;
+    --cw-vermelho-texto: #FF8A97;
+    --cw-anel-foco: #EAF0F8;
     --cw-sombra: 0 8px 24px -12px rgba(0, 0, 0, .6);
     color-scheme: dark;
   }

@@ -24,8 +24,27 @@
 }
 
 .offline__marca {
-  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 1.375rem;
+  font-weight: 700;
   color: var(--cw-texto-marca);
+}
+
+/* Logo: quadrado vermelho com "CW" branco. */
+.cw-logo {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+  color: #FFFFFF;
+  background: var(--cw-vermelho);
 }
 
 .offline__icone {
@@ -65,10 +84,10 @@
   font: inherit;
   font-weight: 600;
   text-decoration: none;
-  color: #FFFFFF; /* mesmo padrão de .botao-primario: branco sobre --cw-indigo nos dois temas */
-  background: var(--cw-indigo);
+  color: #FFFFFF; /* mesmo padrão de .botao-primario: branco sobre --cw-marinho nos dois temas */
+  background: var(--cw-marinho);
 }
 
 .offline__botao:hover {
-  background: var(--cw-indigo-hover);
+  background: var(--cw-marinho-hover);
 }

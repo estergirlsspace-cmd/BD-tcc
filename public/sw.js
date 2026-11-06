@@ -5,7 +5,7 @@
 // - Respostas com Cache-Control no-store/private nunca são guardadas.
 // Ao mudar a casca (ou esta lista), suba a versão de CACHE para descartar o cache antigo.
 
-const CACHE = 'cw-v5';
+const CACHE = 'cw-v6';
 const OFFLINE_URL = '/offline.html';
 
 // Obrigatórios: sem eles a página offline não funciona, então a instalação falha.
@@ -14,9 +14,6 @@ const ESSENCIAIS = [
     '/offline.css',
     '/tema.css',
     '/preferencias.js',
-    '/vendor/fontes.css',
-    '/vendor/fontes/figtree-latin.woff2',
-    '/vendor/fontes/sora-latin.woff2',
     '/vendor/phosphor/regular.css',
     '/vendor/phosphor/Phosphor.woff2',
     '/manifest.webmanifest',
@@ -30,11 +27,10 @@ const ESSENCIAIS = [
 
 // Melhor esforço: se algum sumir num deploy futuro, a instalação segue sem ele.
 const CASCA = [
-    '/vendor/fontes/figtree-latin-ext.woff2',
-    '/vendor/fontes/sora-latin-ext.woff2',
     '/vendor/phosphor/fill.css',
     '/vendor/phosphor/Phosphor-Fill.woff2',
     '/styles.css',
+    '/inicio.css',
     '/aluno.css',
     '/professor.css',
     '/gestao.css',
@@ -53,6 +49,7 @@ const CASCA = [
     '/gestao-pessoas.js',
     '/gestao-horarios.js',
     '/gestao-importacao.js',
+    '/gestao-salvos.js',
     '/redefinir.js',
     '/datas.js',
     '/notificacoes.js',

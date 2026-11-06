@@ -49,7 +49,7 @@ function readLink() {
     return savedLink(mode) || { mode, token: null };
 }
 
-function showResult({ ok, title, text, linkText = 'Entrar no C·Warning', linkHref = '/' }) {
+function showResult({ ok, title, text, linkText = 'Entrar no C·Warning', linkHref = '/entrar' }) {
     resetForm.hidden = true;
     resultPanel.hidden = false;
     const icon = document.querySelector('#result-icon');

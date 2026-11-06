@@ -11,8 +11,8 @@ const token = sessionStorage.getItem(TOKEN_KEY);
 const FUSO_ESCOLA = 'America/Sao_Paulo';
 const FREQUENCIA_MINIMA = 75;
 const ANEXO_MAX_BYTES = 5 * 1024 * 1024;
-// Mesmo ponto de quebra do protótipo: até 650px o menu lateral vira o bloco escuro do topo.
-const MOBILE_QUERY = window.matchMedia('(max-width: 650px)');
+// Mesmo ponto de quebra do protótipo: até 700px o menu lateral vira o bloco escuro do topo.
+const MOBILE_QUERY = window.matchMedia('(max-width: 700px)');
 
 const AREAS = {
     natureza: 'Ciências da Natureza',
@@ -24,20 +24,35 @@ const AREAS = {
 };
 const COURSE_NAMES = { informatica: 'Informática', redes: 'Redes de Computadores' };
 
-// eyebrow e subtitle: sobretítulo e subtítulo do cabeçalho da página, como no protótipo
-// (inicioPagina: sobretítulo em caixa alta, título e subtítulo).
+// Seções do portal. label: nome curto no menu e na barra superior ("Seção | Área docente");
+// eyebrow e subtitle: sobretítulo e subtítulo do cabeçalho da página, como no protótipo.
 const SECTIONS = {
-    inicio: { title: 'Início', icon: 'house', eyebrow: 'Área do professor', subtitle: 'Resumo do seu dia: aulas, turmas, entregas e recados.' },
-    turmas: { title: 'Turmas', icon: 'users-three', eyebrow: 'Área docente', subtitle: 'Selecione uma turma para ver os alunos e a frequência.' },
-    horario: { title: 'Horário', icon: 'calendar-dots', eyebrow: 'Área docente', subtitle: 'Confira os horários publicados pela gestão.' },
-    chamada: { title: 'Chamada', icon: 'list-checks', eyebrow: 'Área docente', subtitle: 'Registre a presença dos alunos em cada aula.' },
-    atividades: { title: 'Atividades', icon: 'clipboard-text', eyebrow: 'Área docente', subtitle: 'Publique atividades e acompanhe as entregas das turmas.' },
-    avisos: { title: 'Avisos', icon: 'megaphone-simple', eyebrow: 'Mural escolar', subtitle: 'Crie avisos para as suas turmas e acompanhe os comunicados da gestão.' },
-    salvos: { title: 'Salvos', icon: 'bookmark-simple', eyebrow: 'Comunicados salvos', subtitle: 'Organize em pastas os comunicados importantes.' },
-    ocorrencias: { title: 'Ocorrências', icon: 'warning-octagon', eyebrow: 'Área docente', subtitle: 'Registre e acompanhe as ocorrências dos alunos.' },
-    configuracoes: { title: 'Configurações', icon: 'gear-six', eyebrow: 'Informações da conta', subtitle: 'Seus dados, notificações, aparência, senha e privacidade.' },
-    mais: { title: 'Mais', icon: 'dots-three-outline', eyebrow: 'Menu', subtitle: 'Demais seções do portal.' }
+    disciplinas: { title: 'Minhas disciplinas', label: 'Disciplinas', eyebrow: 'Área do professor', subtitle: 'Selecione uma disciplina para acessar os avisos, prazos, turmas e perfis dos alunos.' },
+    inicio: { title: 'Resumo do dia', eyebrow: 'Área do professor', subtitle: 'Resumo do seu dia: aulas, turmas, entregas e recados.' },
+    turmas: { title: 'Turmas', eyebrow: 'Área docente', subtitle: 'Selecione uma turma para ver os alunos e a frequência.' },
+    horario: { title: 'Meu horário', label: 'Horário', eyebrow: 'Área docente', subtitle: 'Horários em PDF publicados pela gestão. Baixe para consultar ou imprimir.' },
+    comunicados: { title: 'Comunicados da gestão', eyebrow: 'Mural escolar', subtitle: 'Acompanhe as orientações da equipe gestora e os avisos de outros professores para as suas turmas.' },
+    chamada: { title: 'Chamada', eyebrow: 'Área docente', subtitle: 'Registre a presença dos alunos em cada aula.' },
+    atividades: { title: 'Atividades', eyebrow: 'Área docente', subtitle: 'Publique atividades e acompanhe as entregas das turmas.' },
+    avisos: { title: 'Meus avisos', eyebrow: 'Mural escolar', subtitle: 'Publique avisos para uma ou mais turmas e acompanhe as leituras.' },
+    salvos: { title: 'Meu perfil', label: 'Meu perfil e salvos', eyebrow: 'Informações da conta', subtitle: 'Seus dados docentes e os comunicados organizados por você.' },
+    ocorrencias: { title: 'Ocorrências', eyebrow: 'Área docente', subtitle: 'Registre e acompanhe as ocorrências dos alunos.' },
+    configuracoes: { title: 'Configurações', eyebrow: 'Informações da conta', subtitle: 'Seus dados, notificações, aparência, senha e privacidade.' },
+    mais: { title: 'Mais', eyebrow: 'Menu', subtitle: 'Demais seções do portal.' }
 };
+
+// Seção que fica marcada no menu quando a rota não tem item próprio.
+const NAV_ALIAS = { turmas: 'disciplinas' };
+// No celular, estas seções ficam dentro de "Mais".
+const MORE_SECTIONS = ['inicio', 'horario', 'salvos', 'avisos', 'ocorrencias', 'configuracoes'];
+
+// Abas da tela de uma disciplina (protótipo: avisos, prazos, turmas e perfis dos alunos).
+const DISCIPLINE_TABS = [
+    ['avisos', 'Criar e visualizar avisos', 'megaphone-simple'],
+    ['prazos', 'Relembrar prazos', 'calendar-check'],
+    ['turmas', 'Visualizar turmas', 'users-three'],
+    ['alunos', 'Perfis dos alunos', 'student']
+];
 
 const SETTINGS_TABS = [
     ['perfil', 'Perfil', 'user-circle'],
@@ -96,6 +111,7 @@ const state = {
     submissions: new Map(),  // id_atividade → { status, data, error }
     chamada: null,
     activityFilter: '',
+    studentFilter: '',       // turma escolhida em "Perfis dos alunos" ('' = todas)
     pendingEmail: null       // e-mail aguardando confirmação (resposta de POST /api/conta/email)
 };
 
@@ -118,7 +134,7 @@ function leaveToLogin({ expirou = false } = {}) {
             // Sem sessionStorage a entrada só não mostra o motivo.
         }
     }
-    window.location.replace('/');
+    window.location.replace('/entrar');
 }
 
 async function api(path, options = {}) {
@@ -147,7 +163,7 @@ async function api(path, options = {}) {
     } catch {
         throw Object.assign(new Error('O servidor respondeu de um jeito inesperado. Tente de novo em instantes.'), { status: response.status });
     }
-    if (response.status === 403 && /termos de uso/.test(result?.erro || '')) window.location.replace('/');
+    if (response.status === 403 && /termos de uso/.test(result?.erro || '')) window.location.replace('/entrar');
     if (!response.ok) {
         const fallback = response.status === 501
             ? 'Esta função ainda está em construção no servidor.'
@@ -221,7 +237,7 @@ async function initialize() {
     }
     // LGPD: sem o aceite dos termos, volta para a entrada (que retoma a etapa de aceite com esta sessão).
     if (state.user.termos_pendentes) {
-        window.location.replace('/');
+        window.location.replace('/entrar');
         return;
     }
 
@@ -733,7 +749,7 @@ function className(classId) {
 function parseHash() {
     const raw = window.location.hash.replace(/^#\/?/, '');
     const [section, ...parts] = raw.split('/').filter(Boolean).map(decodeURIComponent);
-    if (!SECTIONS[section]) return { section: 'inicio', parts: [] };
+    if (!SECTIONS[section]) return { section: 'disciplinas', parts: [] };
     return { section, parts };
 }
 
@@ -768,11 +784,12 @@ function setupShell() {
 }
 
 function updateNavigation() {
-    const current = state.route.section;
+    const current = NAV_ALIAS[state.route.section] || state.route.section;
+    const inMore = MOBILE_QUERY.matches && MORE_SECTIONS.includes(current);
     document.querySelectorAll('[data-secao]').forEach((link) => {
-        const active = link.dataset.secao === current
-            || (link.dataset.secao === 'mais' && ['turmas', 'horario', 'salvos', 'ocorrencias', 'configuracoes'].includes(current)
-                && MOBILE_QUERY.matches);
+        const active = link.closest('.abas') && inMore
+            ? link.dataset.secao === 'mais'
+            : link.dataset.secao === current;
         link.classList.toggle('ativo', active);
         if (active) link.setAttribute('aria-current', 'page');
         else link.removeAttribute('aria-current');
@@ -782,7 +799,9 @@ function updateNavigation() {
 // ---------------------------------------------------------------- render principal
 
 const RENDERERS = {
+    disciplinas: renderDisciplines,
     inicio: renderHome,
+    comunicados: renderReceived,
     turmas: renderClasses,
     horario: renderSchedulePdfs,
     chamada: renderAttendance,
@@ -813,7 +832,7 @@ function renderNow() {
     const meta = SECTIONS[section];
     const view = RENDERERS[section]();
     // Barra superior do protótipo: "Seção | Área docente"; cabeçalho: sobretítulo, título, subtítulo.
-    $('#topo-trilha').textContent = `${meta.title} | Área docente`;
+    $('#topo-trilha').textContent = `${meta.label || meta.title} | Área docente`;
     $('#pagina-sobretitulo').textContent = view.trail || meta.eyebrow;
     $('#titulo-pagina').textContent = view.title || meta.title;
     const nodes = [].concat(view.content).flat(Infinity).filter(Boolean);
@@ -829,6 +848,202 @@ function renderNow() {
     $('#corpo').replaceChildren(...nodes);
 }
 
+// ---------------------------------------------------------------- Disciplinas
+
+// Disciplinas do professor agrupadas pelo nome (cada vínculo do banco é disciplina + turma).
+function disciplineGroups() {
+    const groups = new Map();
+    for (const assignment of teachingAssignments()) {
+        const name = assignment.nome_disciplina;
+        if (!groups.has(name)) groups.set(name, { nome: name, vinculos: [] });
+        groups.get(name).vinculos.push(assignment);
+    }
+    return [...groups.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+}
+
+function disciplineHref(group, tab) {
+    return `#/disciplinas/${encodeURIComponent(group.nome)}${tab ? `/${tab}` : ''}`;
+}
+
+// .subject-card do protótipo: traço vermelho, nome e uma linha de apoio.
+function markedCard(href, title, detail, extraClass = '') {
+    return el('li', {},
+        el('a', { class: `cartao-turma ${extraClass}`.trim(), href },
+            el('strong', { class: 'turma-nome', text: title }),
+            el('span', { class: 'meta', text: detail })));
+}
+
+function panelHeader(title, detail, ...extra) {
+    return el('div', { class: 'cartao-cabecalho' },
+        el('span', { class: 'linha-texto' },
+            el('h2', { class: 'cartao-titulo', text: title }),
+            detail ? el('span', { class: 'meta', text: detail }) : null),
+        ...extra);
+}
+
+function renderDisciplines() {
+    const [nameKey] = state.route.parts;
+    const blocked = guard(['disciplinas', 'turmas']);
+    if (blocked) return { content: blocked };
+    const groups = disciplineGroups();
+    if (nameKey) {
+        const group = groups.find((item) => item.nome === nameKey);
+        if (group) return renderDisciplineDetail(group);
+        return {
+            content: [el('a', { class: 'voltar', href: '#/disciplinas' }, icon('arrow-left'), 'Todas as disciplinas'),
+                emptyState('Disciplina não encontrada entre as suas.', 'books')]
+        };
+    }
+    return {
+        content: card('',
+            panelHeader('Disciplinas atribuídas', plural(groups.length, 'disciplina disponível', 'disciplinas disponíveis')),
+            groups.length
+                ? el('ul', { class: 'grade-disciplinas' }, groups.map((group) => markedCard(disciplineHref(group), group.nome,
+                    `${plural(group.vinculos.length, 'turma', 'turmas')} · Ver avisos, prazos e turmas`)))
+                : emptyState('Nenhuma disciplina vinculada ao seu perfil. Fale com a coordenação.', 'books'))
+    };
+}
+
+function renderDisciplineDetail(group) {
+    const [, tabKey] = state.route.parts;
+    const tab = DISCIPLINE_TABS.find(([id]) => id === tabKey) || DISCIPLINE_TABS[0];
+    const tabs = el('nav', { class: 'segmentado abas-disciplina', 'aria-label': `Seções de ${group.nome}` },
+        DISCIPLINE_TABS.map(([id, label, iconName]) => el('a', {
+            class: `segmento${id === tab[0] ? ' ativo' : ''}`,
+            href: disciplineHref(group, id),
+            'aria-current': id === tab[0] ? 'page' : null
+        }, icon(iconName), label)));
+    const builders = {
+        avisos: disciplineNotices,
+        prazos: disciplineDeadlines,
+        turmas: disciplineClasses,
+        alunos: disciplineStudents
+    };
+    return {
+        title: group.nome,
+        trail: 'Área da disciplina',
+        subtitle: 'Gerencie os comunicados e acompanhe as turmas desta disciplina.',
+        content: [
+            el('a', { class: 'voltar', href: '#/disciplinas' }, icon('arrow-left'), 'Todas as disciplinas'),
+            tabs,
+            builders[tab[0]](group)
+        ]
+    };
+}
+
+function groupClasses(group) {
+    return group.vinculos.map((item) => ({ id_turma: item.id_turma, nome_turma: item.nome_turma }));
+}
+
+function disciplineNotices(group) {
+    ensure('avisos', 'salvos', 'pastas');
+    const form = persistentNode('form-aviso', noticeForm);
+    syncNoticeForm(form, groupClasses(group));
+    const classIds = new Set(group.vinculos.map((item) => item.id_turma));
+    const notices = source('avisos');
+    let list;
+    let count = '';
+    if (notices.status === 'error') list = errorState(notices.error, () => reload('avisos'));
+    else if (notices.status !== 'ok') list = skeleton(2);
+    else {
+        const mine = myNotices().filter((notice) => classIds.has(notice.id_turma));
+        count = `${plural(mine.length, 'aviso', 'avisos')} para as turmas desta disciplina`;
+        list = mine.length
+            ? el('ul', { class: 'lista-cartoes' }, mine.map(noticeCard))
+            : emptyState('Você ainda não publicou avisos para estas turmas.', 'megaphone-simple');
+    }
+    return [
+        card('', panelHeader(form.editing ? 'Editar aviso' : 'Criar aviso', 'O aviso vai para o mural das turmas escolhidas.'), form),
+        card('', panelHeader('Avisos publicados', count), list)
+    ];
+}
+
+function disciplineDeadlines(group) {
+    const blocked = guard(['atividades']);
+    const ids = new Set(group.vinculos.map((item) => item.id_disciplina));
+    const create = el('button', { class: 'botao botao-primario', type: 'button', 'aria-haspopup': 'dialog',
+        on: { click: () => openActivityForm(group.vinculos) } }, icon('plus'), 'Registrar novo prazo');
+    let list;
+    if (blocked) list = blocked;
+    else {
+        const items = (source('atividades').data || [])
+            .filter((activity) => ids.has(activity.id_disciplina) && (activity.tipo === 'atividade' || activity.tipo === 'avaliacao'))
+            .sort((a, b) => String(a.prazo || '9999').localeCompare(String(b.prazo || '9999')));
+        const deliveries = source('painel').status === 'ok' ? dashboard().deliveries || [] : [];
+        list = items.length
+            ? el('ul', { class: 'lista-cartoes' }, items.map((activity) => activityCard(activity, deliveries, { group })))
+            : emptyState('Nenhum prazo cadastrado nesta disciplina.', 'calendar-check');
+    }
+    return card('', panelHeader('Prazos cadastrados', 'Atividades e avaliações desta disciplina, do prazo mais próximo ao mais distante.', create), list);
+}
+
+function disciplineClasses(group) {
+    return card('',
+        panelHeader('Turmas vinculadas', 'Selecione uma turma para ver os alunos e a frequência nesta disciplina.'),
+        el('ul', { class: 'grade-disciplinas' }, group.vinculos.map((item) => markedCard(
+            `#/turmas/${item.id_turma}/${item.id_disciplina}`, item.nome_turma, 'Ver alunos e frequência'))));
+}
+
+function disciplineStudents(group) {
+    const filter = el('select', { id: 'filtro-alunos' },
+        el('option', { value: '', text: 'Todas as turmas' }),
+        group.vinculos.map((item) => el('option', { value: String(item.id_disciplina), text: item.nome_turma })));
+    if (!group.vinculos.some((item) => String(item.id_disciplina) === state.studentFilter)) state.studentFilter = '';
+    filter.value = state.studentFilter;
+    filter.addEventListener('change', () => { state.studentFilter = filter.value; render(); });
+    const chosen = group.vinculos.filter((item) => !state.studentFilter || String(item.id_disciplina) === state.studentFilter);
+    const entries = chosen.map((item) => ({ vinculo: item, entry: roster(item.id_disciplina) }));
+
+    let body;
+    const failed = entries.find(({ entry }) => entry.status === 'error');
+    if (failed) {
+        body = isUnavailable(failed.entry)
+            ? soonState('A lista de alunos aparece aqui quando a chamada estiver disponível no servidor.')
+            : errorState(failed.entry.error, () => retryRoster(failed.vinculo.id_disciplina));
+    } else if (entries.some(({ entry }) => entry.status === 'loading')) body = skeleton(4);
+    else {
+        const rows = entries.flatMap(({ vinculo, entry }) => entry.alunos.map((student) => studentRow(student, vinculo)));
+        body = rows.length
+            ? el('ul', { class: 'lista-alunos' }, rows)
+            : emptyState('Nenhum aluno matriculado nesta turma.', 'student');
+    }
+    return card('',
+        panelHeader('Perfis dos alunos', 'Consulta da frequência de cada aluno nesta disciplina.',
+            el('div', { class: 'filtro-cabecalho' }, field('Turma', filter))),
+        body);
+}
+
+function studentRow(student, assignment) {
+    const low = isBelowMinimum(student.frequencia);
+    return el('li', { class: 'linha-aluno' },
+        el('span', { class: 'aluno-info' },
+            avatar(student.nome),
+            el('span', { class: 'linha-texto' },
+                el('strong', { text: student.nome }),
+                el('span', { class: 'meta' },
+                    `${assignment.nome_turma} · `,
+                    student.frequencia === null
+                        ? 'Sem chamadas lançadas'
+                        : el('span', { class: low ? 'texto-alerta' : null, text: `Frequência ${formatPercent(student.frequencia)}${low ? ' (abaixo do mínimo)' : ''}` })))));
+}
+
+// ---------------------------------------------------------------- Comunicados da gestão
+
+function renderReceived() {
+    const blocked = guard(['disciplinas', 'turmas', 'avisos']);
+    if (blocked) return { content: blocked };
+    ensure('salvos', 'pastas');
+    const received = receivedNotices();
+    return {
+        content: card('',
+            panelHeader('Mural de comunicados', plural(received.length, 'comunicado disponível', 'comunicados disponíveis'),
+                el('span', { class: 'selo', text: 'Equipe gestora' })),
+            received.length
+                ? el('ul', { class: 'lista-cartoes' }, received.map(receivedNoticeCard))
+                : emptyState('Nenhum comunicado da escola ou de outros professores para as suas turmas.', 'newspaper'))
+    };
+}
+
 // ---------------------------------------------------------------- Início
 
 function renderHome() {
@@ -839,7 +1054,7 @@ function renderHome() {
     // Cabeçalho do protótipo: sobretítulo (data), título (saudação) e subtítulo.
     const page = {
         title: `${greeting()}, ${firstName(state.user.nome)}`,
-        docTitle: 'Início',
+        docTitle: 'Resumo do dia',
         trail: todayLongLabel(),
         subtitle: SECTIONS.inicio.subtitle
     };
@@ -883,10 +1098,10 @@ function lessonHero(data) {
     const today = todayYmd();
     const lesson = data.current || data.next;
     if (!lesson) {
-        return el('section', { class: 'cartao destaque-aula destaque-vazio' },
+        return el('section', { class: 'cartao destaque-aula' },
             el('p', { class: 'destaque-rotulo' }, icon('coffee'), 'Sem aula agora'),
             el('h2', { class: 'destaque-titulo', text: data.lessons.length ? 'Suas aulas de hoje já terminaram' : 'Nenhuma aula hoje' }),
-            el('a', { class: 'botao botao-claro', href: '#/chamada' }, icon('list-checks'), 'Abrir chamada'));
+            el('a', { class: 'botao botao-primario', href: '#/chamada' }, icon('list-checks'), 'Abrir chamada'));
     }
     const live = Boolean(data.current);
     const disciplineId = lesson.id_disciplina;
@@ -897,7 +1112,7 @@ function lessonHero(data) {
         el('h2', { class: 'destaque-titulo', id: 'destaque-titulo', text: lesson.nome_disciplina || 'Aula' }),
         el('p', { class: 'destaque-meta', text: [lesson.nome_turma, lesson.sala].filter(Boolean).join(' · ') }),
         disciplineId
-            ? el('a', { class: 'botao botao-claro', href: `#/chamada/${disciplineId}/${today}` }, icon('list-checks'), 'Fazer chamada')
+            ? el('a', { class: 'botao botao-primario', href: `#/chamada/${disciplineId}/${today}` }, icon('list-checks'), 'Fazer chamada')
             : null);
 }
 
@@ -1392,7 +1607,7 @@ function renderActivities() {
     };
 }
 
-function activityCard(activity, deliveries) {
+function activityCard(activity, deliveries, { group } = {}) {
     const type = activityType(activity);
     const passed = deadlinePassed(activity.prazo);
     const summary = deliveries.find((item) => item.id_atividade === activity.id_atividade);
@@ -1400,19 +1615,36 @@ function activityCard(activity, deliveries) {
         el('article', { class: 'cartao cartao-atividade' },
             el('span', { class: 'icone-quadrado' }, icon(type.icon)),
             el('div', { class: 'atividade-texto' },
-                el('p', { class: 'meta' }, el('span', { class: 'chip', text: type.label }), ' ', activity.nome_disciplina || ''),
+                el('p', { class: 'meta' }, el('span', { class: 'chip', text: type.label }), ' ',
+                    (group ? activity.nome_turma || className(activity.id_turma) : activity.nome_disciplina) || ''),
                 el('h3', { class: 'atividade-titulo', text: activity.titulo }),
                 el('p', { class: `meta${passed ? '' : ' destaque-prazo'}` }, icon('clock'), ` ${deadlineLabel(activity.prazo)}${passed ? ' · encerrada' : ''}`),
                 summary ? el('div', { class: 'atividade-progresso' },
                     progressBar(summary.total ? (summary.enviadas / summary.total) * 100 : 0, { label: `${summary.enviadas} de ${summary.total} entregas` }),
                     el('span', { class: 'meta', text: `${summary.enviadas}/${summary.total} entregas` })) : null),
-            activity.tipo === 'atividade'
-                ? el('a', { class: 'botao botao-contorno', href: `#/atividades/${activity.id_atividade}` }, icon('tray-arrow-down'), 'Ver entregas')
-                : el('span', { class: 'meta', text: 'Presencial' })));
+            el('div', { class: 'atividade-acoes' },
+                group && !passed ? reminderButton(activity, group) : null,
+                activity.tipo === 'atividade'
+                    ? el('a', { class: 'botao botao-contorno', href: `#/atividades/${activity.id_atividade}` }, icon('tray-arrow-down'), 'Ver entregas')
+                    : el('span', { class: 'meta', text: 'Presencial' }))));
 }
 
-function openActivityForm() {
-    const assignments = teachingAssignments();
+function reminderButton(activity, group) {
+    return el('button', { class: 'botao botao-contorno', type: 'button', on: { click: () => {
+        const form = persistentNode('form-aviso', noticeForm);
+        form.prefill({
+            titulo: `Lembrete: ${activity.titulo}`,
+            conteudo: `${activityType(activity).label} de ${activity.nome_disciplina || group.nome}: ${activity.titulo}. Prazo ${deadlineLabel(activity.prazo)}.`,
+            id_turma: activity.id_turma
+        });
+        window.location.hash = disciplineHref(group, 'avisos');
+        announce('Aviso de lembrete preenchido. Revise e publique.');
+    } } }, icon('bell-simple'), 'Criar aviso de lembrete');
+}
+
+// only: vínculos oferecidos (tela de uma disciplina); sem ele, todos (o clique passa o evento).
+function openActivityForm(only) {
+    const assignments = Array.isArray(only) ? only : teachingAssignments();
     if (!assignments.length) {
         notify('Nenhuma disciplina vinculada ao seu perfil.', 'erro');
         return;
@@ -1619,14 +1851,13 @@ function gradeForm(submission, done) {
 
 function renderNotices() {
     const blocked = guard(['disciplinas', 'turmas']);
-    if (blocked) return { title: 'Avisos', content: blocked };
+    if (blocked) return { content: blocked };
     ensure('avisos', 'salvos', 'pastas');
     const form = persistentNode('form-aviso', noticeForm);
     syncNoticeForm(form);
 
     const notices = source('avisos');
     let list;
-    let receivedList;
     if (notices.status === 'error') list = errorState(notices.error, () => reload('avisos'));
     else if (notices.status !== 'ok') list = skeleton(3);
     else {
@@ -1634,28 +1865,21 @@ function renderNotices() {
         list = mine.length
             ? el('ul', { class: 'lista-cartoes' }, mine.map(noticeCard))
             : emptyState('Você ainda não publicou avisos.', 'megaphone-simple');
-        const received = receivedNotices();
-        receivedList = received.length
-            ? el('ul', { class: 'lista-cartoes' }, received.map(receivedNoticeCard))
-            : emptyState('Nenhum aviso da escola ou de outros professores para as suas turmas.', 'tray');
     }
     return {
-        title: 'Avisos',
         content: el('div', { class: 'grade-avisos' },
-            card('cartao-formulario', cardHeader(form.editing ? 'Editar aviso' : 'Novo aviso',
-                form.editing ? 'pencil-simple' : 'megaphone-simple'), form),
+            card('cartao-formulario', panelHeader(form.editing ? 'Editar aviso' : 'Criar aviso', 'O aviso vai para o mural das turmas escolhidas.'), form),
             el('section', { class: 'coluna-avisos', 'aria-labelledby': 'meus-avisos-titulo' },
-                el('h2', { class: 'grupo-titulo', id: 'meus-avisos-titulo', text: 'Meus avisos' }),
-                list,
-                receivedList ? el('h2', { class: 'grupo-titulo grupo-titulo-espaco', id: 'avisos-recebidos-titulo', text: 'Recebidos' }) : null,
-                receivedList || null))
+                el('h2', { class: 'grupo-titulo', id: 'meus-avisos-titulo', text: 'Avisos publicados' }),
+                list))
     };
 }
 
-function syncNoticeForm(form) {
+// classes: turmas que o formulário oferece (todas as do professor ou só as de uma disciplina).
+function syncNoticeForm(form, classes = myClasses()) {
     const select = form.querySelector('select[name="turma"]');
     selectOptions(select, myClasses().map((item) => [item.id_turma, item.nome_turma]), 'Selecione a turma');
-    form.syncTargets?.();
+    form.syncTargets?.(classes);
 }
 
 function noticeForm() {
@@ -1666,8 +1890,8 @@ function noticeForm() {
     const targets = el('fieldset', { class: 'grupo-opcoes grupo-turmas', id: 'aviso-turmas', 'aria-describedby': 'aviso-turmas-dica' },
         el('legend', { text: 'Turmas' }),
         el('label', { class: 'opcao-caixa', for: 'aviso-todas-turmas' }, allClasses,
-            el('span', {}, el('strong', { text: 'Todas as minhas turmas' }),
-                el('span', { class: 'meta', text: 'Um aviso para cada turma em que você leciona.' }))),
+            el('span', {}, el('strong', { text: 'Todas as turmas' }),
+                el('span', { class: 'meta', text: 'Um aviso para cada turma listada abaixo.' }))),
         classChoices,
         el('p', { class: 'campo-dica', id: 'aviso-turmas-dica', text: 'Escolha uma ou mais turmas. Os alunos de cada uma recebem o aviso no mural.' }));
     const classBoxes = () => [...classChoices.querySelectorAll('input[type="checkbox"]')];
@@ -1690,7 +1914,7 @@ function noticeForm() {
     const urgent = el('input', { type: 'checkbox', name: 'urgente', id: 'aviso-urgente' });
     const file = el('input', { type: 'file', name: 'anexo', accept: 'application/pdf,.pdf' });
     const fileInfo = el('p', { class: 'campo-dica', 'aria-live': 'polite' });
-    const submit = el('button', { class: 'botao botao-primario', type: 'submit' }, icon('paper-plane-tilt'), 'Publicar aviso');
+    const submit = el('button', { class: 'botao botao-vermelho', type: 'submit' }, icon('paper-plane-tilt'), 'Publicar aviso');
     const cancelEdit = el('button', { class: 'botao botao-contorno', type: 'button', hidden: true }, 'Cancelar edição');
     const fileHint = () => (form.editing?.id_arquivo || form.editing?.anexo
         ? 'Opcional · escolha um PDF (até 5 MB) só se quiser trocar o anexo atual.'
@@ -1736,9 +1960,10 @@ function noticeForm() {
     fileInfo.id = 'aviso-anexo-dica';
 
     // Caixas das turmas: redesenhadas a cada render, mantendo o que já estava marcado.
-    form.syncTargets = () => {
-        const previous = new Set(chosenClasses());
-        classChoices.replaceChildren(...myClasses().map((item) => {
+    form.syncTargets = (classes = myClasses()) => {
+        const previous = new Set(form.pendingClasses || chosenClasses());
+        form.pendingClasses = null;
+        classChoices.replaceChildren(...classes.map((item) => {
             const boxId = `aviso-turma-${item.id_turma}`;
             const box = el('input', { type: 'checkbox', name: 'turmas', value: String(item.id_turma), id: boxId });
             box.checked = previous.has(item.id_turma);
@@ -1767,6 +1992,13 @@ function noticeForm() {
         setMode(null);
     };
     form.stopEdit = resetForm;
+    // Lembrete de um prazo: aviso novo já preenchido para a turma da atividade.
+    form.prefill = ({ titulo, conteudo, id_turma }) => {
+        resetForm();
+        title.value = titulo;
+        content.value = conteudo;
+        form.pendingClasses = [id_turma];
+    };
     form.startEdit = (notice) => {
         resetForm();
         setMode(notice);
@@ -2068,7 +2300,7 @@ function openSaveDialog(notice) {
         field(entry ? 'Pasta' : 'Pasta (opcional)', select, {
             hint: folders.length
                 ? 'Escolha uma pasta ou deixe o aviso sem pasta.'
-                : 'Você ainda não tem pastas. Crie pastas na seção Salvos.'
+                : 'Você ainda não tem pastas. Crie pastas em Meu perfil e salvos.'
         }),
         el('div', { class: 'dialogo-acoes' },
             el('button', { class: 'botao botao-contorno', type: 'button', on: { click: closeDialog } }, 'Cancelar'),
@@ -2192,7 +2424,7 @@ function renderSaved() {
     const [filterKey = 'todas'] = state.route.parts;
     ensure('pastas');
     const blocked = guard(['salvos'], { soon: 'Os avisos salvos chegam em breve.' });
-    if (blocked) return { title: 'Salvos', content: blocked };
+    if (blocked) return { content: [profileSummary(), blocked] };
 
     const foldersSource = source('pastas');
     const foldersReady = foldersSource.status === 'ok';
@@ -2201,7 +2433,7 @@ function renderSaved() {
         .sort((a, b) => String(b.salvo_em || b.criado_em).localeCompare(String(a.salvo_em || a.criado_em)));
     const folder = /^\d+$/.test(filterKey) ? folders.find((item) => item.id_pasta === Number(filterKey)) : null;
     if (/^\d+$/.test(filterKey) && !folder && !foldersReady && foldersSource.status !== 'error') {
-        return { title: 'Salvos', content: skeleton(3) };
+        return { content: [profileSummary(), skeleton(3)] };
     }
     const key = folder ? String(folder.id_pasta) : (filterKey === 'sem-pasta' ? 'sem-pasta' : 'todas');
     const countIn = (folderId) => items.filter((item) => (item.id_pasta || null) === folderId).length;
@@ -2235,23 +2467,52 @@ function renderSaved() {
         : null;
 
     const emptyText = !items.length
-        ? 'Nenhum aviso salvo ainda. Em Avisos, use o botão Salvar de um aviso para guardá-lo aqui.'
+        ? 'Nenhum comunicado salvo ainda. Em Comunicados da gestão ou nas disciplinas, use o botão Salvar de um aviso para guardá-lo aqui.'
         : key === 'sem-pasta' ? 'Nenhum aviso salvo sem pasta.' : 'Esta pasta está vazia. Use "Mover de pasta" em um aviso salvo.';
 
+    const newFolder = foldersReady
+        ? el('button', { class: 'botao botao-primario', type: 'button', 'aria-haspopup': 'dialog', on: { click: () => openFolderForm(null) } }, icon('folder-plus'), 'Nova pasta')
+        : null;
     return {
-        title: 'Salvos',
-        trail: folder ? `Salvos · ${folder.nome}` : null,
-        actions: foldersReady
-            ? [el('button', { class: 'botao botao-primario', type: 'button', 'aria-haspopup': 'dialog', on: { click: () => openFolderForm(null) } }, icon('folder-plus'), 'Nova pasta')]
-            : [],
         content: [
-            el('p', { class: 'introducao', text: 'Avisos que você guardou para consultar depois, organizados em pastas.' }),
-            foldersNote,
-            tabs,
-            folderBar,
-            visible.length ? el('ul', { class: 'lista-cartoes' }, visible.map(savedCard)) : emptyState(emptyText, 'bookmark-simple')
+            profileSummary(),
+            card('',
+                panelHeader('Comunicados salvos', 'Crie pastas para organizar os comunicados importantes.', newFolder),
+                foldersNote,
+                tabs,
+                folderBar,
+                visible.length ? el('ul', { class: 'lista-cartoes' }, visible.map(savedCard)) : emptyState(emptyText, 'bookmark-simple'))
         ]
     };
+}
+
+// Perfil do protótipo ("Meu perfil e salvos"): resumo com as disciplinas e as informações docentes.
+function profileSummary() {
+    const user = state.user;
+    const groups = disciplineGroups();
+    const info = (label, value) => el('div', { class: 'info-item' },
+        el('dt', { text: label }), el('dd', { text: value }));
+    return el('div', { class: 'grade-perfil' },
+        card('perfil-cartao',
+            avatar(user.nome, 'avatar-grande'),
+            el('h2', { class: 'cartao-titulo', text: user.nome || user.login }),
+            el('p', { class: 'meta', text: ['Professor(a)', AREAS[user.area]].filter(Boolean).join(' · ') }),
+            groups.length
+                ? el('div', { class: 'perfil-disciplinas' },
+                    el('p', { class: 'eyebrow', text: 'Disciplinas' }),
+                    el('ul', { class: 'lista-simples' }, groups.map((group) => el('li', {},
+                        el('a', { href: disciplineHref(group), text: group.nome })))))
+                : null),
+        card('',
+            panelHeader('Informações docentes', 'Para alterar seus dados ou vínculos, fale com a coordenação.'),
+            el('dl', { class: 'grade-info' },
+                info('Nome completo', user.nome || '—'),
+                info('Login', user.login),
+                info('Disciplinas atribuídas', plural(groups.length, 'disciplina', 'disciplinas')),
+                info('Turmas', plural(myClasses().length, 'turma', 'turmas'))),
+            el('div', { class: 'rodape-acoes rodape-esquerda' },
+                el('a', { class: 'botao botao-contorno', href: '#/configuracoes/perfil' }, icon('gear-six'), 'Configurações da conta'),
+                el('button', { class: 'botao botao-contorno', type: 'button', on: { click: logout } }, icon('sign-out'), 'Sair do portal'))));
 }
 
 // ---------------------------------------------------------------- Horário (PDFs publicados pela gestão)
@@ -2281,7 +2542,7 @@ function scheduleRow(label, item) {
 
 function renderSchedulePdfs() {
     const blocked = guard(['disciplinas', 'turmas', 'horariosPdf'], { soon: 'Os horários em PDF chegam em breve.' });
-    if (blocked) return { title: 'Horário', content: blocked };
+    if (blocked) return { content: blocked };
     const data = source('horariosPdf').data || {};
     const published = Array.isArray(data.turmas) ? data.turmas : [];
     const classes = myClasses();
@@ -2293,9 +2554,7 @@ function renderSchedulePdfs() {
         }
     }
     return {
-        title: 'Horário',
         content: [
-            el('p', { class: 'introducao', text: 'Horários em PDF publicados pela gestão. Baixe para consultar ou imprimir.' }),
             card('', cardHeader('Horário dos professores', 'chalkboard-teacher'),
                 el('ul', { class: 'lista-dispositivos' }, scheduleRow('Horário dos professores', data.professores))),
             card('', cardHeader('Horários das minhas turmas', 'users-three'),
@@ -2459,14 +2718,14 @@ function incidentCard(incident) {
 
 function renderMore() {
     const links = [
-        ['#/turmas', 'Turmas', 'users-three'],
+        ['#/inicio', 'Resumo do dia', 'sun-horizon'],
         ['#/horario', 'Horário', 'calendar-dots'],
-        ['#/salvos', 'Salvos', 'bookmark-simple'],
+        ['#/salvos', 'Meu perfil e salvos', 'user-circle'],
+        ['#/avisos', 'Meus avisos', 'megaphone-simple'],
         ['#/ocorrencias', 'Ocorrências', 'warning-octagon'],
         ['#/configuracoes/perfil', 'Configurações', 'gear-six']
     ];
     return {
-        title: 'Mais',
         content: [
             el('div', { class: 'cartao perfil-resumo' },
                 avatar(state.user.nome, 'avatar-grande'),

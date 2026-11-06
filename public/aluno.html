@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#0B192C">
+    <meta name="theme-color" content="#192F52">
     <title>Portal do Aluno · C·Warning</title>
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="icon" href="/assets/icones/favicon.svg" type="image/svg+xml">
@@ -11,7 +11,6 @@
     <link rel="apple-touch-icon" href="/assets/icones/apple-touch-icon.png">
     <script src="/pwa.js" defer></script>
     <script src="/preferencias.js"></script>
-    <link rel="stylesheet" href="/vendor/fontes.css">
     <link rel="stylesheet" href="/vendor/phosphor/regular.css">
     <link rel="stylesheet" href="/vendor/phosphor/fill.css">
     <link rel="stylesheet" href="/tema.css">
@@ -26,79 +25,50 @@
 <body class="portal-aluno">
     <a class="pular-conteudo" href="#conteudo">Pular para o conteúdo</a>
 
-    <div class="app" id="app">
-        <!-- Rail (web): seções principais -->
-        <nav class="rail" aria-label="Seções do portal">
-            <a class="rail-marca" href="#/inicio" aria-label="C·Warning, início">
-                <span class="logo-c" aria-hidden="true">C</span>
-            </a>
-            <ul class="rail-lista">
-                <li><a class="rail-item" href="#/inicio" data-secao="inicio"><span class="rail-icone"><i class="ph ph-house" aria-hidden="true"></i></span><span class="rail-rotulo">Início</span></a></li>
-                <li><a class="rail-item" href="#/avisos/todos" data-secao="avisos"><span class="rail-icone"><i class="ph ph-megaphone-simple" aria-hidden="true"></i><span class="ponto-alerta" data-ponto-naolidos hidden></span></span><span class="rail-rotulo">Avisos</span><span class="visually-hidden" data-sr-naolidos></span></a></li>
-                <li><a class="rail-item" href="#/atividades/pendentes" data-secao="atividades"><span class="rail-icone"><i class="ph ph-clipboard-text" aria-hidden="true"></i></span><span class="rail-rotulo">Atividades</span></a></li>
-                <li><a class="rail-item" href="#/frequencia/resumo" data-secao="frequencia"><span class="rail-icone"><i class="ph ph-list-checks" aria-hidden="true"></i></span><span class="rail-rotulo">Frequência</span></a></li>
-            </ul>
-            <div class="rail-rodape">
-                <a class="rail-item" href="#/ajustes/perfil" data-secao="ajustes"><span class="rail-icone"><i class="ph ph-gear-six" aria-hidden="true"></i></span><span class="rail-rotulo">Configurações</span></a>
-                <a class="rail-avatar" href="#/ajustes/perfil" id="rail-avatar" data-avatar aria-label="Meu perfil">··</a>
-                <button class="rail-sair" type="button" data-sair aria-label="Sair da conta" title="Sair da conta"><i class="ph ph-sign-out" aria-hidden="true"></i></button>
-            </div>
-        </nav>
-
-        <!-- Subnavegação (web) -->
-        <nav class="subnav" id="subnav" aria-labelledby="subnav-titulo" hidden>
-            <h2 class="subnav-titulo" id="subnav-titulo"></h2>
-            <div id="subnav-grupos"></div>
-        </nav>
-
-        <div class="coluna">
-            <header class="topo">
-                <a class="topo-voltar" id="topo-voltar" href="#/avisos/todos" hidden><i class="ph ph-arrow-left" aria-hidden="true"></i>Avisos</a>
-                <a class="topo-marca" href="#/inicio" aria-label="C·Warning, início"><span class="logo-c" aria-hidden="true">C</span></a>
-                <div class="topo-titulos">
-                    <p class="topo-nome" aria-hidden="true">C-Warning</p>
-                    <p class="topo-trilha" id="topo-trilha"></p>
-                    <h1 class="topo-titulo" id="titulo-pagina" tabindex="-1">Carregando…</h1>
-                </div>
-                <div class="topo-acoes">
-                    <form class="busca" id="busca" role="search">
-                        <label class="visually-hidden" for="busca-campo">Buscar avisos</label>
-                        <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
-                        <input id="busca-campo" type="search" placeholder="Buscar avisos" autocomplete="off" maxlength="100">
-                    </form>
-                    <button class="topo-botao" type="button" id="botao-busca" aria-label="Buscar avisos" aria-expanded="false" aria-controls="busca"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>
-                    <a class="topo-botao" href="#/avisos/naolidos" id="sino" aria-label="Avisos não lidos"><i class="ph ph-bell-simple" aria-hidden="true"></i><span class="sino-contador" data-contador-naolidos aria-hidden="true" hidden></span></a>
-                    <a class="topo-avatar" href="#/ajustes/perfil" data-avatar aria-label="Meu perfil">··</a>
-                </div>
-            </header>
-
-            <main class="conteudo" id="conteudo" tabindex="-1">
-                <div class="esqueleto-pagina" aria-hidden="true">
-                    <div class="esqueleto esqueleto-linha"></div>
-                    <div class="esqueleto esqueleto-bloco"></div>
-                    <div class="esqueleto esqueleto-bloco"></div>
-                </div>
-            </main>
+    <header class="topo">
+        <a class="topo-marca" href="#/inicio" aria-label="C-Warning, Portal do Aluno: início">
+            <span class="logo-c" aria-hidden="true">C</span>
+            <span class="topo-marca-texto" aria-hidden="true"><span class="topo-nome">C-Warning</span><span class="topo-sub">Portal do Aluno</span></span>
+        </a>
+        <div class="topo-acoes">
+            <a class="topo-botao" href="#/avisos/naolidos" id="sino" aria-label="Avisos não lidos"><i class="ph ph-bell-simple" aria-hidden="true"></i><span class="sino-contador" data-contador-naolidos aria-hidden="true" hidden></span></a>
+            <a class="topo-avatar" href="#/ajustes/perfil" data-avatar aria-label="Meu perfil">··</a>
         </div>
+    </header>
 
-        <!-- Abas inferiores (celular) -->
-        <nav class="abas" aria-label="Seções do portal">
-            <a class="aba" href="#/inicio" data-secao="inicio"><span class="aba-icone"><i class="ph-fill ph-house" aria-hidden="true"></i></span><span>Início</span></a>
-            <a class="aba" href="#/atividades/pendentes" data-secao="atividades"><span class="aba-icone"><i class="ph-fill ph-clipboard-text" aria-hidden="true"></i></span><span>Atividades</span></a>
-            <a class="aba aba-central" href="#/avisos/todos" data-secao="avisos"><span class="aba-icone"><i class="ph-fill ph-megaphone-simple" aria-hidden="true"></i><span class="ponto-alerta" data-ponto-naolidos hidden></span></span><span class="visually-hidden">Avisos</span><span class="visually-hidden" data-sr-naolidos></span></a>
-            <a class="aba" href="#/frequencia/resumo" data-secao="frequencia"><span class="aba-icone"><i class="ph-fill ph-list-checks" aria-hidden="true"></i></span><span>Frequência</span></a>
-            <a class="aba" href="#/ajustes/perfil" data-secao="ajustes"><span class="aba-icone"><i class="ph-fill ph-user" aria-hidden="true"></i></span><span>Perfil</span></a>
-        </nav>
+    <div class="pagina">
+        <h1 class="pagina-titulo" id="titulo-pagina" tabindex="-1">Carregando…</h1>
+        <main class="conteudo" id="conteudo" tabindex="-1">
+            <div class="esqueleto-lista" aria-hidden="true">
+                <div class="esqueleto esqueleto-bloco"></div>
+                <div class="esqueleto esqueleto-bloco"></div>
+            </div>
+        </main>
     </div>
+
+    <nav class="abas" aria-label="Seções do portal">
+        <a class="aba" href="#/inicio" data-secao="inicio" data-inclui="frequencia"><i class="ph-fill ph-house" aria-hidden="true"></i><span>Início</span></a>
+        <a class="aba" href="#/avisos/todos" data-secao="avisos"><span class="aba-icone"><i class="ph-fill ph-megaphone-simple" aria-hidden="true"></i><span class="ponto-alerta" data-ponto-naolidos hidden></span></span><span>Avisos</span><span class="visually-hidden" data-sr-naolidos></span></a>
+        <a class="aba" href="#/atividades/pendentes" data-secao="atividades"><i class="ph-fill ph-clipboard-text" aria-hidden="true"></i><span>Atividades</span></a>
+        <a class="aba" href="#/horarios" data-secao="horarios"><i class="ph-fill ph-calendar-blank" aria-hidden="true"></i><span>Horários</span></a>
+        <a class="aba" href="#/ajustes/perfil" data-secao="ajustes"><i class="ph-fill ph-user" aria-hidden="true"></i><span>Perfil</span></a>
+    </nav>
 
     <p class="visually-hidden" role="status" id="status-contadores"></p>
 
-    <dialog class="dialogo" id="dialogo" aria-labelledby="dialogo-titulo">
+    <dialog class="folha" id="dialogo-aviso" aria-labelledby="aviso-titulo">
+        <span class="folha-alca" aria-hidden="true"></span>
+        <button class="botao-icone folha-fechar" type="button" data-fechar-dialogo aria-label="Fechar aviso"><i class="ph ph-x" aria-hidden="true"></i></button>
+        <div id="aviso-corpo"></div>
+    </dialog>
+
+    <dialog class="folha" id="dialogo" aria-labelledby="dialogo-titulo">
+        <span class="folha-alca" aria-hidden="true"></span>
         <div class="dialogo-cabecalho">
             <h2 id="dialogo-titulo"></h2>
             <button class="botao-icone" type="button" data-fechar-dialogo aria-label="Fechar"><i class="ph ph-x" aria-hidden="true"></i></button>
         </div>
-        <div class="dialogo-corpo" id="dialogo-corpo"></div>
+        <div id="dialogo-corpo"></div>
     </dialog>
 </body>
 </html>

@@ -3,15 +3,14 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#2b2921">
-    <title>Portal da Gestão · C·Warning</title>
+    <meta name="theme-color" content="#102440">
+    <title>Portal da Gestão · C-Warning</title>
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="icon" href="/assets/icones/favicon.svg" type="image/svg+xml">
     <link rel="icon" href="/assets/icones/favicon-32.png" sizes="32x32" type="image/png">
     <link rel="apple-touch-icon" href="/assets/icones/apple-touch-icon.png">
     <script src="/pwa.js" defer></script>
     <script src="/preferencias.js"></script>
-    <link rel="stylesheet" href="/vendor/fontes.css">
     <link rel="stylesheet" href="/vendor/phosphor/regular.css">
     <link rel="stylesheet" href="/vendor/phosphor/fill.css">
     <link rel="stylesheet" href="/tema.css">
@@ -23,6 +22,7 @@
     <script src="/componentes/formulario.js" defer></script>
     <script src="/gestao-base.js" defer></script>
     <script src="/gestao-avisos.js" defer></script>
+    <script src="/gestao-salvos.js" defer></script>
     <script src="/gestao-pessoas.js" defer></script>
     <script src="/gestao-horarios.js" defer></script>
     <script src="/gestao-importacao.js" defer></script>
@@ -34,7 +34,7 @@
     <a class="pular-conteudo" href="#conteudo">Pular para o conteúdo</a>
 
     <div class="app">
-        <!-- Barra lateral escura com marca dourada (web) -->
+        <!-- Barra lateral marinho escura, item ativo vermelho (protótipo .sidebar) -->
         <aside class="sidebar" aria-label="Menu do portal">
             <div class="sidebar-topo">
                 <a class="sidebar-marca" href="#/visao-geral" aria-label="C-Warning, Gestão escolar: visão geral">
@@ -47,46 +47,63 @@
                 <button class="sidebar-sair sidebar-sair-topo" type="button" data-sair aria-label="Sair do portal" title="Sair do portal"><i class="ph ph-sign-out" aria-hidden="true"></i></button>
             </div>
 
-            <p class="menu-rotulo" id="rotulo-menu">Painel administrativo</p>
-            <nav aria-labelledby="rotulo-menu">
-                <ul class="menu">
+            <nav class="menu" aria-label="Seções do portal">
+                <p class="menu-rotulo" id="rotulo-painel">Painel administrativo</p>
+                <ul aria-labelledby="rotulo-painel">
                     <li><a class="menu-item" href="#/visao-geral" data-secao="visao-geral"><i class="ph ph-squares-four" aria-hidden="true"></i><span>Visão geral</span></a></li>
+                    <li><a class="menu-item" href="#/avisos" data-secao="avisos"><i class="ph ph-megaphone-simple" aria-hidden="true"></i><span>Comunicados</span></a></li>
+                    <li><a class="menu-item" href="#/urgentes" data-secao="urgentes"><i class="ph ph-warning-circle" aria-hidden="true"></i><span>Comunicados urgentes</span></a></li>
+                    <li><a class="menu-item" href="#/salvos" data-secao="salvos"><i class="ph ph-bookmark-simple" aria-hidden="true"></i><span>Salvos e pastas</span></a></li>
+                </ul>
+                <p class="menu-rotulo" id="rotulo-organizacao">Organização escolar</p>
+                <ul aria-labelledby="rotulo-organizacao">
                     <li><a class="menu-item" href="#/turmas" data-secao="turmas"><i class="ph ph-users-three" aria-hidden="true"></i><span>Turmas</span></a></li>
                     <li><a class="menu-item" href="#/alunos" data-secao="alunos"><i class="ph ph-student" aria-hidden="true"></i><span>Alunos</span></a></li>
-                    <li><a class="menu-item" href="#/avisos" data-secao="avisos"><i class="ph ph-megaphone-simple" aria-hidden="true"></i><span>Avisos</span></a></li>
+                    <li><a class="menu-item" href="#/horarios" data-secao="horarios"><i class="ph ph-clock" aria-hidden="true"></i><span>Horários</span></a></li>
+                    <li><a class="menu-item" href="#/equipe" data-secao="equipe"><i class="ph ph-identification-badge" aria-hidden="true"></i><span>Equipe</span></a></li>
+                </ul>
+                <p class="menu-rotulo" id="rotulo-acompanhamento">Acompanhamento</p>
+                <ul aria-labelledby="rotulo-acompanhamento">
                     <li><a class="menu-item" href="#/ocorrencias" data-secao="ocorrencias"><i class="ph ph-warning-octagon" aria-hidden="true"></i><span>Ocorrências</span><span class="menu-contador" data-contador="ocorrencias" hidden></span></a></li>
                     <li><a class="menu-item" href="#/justificativas" data-secao="justificativas"><i class="ph ph-file-text" aria-hidden="true"></i><span>Justificativas</span><span class="menu-contador" data-contador="justificativas" hidden></span></a></li>
                     <li><a class="menu-item" href="#/relatorios" data-secao="relatorios"><i class="ph ph-chart-bar" aria-hidden="true"></i><span>Relatórios</span></a></li>
-                    <li><a class="menu-item" href="#/equipe" data-secao="equipe"><i class="ph ph-identification-badge" aria-hidden="true"></i><span>Equipe</span></a></li>
-                    <li class="menu-so-celular"><a class="menu-item" href="#/configuracoes/perfil" data-secao="configuracoes"><i class="ph ph-gear-six" aria-hidden="true"></i><span>Configurações</span></a></li>
+                    <li><a class="menu-item" href="#/configuracoes/perfil" data-secao="configuracoes"><i class="ph ph-user-circle" aria-hidden="true"></i><span>Perfil</span></a></li>
                 </ul>
             </nav>
 
             <div class="sidebar-rodape">
-                <a class="menu-item" href="#/configuracoes/perfil" data-secao="configuracoes"><i class="ph ph-gear-six" aria-hidden="true"></i><span>Configurações</span></a>
-                <div class="sidebar-usuario">
-                    <span class="avatar" data-avatar aria-hidden="true">G</span>
-                    <span class="sidebar-usuario-texto"><strong data-nome-usuario>Gestão</strong><small data-login-usuario>Gestão escolar</small></span>
-                    <button class="sidebar-sair" type="button" data-sair aria-label="Sair do portal" title="Sair do portal"><i class="ph ph-sign-out" aria-hidden="true"></i></button>
-                </div>
+                <p class="sidebar-lema">Educação conecta<br>todas as pessoas.</p>
+                <button class="sidebar-sair" type="button" data-sair><i class="ph ph-sign-out" aria-hidden="true"></i><span>Sair do portal</span></button>
             </div>
         </aside>
 
         <div class="coluna">
+            <!-- Faixa marinho do topo: busca geral + identificação (protótipo .topbar) -->
             <header class="topo">
-                <div class="topo-titulos">
-                    <p class="topo-escola" id="sobretitulo-pagina">Painel institucional</p>
-                    <h1 class="topo-titulo" id="titulo-pagina" tabindex="-1">Carregando…</h1>
-                    <p class="topo-descricao" id="descricao-pagina"></p>
-                </div>
+                <form class="busca-geral" id="busca-geral" role="search" autocomplete="off">
+                    <label class="visually-hidden" for="busca-geral-campo">Buscar comunicados, turmas e alunos</label>
+                    <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+                    <input id="busca-geral-campo" type="search" placeholder="Buscar comunicados, turmas e alunos..." aria-controls="busca-geral-resultados" aria-expanded="false">
+                    <div class="busca-resultados" id="busca-geral-resultados" hidden></div>
+                </form>
+                <a class="topo-usuario" href="#/configuracoes/perfil" aria-label="Meu perfil">
+                    <span class="topo-usuario-texto"><strong data-nome-usuario>Gestão</strong><small data-login-usuario>Gestão escolar</small></span>
+                    <span class="avatar" data-avatar aria-hidden="true">G</span>
+                </a>
             </header>
+
+            <div class="cabecalho-pagina">
+                <p class="cabecalho-sobretitulo" id="sobretitulo-pagina">Painel institucional</p>
+                <h1 class="cabecalho-titulo" id="titulo-pagina" tabindex="-1">Carregando…</h1>
+                <p class="cabecalho-descricao" id="descricao-pagina"></p>
+            </div>
 
             <main class="conteudo" id="conteudo">
 
                 <!-- Visão geral -->
                 <section class="secao" data-pagina="visao-geral" aria-labelledby="titulo-pagina" hidden>
                     <div class="barra-acoes">
-                        <a class="botao botao-primario" href="#/avisos/novo"><i class="ph ph-plus" aria-hidden="true"></i>Publicar aviso</a>
+                        <a class="botao botao-primario" href="#/avisos/novo"><i class="ph ph-plus" aria-hidden="true"></i>Publicar comunicado</a>
                         <a class="botao botao-secundario" href="#/relatorios"><i class="ph ph-download-simple" aria-hidden="true"></i>Exportar relatório</a>
                     </div>
                     <div id="painel"></div>
@@ -123,16 +140,22 @@
                             </div>
                         </form>
                     </details>
-                    <details class="cartao cartao-recolhivel" id="cartao-horarios">
-                        <summary><i class="ph ph-calendar-blank" aria-hidden="true"></i>Horários em PDF</summary>
-                        <p class="texto-apoio">
-                            Publique o horário de cada turma e o dos professores (PDF de até 5 MB). Os alunos veem o
-                            da própria turma; os professores veem o deles e o das turmas em que dão aula. Enviar um
-                            novo PDF substitui o anterior.
-                        </p>
-                        <div id="lista-horarios"></div>
-                    </details>
                     <div id="lista-turmas"></div>
+                </section>
+
+                <!-- Horários em PDF (protótipo "Horários") -->
+                <section class="secao" data-pagina="horarios" aria-labelledby="titulo-pagina" hidden>
+                    <section class="cartao" id="cartao-horarios">
+                        <div class="cartao-cabecalho">
+                            <h2>Quadro de horários</h2>
+                            <p class="texto-suave">
+                                PDF de até 5 MB. Os alunos veem o da própria turma; os professores veem o deles e o
+                                das turmas em que dão aula. Enviar um novo PDF substitui o anterior.
+                            </p>
+                            <span class="icone-cabecalho" aria-hidden="true"><i class="ph ph-calendar-blank"></i></span>
+                        </div>
+                        <div id="lista-horarios"></div>
+                    </section>
                 </section>
 
                 <!-- Alunos -->
@@ -227,22 +250,25 @@
                     </section>
                 </section>
 
-                <!-- Avisos -->
+                <!-- Comunicados (protótipo "Central de Comunicados") -->
                 <section class="secao" data-pagina="avisos" aria-labelledby="titulo-pagina" hidden>
-                    <div class="barra-acoes">
-                        <button class="botao botao-primario" type="button" id="botao-novo-aviso"><i class="ph ph-plus" aria-hidden="true"></i>Novo aviso</button>
-                    </div>
-
-                    <section class="cartao" id="cartao-aviso" hidden aria-labelledby="titulo-form-aviso">
+                    <section class="cartao" id="cartao-aviso" aria-labelledby="titulo-form-aviso">
                         <div class="cartao-cabecalho">
-                            <h2 id="titulo-form-aviso" tabindex="-1">Novo aviso</h2>
-                            <p class="texto-suave">Escolha quem deve receber. O aviso aparece para os alunos assim que é publicado.</p>
-                            <span class="icone-cabecalho" aria-hidden="true"><i class="ph ph-pencil-simple-line"></i></span>
+                            <h2 id="titulo-form-aviso" tabindex="-1">Novo comunicado</h2>
+                            <p class="texto-suave">Preencha as informações abaixo para publicar. O comunicado aparece para o público assim que é publicado.</p>
                         </div>
                         <form class="formulario" id="form-aviso">
+                            <div class="campo">
+                                <label for="aviso-titulo">Título do comunicado</label>
+                                <input id="aviso-titulo" type="text" maxlength="200" placeholder="Ex.: Reunião de responsáveis" required>
+                            </div>
+                            <div class="campo">
+                                <label for="aviso-conteudo">Mensagem</label>
+                                <textarea id="aviso-conteudo" maxlength="10000" rows="5" placeholder="Digite as informações do comunicado..." required></textarea>
+                            </div>
                             <div class="linha-campos">
                                 <div class="campo">
-                                    <label for="aviso-publico">Para quem</label>
+                                    <label for="aviso-publico">Público destinatário</label>
                                     <select id="aviso-publico" required>
                                         <option value="escola">Escola toda</option>
                                         <option value="curso">Um curso (todas as séries)</option>
@@ -270,14 +296,6 @@
                                     <select id="aviso-turma"></select>
                                 </div>
                             </div>
-                            <div class="campo">
-                                <label for="aviso-titulo">Título</label>
-                                <input id="aviso-titulo" type="text" maxlength="200" placeholder="Ex.: Reunião de pais" required>
-                            </div>
-                            <div class="campo">
-                                <label for="aviso-conteudo">Mensagem</label>
-                                <textarea id="aviso-conteudo" maxlength="10000" rows="5" placeholder="Escreva as informações do aviso..." required></textarea>
-                            </div>
                             <div class="linha-campos">
                                 <div class="campo">
                                     <label for="aviso-tipo">Tipo</label>
@@ -299,27 +317,58 @@
                                 <div class="anexo-atual" id="aviso-anexo-atual" hidden></div>
                                 <input id="aviso-anexo" type="file" accept="application/pdf,.pdf" aria-labelledby="rotulo-anexo">
                             </div>
-                            <label class="caixa-marcar">
+                            <label class="caixa-marcar caixa-urgente">
                                 <input id="aviso-urgente" type="checkbox">
-                                <span>Marcar como urgente</span>
+                                <span>Marcar este comunicado como urgente</span>
                             </label>
                             <div class="linha-botoes">
-                                <button class="botao botao-secundario" id="aviso-cancelar" type="button">Cancelar</button>
-                                <button class="botao botao-primario" id="aviso-enviar" type="submit">Publicar aviso</button>
+                                <button class="botao botao-secundario" id="aviso-cancelar" type="button">Limpar campos</button>
+                                <button class="botao botao-primario" id="aviso-enviar" type="submit">Publicar comunicado</button>
                             </div>
                         </form>
                     </section>
 
                     <section class="lista-secao" aria-labelledby="titulo-avisos-publicados">
-                        <h2 class="titulo-secao" id="titulo-avisos-publicados">Avisos publicados</h2>
+                        <h2 class="titulo-secao" id="titulo-avisos-publicados">Comunicados publicados</h2>
                         <div class="filtros">
                             <label class="campo-busca">
-                                <span class="visually-hidden">Buscar aviso</span>
+                                <span class="visually-hidden">Buscar comunicado</span>
                                 <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
                                 <input id="busca-avisos" type="search" placeholder="Buscar por título, texto ou público" autocomplete="off">
                             </label>
                         </div>
-                        <div id="lista-avisos"></div>
+                        <div class="lista-avisos" id="lista-avisos"></div>
+                    </section>
+                </section>
+
+                <!-- Comunicados urgentes -->
+                <section class="secao" data-pagina="urgentes" aria-labelledby="titulo-pagina" hidden>
+                    <div class="lista-avisos" id="lista-urgentes"></div>
+                </section>
+
+                <!-- Salvos e pastas -->
+                <section class="secao" data-pagina="salvos" aria-labelledby="titulo-pagina" hidden>
+                    <section class="cartao" aria-labelledby="titulo-pastas">
+                        <div class="cartao-cabecalho">
+                            <h2 id="titulo-pastas">Minhas pastas</h2>
+                            <p class="texto-suave">Salve comunicados pelo botão “Salvar” e organize-os em pastas. Só você vê suas pastas.</p>
+                            <span class="icone-cabecalho" aria-hidden="true"><i class="ph ph-folders"></i></span>
+                        </div>
+                        <form class="form-pasta" id="form-pasta">
+                            <div class="campo">
+                                <label for="pasta-nome">Nova pasta</label>
+                                <input id="pasta-nome" type="text" maxlength="40" placeholder="Ex.: Reuniões" autocomplete="off" required>
+                            </div>
+                            <button class="botao botao-primario" type="submit"><i class="ph ph-folder-plus" aria-hidden="true"></i>Criar pasta</button>
+                        </form>
+                        <div id="lista-pastas"></div>
+                    </section>
+                    <section class="cartao" aria-labelledby="titulo-salvos">
+                        <div class="cartao-cabecalho">
+                            <h2 id="titulo-salvos" tabindex="-1">Todos os salvos</h2>
+                            <div class="cabecalho-acoes" id="acoes-pasta"></div>
+                        </div>
+                        <div class="lista-avisos" id="lista-salvos"></div>
                     </section>
                 </section>
 

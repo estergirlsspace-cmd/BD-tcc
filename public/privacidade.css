@@ -35,9 +35,9 @@
     border-radius: 4px;
 }
 
-/* Barra superior índigo com a marca. */
+/* Barra superior marinho com a marca. */
 .pv-topo {
-    background: var(--cw-indigo);
+    background: var(--cw-marinho);
     color: #FFFFFF;
 }
 
@@ -56,17 +56,24 @@
     display: inline-flex;
     align-items: center;
     gap: 10px;
+    color: #FFFFFF;
     font-size: 20px;
+    font-weight: 700;
     text-decoration: none;
 }
 
-/* Logo do cartão de entrada (protótipo), com o mesmo contorno branco. */
-.pv-topo__logo {
-    display: block;
-    width: 36px;
-    height: 36px;
+/* Logo: quadrado vermelho com "CW" branco. */
+.cw-logo {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
     border-radius: 9px;
-    box-shadow: 0 0 0 2px #FFFFFF;
+    background: var(--cw-vermelho);
+    color: #FFFFFF;
+    font-size: 16px;
+    font-weight: 800;
+    line-height: 1;
 }
 
 .pv-topo__voltar {
@@ -100,6 +107,8 @@
 
 .pv-titulo {
     margin: 0;
+    padding-left: 14px;
+    border-left: 5px solid var(--cw-vermelho);
     color: var(--cw-texto-marca);
     font-family: var(--cw-fonte-titulo);
     font-size: 28px;

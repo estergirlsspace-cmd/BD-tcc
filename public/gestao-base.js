@@ -72,7 +72,7 @@ function leaveToLogin({ expirou = false } = {}) {
             sessionStorage.setItem('cw-voltar', window.location.pathname + window.location.hash);
         } catch { /* armazenamento indisponível: só volta ao login */ }
     }
-    window.location.replace('/');
+    window.location.replace('/entrar');
 }
 
 const OFFLINE_MESSAGE = 'Sem conexão. Confira a internet e tente de novo.';

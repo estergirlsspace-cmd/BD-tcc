@@ -1,134 +1,152 @@
-/* Tela de entrada (login) do C-Warning.
-   Depende de /tema.css (tokens --cw-*, reset, .cw-marca, .visually-hidden).
-   Celular (< 900px): tela inteira índigo. Web (>= 900px): duas colunas 50/50. */
+/* Telas de entrada (/entrar) e de redefinir senha (/redefinir, /confirmar-email).
+   Depende de /tema.css (tokens --cw-*, reset, foco, modo escuro, .visually-hidden).
+   Cartão centralizado: topo marinho com curva vermelha, conteúdo sobre --cw-superficie. */
 
 :root {
-    /* Cores próprias do login, derivadas da paleta índigo. Contrastes medidos (WCAG 2.1):
-       legenda #c9c6f0 sobre índigo 7,35:1 e sobre índigo escuro 8,66:1;
-       borda de campo #8f88d6 sobre índigo 3,82:1 (#4a42a3 do design dá só 1,49:1);
-       texto inativo #5f6178 sobre #ececf3 5,15:1; erro #b0060f sobre #fde7e8 6,17:1. */
-    --cw-login-claro: #c9c6f0;
-    --cw-login-segmento: #ececf3;
-    --cw-login-borda-escura: #8f88d6;
-    --cw-login-erro: #b0060f;
-    --cw-login-sucesso: #136b3a;
-    --cw-login-sucesso-suave: #e3f4ea;
-    --cw-login-sombra: rgba(17, 12, 60, 0.35);
-    --cw-login-sombra-leve: rgba(31, 32, 51, 0.12);
-    --cw-login-vidro: rgba(255, 255, 255, 0.08);
+    --login-sucesso: #136B3A;
+    --login-sucesso-suave: #E3F4EA;
+    --login-raio-campo: 14px;
 }
 
-/* Modo escuro (ver /tema.css): verde de sucesso legível sobre fundo escuro. */
 :root[data-tema="escuro"] {
-    --cw-login-sucesso: #8ee6b2;
-    --cw-login-sucesso-suave: #143424;
+    --login-sucesso: #8EE6B2;
+    --login-sucesso-suave: #143424;
 }
 
 @media (prefers-color-scheme: dark) {
     :root[data-tema="auto"] {
-        --cw-login-sucesso: #8ee6b2;
-        --cw-login-sucesso-suave: #143424;
+        --login-sucesso: #8EE6B2;
+        --login-sucesso-suave: #143424;
     }
 }
 
 .login-body {
-    min-height: 100vh;
-    background: var(--cw-indigo);
-    color: #FFFFFF;
+    background: var(--cw-fundo);
+    color: var(--cw-texto);
 }
 
 .login {
     display: flex;
     flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
     min-height: 100vh;
     min-height: 100dvh;
-    padding: 24px 20px 24px;
-    gap: 24px;
+    padding: 20px 16px;
 }
 
-/* ---------- Lado da marca ---------- */
+.login-cartao {
+    width: 100%;
+    max-width: 480px;
+    overflow: hidden;
+    border: 1px solid var(--cw-borda);
+    border-radius: 26px;
+    background: var(--cw-superficie);
+    box-shadow: var(--cw-sombra);
+}
 
-.login-hero {
+/* ---------- Topo do cartão ---------- */
+
+.login-topo {
     position: relative;
+    isolation: isolate;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    align-items: center;
+    gap: 8px;
+    padding: 28px 20px 62px;
+    overflow: hidden;
+    background: var(--cw-marinho);
+    color: #FFFFFF;
+    text-align: center;
 }
 
-.login-hero__marca {
-    position: relative;
-    z-index: 1;
-    margin: 0;
-    font-size: 26px;
+/* Curva: faixa vermelha com a superfície do cartão por cima, um pouco mais abaixo. */
+.login-topo::before,
+.login-topo::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    left: -10%;
+    width: 120%;
+    height: 72px;
+    border-radius: 50% 50% 0 0 / 35% 35% 0 0;
+}
+
+.login-topo::before {
+    bottom: -39px;
+    background: var(--cw-vermelho);
+}
+
+.login-topo::after {
+    bottom: -49px;
+    background: var(--cw-superficie);
+}
+
+.cw-logo {
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    background: var(--cw-vermelho);
+    color: #FFFFFF;
+    font-size: 20px;
+    font-weight: 800;
     line-height: 1;
 }
 
-.login-hero__titulo {
-    position: relative;
-    z-index: 1;
-    max-width: 14ch;
+.login-topo__nome {
     margin: 0;
-    font-family: var(--cw-fonte-titulo);
-    font-size: 36px;
+    font-family: var(--cw-fonte-marca);
+    font-size: clamp(32px, 9vw, 42px);
     font-weight: 700;
-    line-height: 1.08;
-    letter-spacing: -1px;
+    line-height: 1.15;
 }
 
-.login-mapa {
-    display: none;
+.login-topo__escola {
+    margin: 0;
+    font-size: 15px;
 }
 
-/* ---------- Painel do formulário ---------- */
-
-.login-painel {
-    margin-top: auto;
-}
+/* ---------- Conteúdo ---------- */
 
 .login-conteudo {
-    width: 100%;
-    max-width: 400px;
-    margin: 0 auto;
+    padding: 4px 20px 28px;
 }
 
 .login-form,
 .login-subform {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 16px;
 }
 
 .login-titulo {
-    margin: 0 0 4px;
-    font-family: var(--cw-fonte-titulo);
-    font-size: 26px;
+    margin: 0;
+    color: var(--cw-texto-marca);
+    font-size: 22px;
     font-weight: 700;
-    line-height: 1.2;
-    letter-spacing: -0.5px;
+    line-height: 1.25;
 }
 
-/* No celular o título da marca já apresenta a tela. */
-.login-titulo--acesso {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
+.login-titulo[tabindex='-1']:focus {
+    outline: none;
+    box-shadow: none;
 }
 
-/* Segmento de perfil: fieldset com radios nativos (setas trocam a opção). */
+/* Segmento Aluno/Professor/Gestão: fieldset com radios nativos (setas trocam a opção). */
 .perfil {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 4px;
     min-width: 0;
-    margin: 0;
-    padding: 4px;
+    margin: 0 0 6px;
+    padding: 5px;
     border: 0;
-    border-radius: var(--cw-raio-sm);
-    background: var(--cw-indigo-escuro);
+    border-radius: 14px;
+    background: var(--cw-azul-suave);
 }
 
 .perfil__opcao {
@@ -151,36 +169,37 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 44px;
-    padding: 0 6px;
-    border-radius: 8px;
-    color: var(--cw-login-claro);
+    min-height: 46px;
+    padding: 0 4px;
+    border-radius: 10px;
+    color: var(--cw-texto-marca);
     font-size: 15px;
-    font-weight: 600;
+    font-weight: 700;
     transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .perfil__radio:checked + .perfil__texto {
-    background: #FFFFFF;
-    color: var(--cw-indigo);
-    box-shadow: 0 1px 3px var(--cw-login-sombra);
+    background: var(--cw-vermelho);
+    color: #FFFFFF;
 }
 
 .perfil__radio:focus-visible + .perfil__texto {
     outline: 3px solid var(--cw-foco);
     outline-offset: 2px;
+    box-shadow: 0 0 0 7px var(--cw-anel-foco);
 }
 
 /* Campos */
 .campo {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
 }
 
 .campo__rotulo {
-    font-size: 14px;
-    font-weight: 600;
+    color: var(--cw-texto-marca);
+    font-size: 15px;
+    font-weight: 700;
 }
 
 .campo__controle {
@@ -189,50 +208,48 @@
 
 .campo__entrada {
     width: 100%;
-    height: 48px;
-    padding: 0 14px;
-    border: 1.5px solid var(--cw-login-borda-escura);
-    border-radius: var(--cw-raio-sm);
-    background: var(--cw-login-vidro);
-    color: #FFFFFF;
+    height: 54px;
+    padding: 0 16px;
+    border: 1px solid var(--cw-borda-campo);
+    border-radius: var(--login-raio-campo);
+    background: var(--cw-superficie);
+    color: var(--cw-texto);
     font: inherit;
     font-size: 16px;
 }
 
 .campo__entrada::placeholder {
-    color: var(--cw-login-claro);
+    color: var(--cw-texto-suave);
     opacity: 1;
 }
 
 .campo__entrada:focus-visible {
-    outline: 3px solid var(--cw-foco);
-    outline-offset: 2px;
-    border-color: #FFFFFF;
+    border-color: var(--cw-marinho);
 }
 
 .campo__entrada--senha {
-    padding-right: 52px;
+    padding-right: 54px;
 }
 
 .campo__mostrar {
     position: absolute;
-    top: 2px;
-    right: 2px;
+    top: 5px;
+    right: 4px;
     display: grid;
     place-items: center;
     width: 44px;
     height: 44px;
     padding: 0;
     border: 0;
-    border-radius: 8px;
+    border-radius: 10px;
     background: transparent;
-    color: var(--cw-login-claro);
+    color: var(--cw-texto-marca);
     font-size: 22px;
     cursor: pointer;
 }
 
 .campo__mostrar:hover {
-    color: #FFFFFF;
+    background: var(--cw-azul-suave);
 }
 
 /* Botões */
@@ -241,21 +258,22 @@
     align-items: center;
     justify-content: center;
     width: 100%;
-    min-height: 52px;
+    min-height: 54px;
     padding: 0 20px;
     border: 0;
-    border-radius: var(--cw-raio-sm);
-    background: #FFFFFF;
-    color: var(--cw-indigo);
+    border-radius: var(--login-raio-campo);
+    background: var(--cw-marinho);
+    color: #FFFFFF;
     font: inherit;
     font-size: 16px;
     font-weight: 700;
+    text-decoration: none;
     cursor: pointer;
     transition: background-color 0.15s ease;
 }
 
 .login-botao:hover {
-    background: color-mix(in srgb, #FFFFFF 86%, var(--cw-indigo));
+    background: var(--cw-marinho-hover);
 }
 
 .login-botao:disabled {
@@ -263,36 +281,26 @@
     opacity: 0.85;
 }
 
-.login-botao:focus-visible,
-.campo__mostrar:focus-visible {
-    outline: 3px solid var(--cw-foco);
-    outline-offset: 2px;
-}
-
 .login-botao--secundario {
-    border: 1.5px solid var(--cw-login-borda-escura);
-    background: transparent;
-    color: #FFFFFF;
+    border: 1.5px solid var(--cw-marinho);
+    background: var(--cw-superficie);
+    color: var(--cw-texto-marca);
 }
 
 .login-botao--secundario:hover {
-    background: var(--cw-login-vidro);
+    background: var(--cw-azul-suave);
 }
 
 /* Textos de apoio */
 .login-ajuda {
     margin: 0;
-    color: var(--cw-login-claro);
+    color: var(--cw-texto-suave);
     font-size: 14px;
     line-height: 1.5;
 }
 
 .login-ajuda strong {
-    color: #FFFFFF;
-}
-
-.login-ajuda--intro {
-    margin-bottom: 4px;
+    color: var(--cw-texto);
 }
 
 .login-aviso {
@@ -330,8 +338,8 @@
 }
 
 .login-mensagem--sucesso {
-    background: var(--cw-login-sucesso-suave);
-    color: var(--cw-login-sucesso);
+    background: var(--login-sucesso-suave);
+    color: var(--login-sucesso);
 }
 
 .login-mensagem:empty {
@@ -345,7 +353,7 @@
     padding: 0;
     border: 0;
     background: transparent;
-    color: #FFFFFF;
+    color: var(--cw-link);
     font: inherit;
     font-size: 14px;
     font-weight: 700;
@@ -354,15 +362,15 @@
     cursor: pointer;
 }
 
-.login-link:focus-visible {
-    outline: 3px solid var(--cw-foco);
-    outline-offset: 2px;
-}
-
-.login-link--voltar {
+.login-link--voltar,
+.login-termos__link,
+.login-voltar {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+}
+
+.login-link--voltar {
     text-decoration: none;
 }
 
@@ -373,51 +381,182 @@
 }
 
 .login-confirmacao__icone {
+    color: var(--cw-link);
     font-size: 40px;
 }
 
-a.login-botao {
+/* Link para a página inicial, abaixo do cartão. */
+.login-voltar {
+    min-height: 44px;
+    color: var(--cw-link);
+    font-size: 14px;
+    font-weight: 600;
     text-decoration: none;
 }
 
-.login-titulo[tabindex='-1']:focus {
-    outline: none;
-    box-shadow: none;
+.login-voltar:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
 }
 
-/* ---------- Web: duas colunas ---------- */
+/* Etapa "Termos e privacidade" (LGPD), depois do login e do primeiro acesso. */
+.login-termos {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding-left: 20px;
+    color: var(--cw-texto-2);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.login-aceite {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    min-height: 44px;
+    color: var(--cw-texto);
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.45;
+    cursor: pointer;
+}
+
+.login-aceite__caixa {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    margin: 0;
+    accent-color: var(--cw-marinho);
+    cursor: pointer;
+}
+
+@media (min-width: 480px) {
+    .login-conteudo {
+        padding: 4px 28px 30px;
+    }
+}
+
+/* ---------- Entrada dividida (/entrar): marca e mapa do RN à esquerda, formulário à direita ---------- */
+
+.login--dividido {
+    justify-content: flex-start;
+    gap: 0;
+    padding: 0;
+    background: var(--cw-superficie);
+}
+
+.login-hero {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+    padding: 28px 20px 64px;
+    overflow: hidden;
+    background: var(--cw-marinho);
+    color: #FFFFFF;
+}
+
+/* No celular, a mesma curva vermelha do cartão fecha o bloco marinho. */
+.login-hero::before,
+.login-hero::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    left: -10%;
+    width: 120%;
+    height: 72px;
+    border-radius: 50% 50% 0 0 / 35% 35% 0 0;
+}
+
+.login-hero::before {
+    bottom: -39px;
+    background: var(--cw-vermelho);
+}
+
+.login-hero::after {
+    bottom: -49px;
+    background: var(--cw-superficie);
+}
+
+.login-hero__marca {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.login-hero__marca .login-topo__nome,
+.login-hero__marca .login-topo__escola {
+    display: block;
+}
+
+.login-hero__marca .login-topo__nome {
+    font-size: 30px;
+}
+
+.login-hero__titulo {
+    max-width: 16ch;
+    margin: 0;
+    font-size: 30px;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.5px;
+}
+
+.login-hero__titulo::after {
+    content: "";
+    display: block;
+    width: 64px;
+    height: 5px;
+    margin-top: 16px;
+    border-radius: 3px;
+    background: var(--cw-vermelho);
+}
+
+.login-mapa {
+    display: none;
+}
+
+.login-lado {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding-bottom: 24px;
+}
+
+.login-lado .login-conteudo {
+    width: 100%;
+    max-width: 440px;
+}
 
 @media (min-width: 900px) {
-    .login-body {
-        background: var(--cw-superficie);
-        color: var(--cw-texto);
-    }
-
-    .login {
+    .login--dividido {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 0;
+        align-items: stretch;
         height: 100vh;
         min-height: 640px;
-        padding: 0;
     }
 
     .login-hero {
         justify-content: space-between;
-        gap: 0;
-        overflow: hidden;
         padding: 56px;
-        background: var(--cw-indigo);
-        color: #FFFFFF;
+        border-right: 6px solid var(--cw-vermelho);
     }
 
-    .login-hero__marca {
-        font-size: 28px;
+    .login-hero::before,
+    .login-hero::after {
+        content: none;
     }
 
     .login-hero__titulo {
         max-width: 540px;
-        font-size: clamp(40px, 3.7vw, 52px);
+        font-size: clamp(38px, 3.6vw, 52px);
         line-height: 1.05;
         letter-spacing: -1.5px;
     }
@@ -426,7 +565,8 @@ a.login-botao {
        posicionado em % do viewBox (Parnamirim: x 1289,7 / y 430,3), acompanha a imagem. */
     .login-mapa {
         position: absolute;
-        top: 11%;
+        z-index: -1;
+        top: 16%;
         left: -20%;
         display: block;
         width: 112%;
@@ -445,8 +585,6 @@ a.login-botao {
         position: absolute;
         top: 50.56%;
         left: 92.12%;
-        width: 0;
-        height: 0;
     }
 
     .login-mapa__icone {
@@ -456,7 +594,6 @@ a.login-botao {
         color: #FFFFFF;
         font-size: 40px;
         line-height: 1;
-        filter: drop-shadow(0 4px 6px var(--cw-login-sombra));
     }
 
     .login-mapa__legenda {
@@ -468,195 +605,24 @@ a.login-botao {
         align-items: flex-end;
         gap: 2px;
         white-space: nowrap;
-        text-align: right;
     }
 
     .login-mapa__cidade {
-        color: #FFFFFF;
         font-size: 14px;
         font-weight: 700;
     }
 
     .login-mapa__estado {
-        color: var(--cw-login-claro);
+        color: #D9E2EE;
         font-size: 11px;
         font-weight: 600;
         letter-spacing: 1px;
         text-transform: uppercase;
     }
 
-    .login-painel {
-        display: flex;
-        align-items: center;
+    .login-lado {
         justify-content: center;
-        margin: 0;
         padding: 48px 32px;
         overflow-y: auto;
-        background: var(--cw-superficie);
-        color: var(--cw-texto);
-    }
-
-    .login-form,
-    .login-subform {
-        gap: 18px;
-    }
-
-    .login-titulo {
-        margin-bottom: 6px;
-        color: var(--cw-texto);
-        font-size: 28px;
-    }
-
-    .login-titulo--acesso {
-        position: static;
-        width: auto;
-        height: auto;
-        margin: 0 0 6px;
-        overflow: visible;
-        clip-path: none;
-        white-space: normal;
-    }
-
-    .perfil {
-        background: var(--cw-chip);
-    }
-
-    .perfil__texto {
-        color: var(--cw-texto-suave);
-    }
-
-    .perfil__radio:checked + .perfil__texto {
-        background: var(--cw-superficie);
-        color: var(--cw-texto-marca);
-        box-shadow: 0 1px 3px var(--cw-login-sombra-leve);
-    }
-
-    .perfil__opcao:hover .perfil__radio:not(:checked) + .perfil__texto {
-        color: var(--cw-texto);
-    }
-
-    .campo__rotulo {
-        color: var(--cw-texto);
-    }
-
-    .campo__entrada {
-        border-color: var(--cw-borda-campo);
-        background: var(--cw-superficie);
-        color: var(--cw-texto);
-    }
-
-    .campo__entrada::placeholder {
-        color: var(--cw-texto-suave);
-    }
-
-    .campo__entrada:focus-visible {
-        border-color: var(--cw-indigo);
-    }
-
-    .campo__mostrar {
-        color: var(--cw-texto-suave);
-    }
-
-    .campo__mostrar:hover {
-        color: var(--cw-texto-marca);
-    }
-
-    .login-botao {
-        background: var(--cw-indigo);
-        color: #FFFFFF;
-    }
-
-    .login-botao:hover {
-        background: var(--cw-indigo-hover);
-    }
-
-    .login-botao--secundario {
-        border-color: var(--cw-indigo);
-        background: var(--cw-superficie);
-        color: var(--cw-texto-marca);
-    }
-
-    .login-botao--secundario:hover {
-        background: var(--cw-azul-suave);
-    }
-
-    /* Âmbar sozinho tem 2,07:1 sobre branco: o anel de contraste (tema.css) envolve o âmbar. */
-    .login-painel :focus-visible,
-    .login-painel .perfil__radio:focus-visible + .perfil__texto {
-        box-shadow: 0 0 0 7px var(--cw-anel-foco);
-    }
-
-    .login-ajuda {
-        color: var(--cw-texto-suave);
-    }
-
-    .login-ajuda strong {
-        color: var(--cw-texto);
-    }
-
-    .login-link {
-        color: var(--cw-link);
-    }
-
-    .login-confirmacao__icone {
-        color: var(--cw-link);
-    }
-}
-
-/* Etapa "Termos e privacidade" (LGPD), depois do login e do primeiro acesso. */
-.login-termos {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin: 0;
-    padding-left: 20px;
-    color: var(--cw-login-claro);
-    font-size: 14px;
-    line-height: 1.5;
-}
-
-.login-termos__link {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.login-aceite {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    min-height: 44px;
-    color: #FFFFFF;
-    font-size: 15px;
-    font-weight: 600;
-    line-height: 1.45;
-    cursor: pointer;
-}
-
-.login-aceite__caixa {
-    flex: none;
-    width: 22px;
-    height: 22px;
-    margin: 0;
-    accent-color: var(--cw-azul);
-    cursor: pointer;
-}
-
-.login-aceite__caixa:focus-visible {
-    outline: 3px solid var(--cw-foco);
-    outline-offset: 2px;
-}
-
-@media (min-width: 900px) {
-    .login-termos {
-        color: var(--cw-texto-2);
-    }
-
-    .login-aceite {
-        color: var(--cw-texto);
-    }
-
-    .login-aceite__caixa {
-        accent-color: var(--cw-indigo);
     }
 }

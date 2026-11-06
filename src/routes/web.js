@@ -5,6 +5,7 @@ const publicDirectory = path.join(__dirname, '..', '..', 'public');
 
 const pageRoutes = new Map([
     ['/', 'index.html'],
+    ['/entrar', 'entrar.html'],
     ['/aluno', 'aluno.html'],
     ['/professor', 'professor.html'],
     ['/gestao', 'gestao.html'],

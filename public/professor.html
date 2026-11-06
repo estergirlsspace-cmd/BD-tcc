@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#2b2921">
+    <meta name="theme-color" content="#102440">
     <title>Portal do Professor · C-Warning</title>
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="icon" href="/assets/icones/favicon.svg" type="image/svg+xml">
@@ -25,38 +25,43 @@
 <body class="portal-professor">
     <a class="pular-conteudo" href="#conteudo">Pular para o conteúdo</a>
 
-    <!-- Estrutura do protótipo "Códigos Interface": menu lateral escuro (.sidebar), barra superior
-         com nome e trilha (.topbar) e conteúdo com sobretítulo, título e subtítulo.
-         No celular (até 650px) o menu lateral vira o bloco escuro do topo com as abas na horizontal. -->
+    <!-- Estrutura do protótipo professor.html: barra lateral marinho (.sidebar) com a marca, o menu
+         principal e o perfil; barra superior branca com nome e trilha (.topbar); conteúdo com
+         sobretítulo, título e subtítulo. No celular (até 700px) a barra lateral vira o bloco marinho
+         do topo, com as abas na horizontal. -->
     <div class="app">
         <aside class="lateral" aria-label="Menu do portal">
-            <a class="lateral-marca" href="#/inicio" aria-label="C-Warning, início do Portal do Professor">
+            <a class="lateral-marca" href="#/disciplinas" aria-label="C-Warning, Portal do Professor: minhas disciplinas">
                 <span class="marca-logo" aria-hidden="true">CW</span>
                 <span class="lateral-marca-texto" aria-hidden="true">
                     <span class="marca-nome">C-Warning</span>
                     <span class="lateral-subtitulo">Portal do Professor</span>
                 </span>
             </a>
-            <p class="lateral-rotulo" aria-hidden="true">Menu principal</p>
             <nav class="lateral-nav" aria-label="Seções do portal">
+                <p class="lateral-rotulo" aria-hidden="true">Menu principal</p>
                 <ul class="lateral-lista">
-                    <li><a class="lateral-item" href="#/inicio" data-secao="inicio"><span class="nav-icone"><i class="ph ph-house" aria-hidden="true"></i></span><span>Início</span></a></li>
-                    <li><a class="lateral-item" href="#/turmas" data-secao="turmas"><span class="nav-icone"><i class="ph ph-users-three" aria-hidden="true"></i></span><span>Turmas</span></a></li>
-                    <li><a class="lateral-item" href="#/horario" data-secao="horario"><span class="nav-icone"><i class="ph ph-calendar-dots" aria-hidden="true"></i></span><span>Horário</span></a></li>
-                    <li><a class="lateral-item" href="#/chamada" data-secao="chamada"><span class="nav-icone"><i class="ph ph-list-checks" aria-hidden="true"></i></span><span>Chamada</span></a></li>
-                    <li><a class="lateral-item" href="#/atividades" data-secao="atividades"><span class="nav-icone"><i class="ph ph-clipboard-text" aria-hidden="true"></i></span><span>Atividades</span></a></li>
-                    <li><a class="lateral-item" href="#/avisos" data-secao="avisos"><span class="nav-icone"><i class="ph ph-megaphone-simple" aria-hidden="true"></i></span><span>Avisos</span></a></li>
-                    <li><a class="lateral-item" href="#/salvos" data-secao="salvos"><span class="nav-icone"><i class="ph ph-bookmark-simple" aria-hidden="true"></i></span><span>Salvos</span></a></li>
-                    <li><a class="lateral-item" href="#/ocorrencias" data-secao="ocorrencias"><span class="nav-icone"><i class="ph ph-warning-octagon" aria-hidden="true"></i></span><span>Ocorrências</span></a></li>
-                    <li><a class="lateral-item" href="#/configuracoes/perfil" data-secao="configuracoes"><span class="nav-icone"><i class="ph ph-gear-six" aria-hidden="true"></i></span><span>Configurações</span></a></li>
+                    <li><a class="lateral-item" href="#/disciplinas" data-secao="disciplinas"><i class="ph ph-books" aria-hidden="true"></i><span>Disciplinas</span></a></li>
+                    <li><a class="lateral-item" href="#/horario" data-secao="horario"><i class="ph ph-calendar-dots" aria-hidden="true"></i><span>Horário</span></a></li>
+                    <li><a class="lateral-item" href="#/comunicados" data-secao="comunicados"><i class="ph ph-newspaper" aria-hidden="true"></i><span>Comunicados da gestão</span></a></li>
+                    <li><a class="lateral-item" href="#/salvos" data-secao="salvos"><i class="ph ph-user-circle" aria-hidden="true"></i><span>Meu perfil e salvos</span></a></li>
+                </ul>
+                <p class="lateral-rotulo" aria-hidden="true">Sala de aula</p>
+                <ul class="lateral-lista">
+                    <li><a class="lateral-item" href="#/inicio" data-secao="inicio"><i class="ph ph-sun-horizon" aria-hidden="true"></i><span>Resumo do dia</span></a></li>
+                    <li><a class="lateral-item" href="#/chamada" data-secao="chamada"><i class="ph ph-list-checks" aria-hidden="true"></i><span>Chamada</span></a></li>
+                    <li><a class="lateral-item" href="#/atividades" data-secao="atividades"><i class="ph ph-clipboard-text" aria-hidden="true"></i><span>Atividades</span></a></li>
+                    <li><a class="lateral-item" href="#/avisos" data-secao="avisos"><i class="ph ph-megaphone-simple" aria-hidden="true"></i><span>Meus avisos</span></a></li>
+                    <li><a class="lateral-item" href="#/ocorrencias" data-secao="ocorrencias"><i class="ph ph-warning-octagon" aria-hidden="true"></i><span>Ocorrências</span></a></li>
+                    <li><a class="lateral-item" href="#/configuracoes/perfil" data-secao="configuracoes"><i class="ph ph-gear-six" aria-hidden="true"></i><span>Configurações</span></a></li>
                 </ul>
             </nav>
 
-            <!-- Abas do celular: dentro do bloco escuro do topo, como a navegação do protótipo -->
+            <!-- Abas do celular, dentro do bloco marinho do topo -->
             <nav class="abas" aria-label="Seções do portal">
-                <a class="aba" href="#/inicio" data-secao="inicio"><i class="ph ph-house" aria-hidden="true"></i><span>Início</span></a>
+                <a class="aba" href="#/disciplinas" data-secao="disciplinas"><i class="ph ph-books" aria-hidden="true"></i><span>Disciplinas</span></a>
                 <a class="aba" href="#/chamada" data-secao="chamada"><i class="ph ph-list-checks" aria-hidden="true"></i><span>Chamada</span></a>
-                <a class="aba" href="#/avisos" data-secao="avisos"><i class="ph ph-megaphone-simple" aria-hidden="true"></i><span>Avisos</span></a>
+                <a class="aba" href="#/comunicados" data-secao="comunicados" aria-label="Comunicados da gestão"><i class="ph ph-newspaper" aria-hidden="true"></i><span>Mural</span></a>
                 <a class="aba" href="#/atividades" data-secao="atividades"><i class="ph ph-clipboard-text" aria-hidden="true"></i><span>Atividades</span></a>
                 <a class="aba" href="#/mais" data-secao="mais"><i class="ph ph-dots-three-outline" aria-hidden="true"></i><span>Mais</span></a>
             </nav>

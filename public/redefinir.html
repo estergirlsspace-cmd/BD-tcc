@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#312782">
+    <meta name="theme-color" content="#192F52">
     <meta name="referrer" content="no-referrer">
     <title>Redefinir senha | C-Warning</title>
     <link rel="manifest" href="/manifest.webmanifest">
@@ -12,9 +12,7 @@
     <link rel="apple-touch-icon" href="/assets/icones/apple-touch-icon.png">
     <script src="/pwa.js" defer></script>
     <script src="/preferencias.js"></script>
-    <link rel="stylesheet" href="/vendor/fontes.css">
     <link rel="stylesheet" href="/vendor/phosphor/regular.css">
-    <link rel="stylesheet" href="/vendor/phosphor/fill.css">
     <link rel="stylesheet" href="/tema.css">
     <link rel="stylesheet" href="/styles.css">
     <script src="/redefinir.js" defer></script>
@@ -25,18 +23,16 @@
          /confirmar-email#token=…  → confirmar e-mail (POST /api/conta/email/confirmar)
          O token fica no fragmento (#), que o navegador não envia ao servidor nem em Referer. -->
     <main class="login">
-        <section class="login-hero" aria-label="C-Warning, CEEP Lourdinha Guerra">
-            <p class="login-hero__marca">
-                <span class="cw-marca cw-marca--clara">C<span class="cw-marca__ponto" aria-hidden="true"></span>Warning</span>
-            </p>
-            <p class="login-hero__titulo">Toda a comunicação do CEEP em um só lugar.</p>
-        </section>
-
-        <section class="login-painel">
+        <div class="login-cartao">
+            <header class="login-topo">
+                <span class="cw-logo" aria-hidden="true">CW</span>
+                <p class="login-topo__nome">C-Warning</p>
+                <p class="login-topo__escola">CEEP Lourdinha Guerra</p>
+            </header>
             <div class="login-conteudo">
                 <form class="login-form" id="reset-form" aria-labelledby="reset-title" hidden>
                     <h1 class="login-titulo" id="reset-title">Crie uma nova senha</h1>
-                    <p class="login-ajuda login-ajuda--intro">
+                    <p class="login-ajuda">
                         Use pelo menos 8 caracteres. Ao salvar, você sai de todos os aparelhos e entra de novo
                         com a senha nova.
                     </p>
@@ -60,10 +56,10 @@
                         <h1 class="login-titulo" id="result-title" tabindex="-1"></h1>
                         <p class="login-ajuda" id="result-text"></p>
                     </div>
-                    <a class="login-botao" id="result-link" href="/">Entrar no C·Warning</a>
+                    <a class="login-botao" id="result-link" href="/entrar">Entrar no C·Warning</a>
                 </section>
             </div>
-        </section>
+        </div>
     </main>
 </body>
 </html>
